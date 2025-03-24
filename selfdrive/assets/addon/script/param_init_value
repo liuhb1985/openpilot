@@ -39,7 +39,7 @@ SteerRatioAdj:1550
 SteerRatioMaxAdj:1750
 SteerActuatorDelayAdj:36
 SteerLimitTimerAdj:100
-TireStiffnessFactorAdj:85
+TireStiffnessFactorAdj:100
 SteerMaxBaseAdj:384
 SteerMaxAdj:384
 SteerDeltaUpBaseAdj:3
