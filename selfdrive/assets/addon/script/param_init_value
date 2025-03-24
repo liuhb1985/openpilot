@@ -35,11 +35,11 @@ TorqueMaxLatAccel:27
 TorqueAngDeadZone:10
 CameraOffsetAdj:60
 PathOffsetAdj:0
-SteerRatioAdj:1550
+SteerRatioAdj:1655
 SteerRatioMaxAdj:1750
 SteerActuatorDelayAdj:36
-SteerLimitTimerAdj:100
-TireStiffnessFactorAdj:100
+SteerLimitTimerAdj:40
+TireStiffnessFactorAdj:82
 SteerMaxBaseAdj:384
 SteerMaxAdj:384
 SteerDeltaUpBaseAdj:3
