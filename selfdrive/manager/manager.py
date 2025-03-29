@@ -60,7 +60,7 @@ def manager_init() -> None:
     ("OpkrSteerAngleCorrection", "0"),
     ("PutPrebuiltOn", "1"),
     ("LdwsCarFix", "0"),
-    ("LateralControlMethod", "3"),
+    ("LateralControlMethod", "0"),
     ("CruiseStatemodeSelInit", "1"),
     ("InnerLoopGain", "35"),
     ("OuterLoopGain", "20"),
