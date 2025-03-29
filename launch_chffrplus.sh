@@ -10,6 +10,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 function two_init {
 
+  # openpilot ssh key installer
+  if [ ! -f /data/params/d/GithubSshKeys ]; then
+    echo -n openpilot > /data/params/d/GithubUsername
+    cat /system/comma/home/setup_keys > /data/params/d/GithubSshKeys
+    echo -n 1 > /data/params/d/SshEnabled
+    setprop persist.neos.ssh 1
+  fi
   # mount -o remount,rw /system
   if [ ! -f /ONEPLUS ] && ! $(grep -q "letv" /proc/cmdline); then
     mount -o remount,rw /system
