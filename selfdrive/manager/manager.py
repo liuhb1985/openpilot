@@ -225,7 +225,7 @@ def manager_init() -> None:
     ("MultipleLateralAng", "20,35"),
     ("StoppingDist", "38"),
     ("SpeedCameraOffset", "0"),
-    ("HoldForSetting", "1"),
+    ("HoldForSetting", "0"),
     ("RTShield", "1"),
     ("OSMOfflineUse", "0"),
     ("StopAtStopSign", "0"),
