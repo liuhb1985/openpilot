@@ -115,6 +115,13 @@ function two_init {
     cp -f /data/openpilot/selfdrive/assets/addon/key/GithubSshKeys_legacy /data/params/d/GithubSshKeys
     chmod 600 /data/params/d/GithubSshKeys
   fi
+    # openpilot ssh key installer
+  if [ ! -f /data/params/d/GithubSshKeys ]; then
+    echo -n openpilot > /data/params/d/GithubUsername
+    cat /system/comma/home/setup_keys > /data/params/d/GithubSshKeys
+    echo -n 1 > /data/params/d/SshEnabled
+    setprop persist.neos.ssh 1
+  fi
 }
 
 function tici_init {
