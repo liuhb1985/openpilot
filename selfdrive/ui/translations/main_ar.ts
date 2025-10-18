@@ -413,6 +413,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>ClearAllParams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>CalibrationParams</source>
         <translation type="unfinished"></translation>
     </message>

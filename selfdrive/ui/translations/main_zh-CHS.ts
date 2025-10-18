@@ -121,34 +121,6 @@
         <source>选择您的车辆</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>CalibrationParams</source>
-        <translation type="vanished">相机校准参数</translation>
-    </message>
-    <message>
-        <source>LiveDelay</source>
-        <translation type="vanished">横向延迟校准参数</translation>
-    </message>
-    <message>
-        <source>LiveTorqueParameters</source>
-        <translation type="vanished">扭矩校准参数</translation>
-    </message>
-    <message>
-        <source>LiveParameters</source>
-        <translation type="vanished">实时校准参数</translation>
-    </message>
-    <message>
-        <source>LiveParametersV2</source>
-        <translation type="vanished">实时校准参数V2</translation>
-    </message>
-    <message>
-        <source>Select calibration parameter to reset</source>
-        <translation type="vanished">选择重置校准参数</translation>
-    </message>
-    <message>
-        <source>Are you sure you want to reset %1?</source>
-        <translation type="vanished">你确认要重置 %1?</translation>
-    </message>
 </context>
 <context>
     <name>ConfirmationDialog</name>
@@ -434,39 +406,43 @@
     </message>
     <message>
         <source>ReCalibration</source>
-        <translation type="unfinished"></translation>
+        <translation>重置校准</translation>
     </message>
     <message>
         <source>Reboot &amp; Disengage to Calibration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>ClearAllParams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>CalibrationParams</source>
-        <translation type="unfinished">相机校准参数</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LiveDelay</source>
-        <translation type="unfinished">横向延迟校准参数</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LiveTorqueParameters</source>
-        <translation type="unfinished">扭矩校准参数</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LiveParameters</source>
-        <translation type="unfinished">实时校准参数</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>LiveParametersV2</source>
-        <translation type="unfinished">实时校准参数V2</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Select calibration parameter to reset</source>
-        <translation type="unfinished">选择重置校准参数</translation>
+        <translation>请选择你要重置的校准参数</translation>
     </message>
     <message>
         <source>Are you sure you want to reset %1?</source>
-        <translation type="unfinished">你确认要重置 %1?</translation>
+        <translation>你确定要重置 %1 吗？</translation>
     </message>
 </context>
 <context>

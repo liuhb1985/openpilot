@@ -399,6 +399,7 @@ void DevicePanel::reboot() {
 
 //차선캘리
 void execAndReboot(const std::string& cmd) {
+    printf("exec cmd: %s\n", cmd.c_str());
     system(cmd.c_str());
     Params().putBool("DoReboot", true);
 }
@@ -406,26 +407,43 @@ void execAndReboot(const std::string& cmd) {
 void DevicePanel::calibration() {
   if (!uiState()->engaged()) {
     QStringList calibOptions;
-    calibOptions << tr("CalibrationParams") << tr("LiveDelay") << tr("LiveTorqueParameters") << tr("LiveParameters") << tr("LiveParametersV2");
+    calibOptions << tr("ClearAllParams")
+                 << tr("CalibrationParams")
+                 << tr("LiveDelay")
+                 << tr("LiveTorqueParameters")
+                 << tr("LiveParameters")
+                 << tr("LiveParametersV2");
 
     QString selectedParam = MultiOptionDialog::getSelection(
       tr("Select calibration parameter to reset"),
       calibOptions,
-      calibOptions.first(),
+      "",
       this
     );
 
-    if (!selectedParam.isEmpty()) {
-      QString confirmMsg = tr("Are you sure you want to reset %1?").arg(selectedParam);
-      if (ConfirmationDialog::confirm(confirmMsg, tr("ReCalibration"), this)) {
-        if (!uiState()->engaged()) {
-          params.remove(selectedParam.toStdString());
-          QTimer::singleShot(100, [this]() {
-            params.putBool("DoReboot", true);
-          });
-        }
-      }
+    if (selectedParam.isEmpty()) return;
+
+    QString confirmMsg = tr("Are you sure you want to reset %1?").arg(selectedParam);
+    if (!ConfirmationDialog::confirm(confirmMsg, tr("ReCalibration"), this)) return;
+
+    if (uiState()->engaged()) {
+      ConfirmationDialog::alert(tr("Reboot & Disengage to Calibration"), this);
+      return;
     }
+
+    std::thread worker([selectedParam]() {
+      std::string base = "~/.comma/params/d";
+      std::string cmd;
+
+      if (selectedParam == "ClearAllParams") {
+        cmd = "cd " + base + " && rm -f CalibrationParams LiveParameters LiveParametersV2 LiveTorqueParameters LiveDelay";
+      } else {
+        cmd = "cd " + base + " && rm -f " + selectedParam.toStdString();
+      }
+
+      execAndReboot(cmd);
+    });
+    worker.detach();
   } else {
     ConfirmationDialog::alert(tr("Reboot & Disengage to Calibration"), this);
   }
