@@ -92,6 +92,9 @@ tools/op.sh build
 #测试
 # 启动OP,ROAD_CAM指定摄像头,NO_DM驾驶监控开关(注意安全驾驶，关闭驾驶监控仅用测试，正常驾驶请打开驾驶监控功能)
 USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 system/manager/manager.py
+带JY62陀螺仪的启动方式
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用sensor_jy62
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
 
 #通过C++的USB摄像头采集
 USE_USBCAM=1 system/manager/manager.py
@@ -103,9 +106,16 @@ USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 selfdrive/debug/uiview.py
 #通过C++的USB摄像头测试
 USE_USBCAM=1 selfdrive/debug/uiview.py
 
+需要访问ttyUSB0设备，需要先创建权限，让当前用户获得串口（/dev/ttyUSB0、/dev/ttyACM0等）访问权限
+sudo usermod -a -G dialout $LOGNAME
+newgrp dialout
+exec su -l $LOGNAME
+
 #========================================================
 #开机自动运行openpilot
-可执行一键配置脚本./config_autostart.sh 删除开机自动执行./remove_autostart.sh
+*可执行一键配置脚本./config_autostart.sh 删除开机自动执行./remove_autostart.sh
+*带JY62陀螺仪的一键配置脚本./config_jy62_autostart.sh 删除开机自动执行./remove_jy62_autostart.sh
+
 或手动分步执行下面的步骤
 #增加快捷栏图标
 cp logo.ico /home/$LOGNAME/
@@ -297,8 +307,8 @@ python3 tools/ci_build/build.py \
   --build_shared_lib \
   --use_rocm --rocm_version=6.4.4 --rocm_home /opt/rocm-6.4.4 \
   --nccl_home /opt/rocm-6.4.4
-  
-# 重新编译并保存日志  
+
+# 重新编译并保存日志
 python3 tools/ci_build/build.py \
   --config Release \
   --build_dir build \
@@ -309,14 +319,14 @@ python3 tools/ci_build/build.py \
   --build_shared_lib \
   --use_rocm --rocm_version=6.4.4 --rocm_home /opt/rocm-6.4.4 \
   --nccl_home /opt/rocm-6.4.4 2>&1 | tee build.log
-  
-# 搜索 ROCm 相关的错误或警告  
+
+# 搜索 ROCm 相关的错误或警告
 grep -i "rocm" build.log | grep -i "error\|warning\|not found"
 
 编译1.18.0版本时，可能会报hash错误，按下面的方法解决
 更新 cmake/deps.txt 文件中 Eigen 的 SHA1 哈希值:
-# 编辑 cmake/deps.txt,找到 Eigen 相关的行  
-# 将 SHA1 从 be8be39fdbc6e60e94fa7870b280707069b5b81a   
+# 编辑 cmake/deps.txt,找到 Eigen 相关的行
+# 将 SHA1 从 be8be39fdbc6e60e94fa7870b280707069b5b81a
 # 改为 32b145f525a8308d7ab1c09388b2e288312d8eba
 
 安装

@@ -106,6 +106,8 @@ Localizer::Localizer(LocalizerGnssSource gnss_source) {
   this->baud_rate_ = 115200;  // JY62设备默认波特率
   this->jy62_fd_ = -1;
   this->jy62_running_ = false;
+
+  _pm = std::make_unique<PubMaster>(std::vector<const char*>{"accelerometer", "gyroscope"});
 }
 
 void Localizer::build_live_location(cereal::LiveLocationKalman::Builder& fix) {
@@ -277,6 +279,11 @@ void Localizer::handle_sensor(double current_time, const cereal::SensorEventData
     auto v = log.getGyroUncalibrated().getV();
     auto meas = Vector3d(-v[2], -v[1], -v[0]);
 
+    if((0 == (this->gyro_data_cnt % 10)) && (this->gyro_data_cnt < 1000)){
+      printf("[%u]Gyro: v[0]=%.3f,v[1]=%.3f,v[2]=%.3f\n", this->gyro_data_cnt,v[0],v[1],v[2]);
+    }
+    this->gyro_data_cnt++;
+
     VectorXd gyro_bias = this->kf->get_x().segment<STATE_GYRO_BIAS_LEN>(STATE_GYRO_BIAS_START);
     float gyro_camodo_yawrate_err = std::abs((meas[2] - gyro_bias[2]) - this->camodo_yawrate_distribution[0]);
     float gyro_camodo_yawrate_err_threshold = YAWRATE_CROSS_ERR_CHECK_FACTOR * this->camodo_yawrate_distribution[1];
@@ -298,6 +305,11 @@ void Localizer::handle_sensor(double current_time, const cereal::SensorEventData
     // check if device fell, estimate 10 for g
     // 40m/s**2 is a good filter for falling detection, no false positives in 20k minutes of driving
     // this->device_fell |= (floatlist2vector(v) - Vector3d(10.0, 0.0, 0.0)).norm() > 40.0;
+
+    if((0 == (this->accel_data_cnt % 10)) && (this->accel_data_cnt < 1000)){
+      printf("[%u]Accel: v[0]=%.3f,v[1]=%.3f,v[2]=%.3f\n", this->accel_data_cnt,v[0],v[1],v[2]);
+    }
+    this->accel_data_cnt++;
 
     auto meas = Vector3d(-v[2], -v[1], -v[0]);
     if (meas.norm() < ACCEL_SANITY_CHECK) {
@@ -612,15 +624,15 @@ void Localizer::handle_msg(const cereal::Event::Reader& log) {
   double t = log.getLogMonoTime() * 1e-9;
   this->time_check(t);
   if (log.isAccelerometer()) {
-    if (log.getAccelerometer().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
+    //if (log.getAccelerometer().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
       // 仅在非JY62设备模式下处理BMX055加速度计数据
       this->handle_sensor(t, log.getAccelerometer());
-    }
+    //}
   } else if (log.isGyroscope()) {
-    if (log.getGyroscope().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
+    //if (log.getGyroscope().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
       // 仅在非JY62设备模式下处理BMX055陀螺仪数据
       this->handle_sensor(t, log.getGyroscope());
-    }
+    //}
   } else if (log.isGpsLocation()) {
     this->handle_gps(t, log.getGpsLocation(), GPS_QUECTEL_SENSOR_TIME_OFFSET);
   } else if (log.isGpsLocationExternal()) {
@@ -890,9 +902,9 @@ int Localizer::open_jy62_device() {
     case 230400: baud_rate = B230400; break;
     case 460800: baud_rate = B460800; break;
     case 921600: baud_rate = B921600; break;
-    default:     
+    default:
       LOGW("Unsupported baud rate %d, using default 115200", this->baud_rate_);
-      baud_rate = B115200;   
+      baud_rate = B115200;
       break;
   }
 
@@ -1010,23 +1022,24 @@ void Localizer::publish_accelerometer(double x, double y, double z) {
   // 创建并发送加速度计消息
   MessageBuilder msg;
   auto event = msg.initEvent();
-  event.setLogMonoTime(nanos_since_boot());
+  uint64_t current_time = nanos_since_boot();
+  event.setLogMonoTime(current_time);
 
   auto accel = event.initAccelerometer();
   accel.setSource(cereal::SensorEventData::SensorSource::BMX055);
   accel.setSensor(SENSOR_ACCELEROMETER);
   accel.setType(SENSOR_TYPE_ACCELEROMETER);
-  accel.setTimestamp(nanos_since_epoch());
+  accel.setTimestamp(current_time);
 
   auto accelVec = accel.initAcceleration();
-  std::vector<float> accelVals = {(float)y, (float)x, (float)z};  // 调整坐标轴顺序以匹配系统约定
+  std::vector<float> accelVals = {(float)z, (float)y, (float)(-x)};  // 调整坐标轴顺序以匹配系统约定
   accelVec.setV(kj::ArrayPtr<float>(accelVals.data(), accelVals.size()));
 
   accel.setVersion(1);
 
   // 发布消息
-  PubMaster pm({"accelerometer"});
-  pm.send("accelerometer", msg);
+  //PubMaster pm({"accelerometer"});
+  _pm->send("accelerometer", msg);
 }
 
 // 发布陀螺仪数据到系统中
@@ -1034,23 +1047,24 @@ void Localizer::publish_gyroscope(double x, double y, double z) {
   // 创建并发送陀螺仪消息
   MessageBuilder msg;
   auto event = msg.initEvent();
-  event.setLogMonoTime(nanos_since_boot());
+  uint64_t current_time = nanos_since_boot();
+  event.setLogMonoTime(current_time);
 
   auto gyro = event.initGyroscope();
   gyro.setSource(cereal::SensorEventData::SensorSource::BMX055);
   gyro.setSensor(SENSOR_GYRO_UNCALIBRATED);
   gyro.setType(SENSOR_TYPE_GYROSCOPE_UNCALIBRATED);
-  gyro.setTimestamp(nanos_since_epoch());
+  gyro.setTimestamp(current_time);
 
   auto gyroVec = gyro.initGyroUncalibrated();
-  std::vector<float> gyroVals = {(float)y, (float)x, (float)z};  // 调整坐标轴顺序以匹配系统约定
+  std::vector<float> gyroVals = {(float)z, (float)y, (float)(-x)};  // 调整坐标轴顺序以匹配系统约定
   gyroVec.setV(kj::ArrayPtr<float>(gyroVals.data(), gyroVals.size()));
 
   gyro.setVersion(1);
 
   // 发布消息
-  PubMaster pm({"gyroscope"});
-  pm.send("gyroscope", msg);
+  //PubMaster pm({"gyroscope"});
+  _pm->send("gyroscope", msg);
 }
 
 // 发布角度数据到系统中
@@ -1146,7 +1160,7 @@ std::vector<uint8_t> Localizer::read_jy62_packet() {
 }
 
 // 根据文档规范解析JY62数据包
-bool Localizer::parse_jy62_packet(const std::vector<uint8_t>& packet, 
+bool Localizer::parse_jy62_packet(const std::vector<uint8_t>& packet,
                          double& accel_x, double& accel_y, double& accel_z,
                          double& gyro_x, double& gyro_y, double& gyro_z) {
   // 检查数据包大小
@@ -1180,52 +1194,52 @@ bool Localizer::parse_jy62_packet(const std::vector<uint8_t>& packet,
     case 0x51: { // 加速度数据
       // 检查是否有足够的数据
       if (packet.size() < 11) return false;
-      
+
       // 解析加速度数据
       int16_t ax = (int16_t)((packet[3] << 8) | packet[2]);
       int16_t ay = (int16_t)((packet[5] << 8) | packet[4]);
       int16_t az = (int16_t)((packet[7] << 8) | packet[6]);
-      
-      // 转换为物理单位 (g)
-      accel_x = ax / 32768.0 * 16.0;
-      accel_y = ay / 32768.0 * 16.0;
-      accel_z = az / 32768.0 * 16.0;
-      
+
+      // 转换为物理单位 (g)->m/s^2
+      accel_x = ax / 32768.0 * 16.0 * 9.8;
+      accel_y = ay / 32768.0 * 16.0 * 9.8;
+      accel_z = az / 32768.0 * 16.0 * 9.8;
+
       return true;
     }
     case 0x52: { // 角速度数据
       // 检查是否有足够的数据
       if (packet.size() < 11) return false;
-      
+
       // 解析角速度数据
       int16_t wx = (int16_t)((packet[3] << 8) | packet[2]);
       int16_t wy = (int16_t)((packet[5] << 8) | packet[4]);
       int16_t wz = (int16_t)((packet[7] << 8) | packet[6]);
-      
-      // 转换为物理单位 (°/s)
-      gyro_x = wx / 32768.0 * 2000.0;
-      gyro_y = wy / 32768.0 * 2000.0;
-      gyro_z = wz / 32768.0 * 2000.0;
-      
+
+      // 转换为物理单位 (°/s)->（rad/s）
+      gyro_x = wx / 32768.0 * 2000.0 * M_PI / 180.0;
+      gyro_y = wy / 32768.0 * 2000.0 * M_PI / 180.0;
+      gyro_z = wz / 32768.0 * 2000.0 * M_PI / 180.0;
+
       return true;
     }
     case 0x53: { // 角度数据
       // 检查是否有足够的数据
       if (packet.size() < 11) return false;
-      
+
       // 解析角度数据
       int16_t roll_l = (int16_t)((packet[3] << 8) | packet[2]);
       int16_t pitch_l = (int16_t)((packet[5] << 8) | packet[4]);
       int16_t yaw_l = (int16_t)((packet[7] << 8) | packet[6]);
-      
+
       // 转换为物理单位 (°)
       double roll = roll_l / 32768.0 * 180.0;
       double pitch = pitch_l / 32768.0 * 180.0;
       double yaw = yaw_l / 32768.0 * 180.0;
-      
+
       // 发布角度数据
       publish_orientation(pitch, roll, yaw);
-      
+
       return true;
     }
     default: {
@@ -1245,10 +1259,16 @@ void Localizer::jy62_reader_thread() {
   double gyro_x = 0, gyro_y = 0, gyro_z = 0;
 
   int read_count = 0;
+  bool show_accel = false;
+  bool show_gyro = false;
 
   while (this->jy62_running_) {
     std::vector<uint8_t> packet = this->read_jy62_packet();
     if (!packet.empty()) {
+      if(0 == (read_count%20)){
+        show_accel = true;
+        show_gyro = true;
+      }
       read_count++;
       LOGD("Received packet #%d, type: 0x%02x, size: %zu", read_count, packet[1], packet.size());
 
@@ -1259,9 +1279,17 @@ void Localizer::jy62_reader_thread() {
         switch (packet_type) {
           case 0x51: // 加速度数据
             this->publish_accelerometer(accel_x, accel_y, accel_z);
+            if(show_accel){
+              show_accel = false;
+              //printf("Accel: x %.3f, y %.3f, z %.3f\n", accel_x, accel_y, accel_z);
+            }
             break;
           case 0x52: // 角速度数据
             this->publish_gyroscope(gyro_x, gyro_y, gyro_z);
+            if(show_gyro){
+              show_gyro = false;
+              //printf("Gyro: x %.3f, y %.3f, z %.3f\n", gyro_x, gyro_y, gyro_z);
+            }
             break;
           case 0x53: // 角度数据
             // 当前不处理角度数据

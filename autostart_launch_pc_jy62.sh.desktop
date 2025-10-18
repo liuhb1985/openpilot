@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=gnome-terminal -e "bash -c '/home/op/launch_pc_jy62.sh;$SHELL'"
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[zh_CN]=CarrotPilot
+Name=CarrotPilot
+Comment[zh_CN]=
+Comment=

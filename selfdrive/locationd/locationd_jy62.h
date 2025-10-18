@@ -110,6 +110,10 @@ private:
   double gps_time_offset;
   Eigen::VectorXd camodo_yawrate_distribution = Eigen::Vector2d(0.0, 10.0); // mean, std
 
+  uint32_t accel_data_cnt = 0;
+  uint32_t gyro_data_cnt = 0;
+  std::unique_ptr<PubMaster> _pm;  // 添加这一行
+
   // JY62设备相关的成员变量
   ImuDeviceType device_type_;
   bool is_jy62_device_ = false;
@@ -126,7 +130,7 @@ private:
   void publish_gyroscope(double x, double y, double z);
   void publish_orientation(double pitch, double roll, double yaw);
   std::vector<uint8_t> read_jy62_packet();
-  bool parse_jy62_packet(const std::vector<uint8_t>& packet, 
+  bool parse_jy62_packet(const std::vector<uint8_t>& packet,
                          double& accel_x, double& accel_y, double& accel_z,
                          double& gyro_x, double& gyro_y, double& gyro_z);
   void jy62_reader_thread();

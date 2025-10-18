@@ -96,5 +96,8 @@ private:
   double gps_time_offset;
   Eigen::VectorXd camodo_yawrate_distribution = Eigen::Vector2d(0.0, 10.0); // mean, std
 
+  uint32_t accel_data_cnt = 0;
+  uint32_t gyro_data_cnt = 0;
+
   void configure_gnss_source(const LocalizerGnssSource &source);
 };
