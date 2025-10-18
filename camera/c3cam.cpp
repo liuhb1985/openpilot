@@ -592,8 +592,8 @@ void display_loop() {
                         cv::resize(img, img, cv::Size(width, height));
                     }
 
-                    int r = i / cols;
-                    int c = i % cols;
+                    int c = i / cols;
+                    int r = i % cols;
                     cv::Rect roi(c * width, r * height, width, height);
                     img.copyTo(combined(roi));
 
