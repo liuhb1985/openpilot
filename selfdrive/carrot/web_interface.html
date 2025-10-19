@@ -6,104 +6,209 @@
     <title>现代汽车自动超车控制器</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        body { background: #1a1a1a; color: white; padding: 6px; font-size: 90%; }
-        .container { max-width: 95%; margin: 0 auto; }
+        body { 
+            background: #1a1a1a;
+            color: white; 
+            padding: 6px; 
+            font-size: 90%; 
+        }
+        .container { 
+            max-width: 95%;
+            margin: 0 auto; 
+        }
 
         .header {
-            background: #2d2d2d; padding: 8px; border-radius: 6px; margin-bottom: 6px;
-            text-align: center; border: 1px solid #444;
+            background: #2d2d2d; 
+            padding: 8px; 
+            border-radius: 6px; 
+            margin-bottom: 6px;
+            text-align: center; 
+            border: 1px solid #444;
         }
-        .header h1 { font-size: 1.1rem; color: #4CAF50; margin-bottom: 2px; }
+        .header h1 { 
+            font-size: 1.1rem; 
+            color: #4CAF50;
+            margin-bottom: 2px; 
+        }
 
         .config-panel {
-            background: #2d2d2d; border-radius: 6px; padding: 8px; margin-bottom: 6px;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 8px; 
+            margin-bottom: 6px;
             border: 1px solid #444;
         }
 
         .config-grid {
-            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 4px;
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            gap: 4px;
             align-items: stretch;
         }
 
         .config-item {
-            background: #333; padding: 8px; border-radius: 5px; text-align: center;
-            min-height: 90px; display: flex; flex-direction: column; justify-content: center;
+            background: #333; 
+            padding: 8px; 
+            border-radius: 5px; 
+            text-align: center;
+            min-height: 90px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center;
         }
 
         .config-title {
-            color: #ccc; margin-bottom: 8px; font-size: 0.75rem;
+            color: #ccc; 
+            margin-bottom: 8px; 
+            font-size: 0.75rem;
         }
 
-        /* 大字体速度显示样式 */
         .speed-display-large {
-            font-size: 2.8rem; font-weight: bold; color: #4CAF50;
-            text-align: center; line-height: 1.2; margin: 5px 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-family: 'Arial', sans-serif;
+            font-size: 2.8rem; 
+            font-weight: bold; 
+            color: #4CAF50;
+            text-align: center; 
+            line-height: 1.2; 
+            margin: 5px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+            font-family: 'Arial', sans-serif;
         }
 
         .lane-control {
-            display: flex; justify-content: center; align-items: center; gap: 4px;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 4px;
         }
 
         .control-btn {
-            width: 24px; height: 24px; border: none; border-radius: 50%;
-            background: #4CAF50; color: white; font-size: 0.8rem; font-weight: bold;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            width: 24px; 
+            height: 24px; 
+            border: none; 
+            border-radius: 50%;
+            background: #4CAF50; 
+            color: white; 
+            font-size: 0.8rem; 
+            font-weight: bold;
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            transition: all 0.15s ease; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             user-select: none;
         }
         .control-btn:hover { background: #45a049; }
         .control-btn:active {
-            transform: scale(0.85); background: #a8d5aa !important;
+            transform: scale(0.85); 
+            background: #a8d5aa !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
 
         .lane-display {
-            font-size: 1.2rem; font-weight: bold; color: #4CAF50;
-            min-width: 25px; text-align: center;
+            font-size: 1.2rem; 
+            font-weight: bold; 
+            color: #4CAF50;
+            min-width: 25px; 
+            text-align: center;
         }
 
         .road-type-btn {
-            padding: 4px 6px; border: 2px solid #555; border-radius: 5px;
-            background: #444; color: white; cursor: pointer; text-align: center;
-            transition: all 0.15s ease; font-size: 0.7rem; font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3); user-select: none;
+            padding: 4px 6px; 
+            border: 2px solid #555; 
+            border-radius: 5px;
+            background: #444; 
+            color: white; 
+            cursor: pointer; 
+            text-align: center;
+            transition: all 0.15s ease; 
+            font-size: 0.7rem; 
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+            user-select: none;
         }
         .road-type-btn:hover { border-color: #4CAF50; background: #555; }
         .road-type-btn:active {
-            transform: scale(0.95); background: #a8d5aa !important;
+            transform: scale(0.95); 
+            background: #a8d5aa !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
         .road-type-btn.active {
-            border-color: #4CAF50; background: #4CAF50;
+            border-color: #4CAF50; 
+            background: #4CAF50;
         }
 
         .lane-display-container {
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 8px 0;
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px; 
+            margin: 8px 0;
         }
+
         .lane-section {
-            background: #333; padding: 8px; border-radius: 5px; text-align: left;
-            border: 2px solid #555; transition: all 0.3s; font-size: 0.7rem;
+            background: #333; 
+            padding: 8px; 
+            border-radius: 5px; 
+            text-align: left;
+            border: 2px solid #555; 
+            transition: all 0.3s; 
+            font-size: 0.7rem;
         }
-        .lane-section.safe { border-color: #4CAF50; background: rgba(76, 175, 80, 0.1); }
-        .lane-section.unsafe { border-color: #ff9800; background: rgba(255, 152, 0, 0.1); }
-        .lane-section.danger { border-color: #f44336; background: rgba(244, 67, 54, 0.1); }
-        .lane-section.narrow { border-color: #f44336; background: rgba(244, 67, 54, 0.2); }
-        .lane-section.active { border-color: #2196F3; background: rgba(33, 150, 243, 0.1); }
+
+        .lane-section.safe { 
+            border-color: #4CAF50; 
+            background: rgba(76, 175, 80, 0.1); 
+        }
+
+        .lane-section.unsafe { 
+            border-color: #ff9800; 
+            background: rgba(255, 152, 0, 0.1); 
+        }
+
+        .lane-section.danger { 
+            border-color: #f44336; 
+            background: rgba(244, 67, 54, 0.1); 
+        }
+
+        .lane-section.narrow { 
+            border-color: #f44336; 
+            background: rgba(244, 67, 54, 0.2); 
+        }
+
+        .lane-section.active { 
+            border-color: #2196F3; 
+            background: rgba(33, 150, 243, 0.1); 
+        }
 
         .lane-title {
-            font-size: 0.8rem; margin-bottom: 4px; color: #ccc;
-            text-align: center; font-weight: bold;
+            font-size: 0.8rem; 
+            margin-bottom: 4px; 
+            color: #ccc;
+            text-align: center; 
+            font-weight: bold;
         }
+
         .lane-data {
-            margin: 2px 0; display: flex; justify-content: space-between;
+            margin: 2px 0; 
+            display: flex; 
+            justify-content: space-between;
             align-items: center;
         }
-        .lane-label { color: #aaa; min-width: 50px; font-size: 0.65rem; }
-        .lane-value {
-            font-weight: bold; text-align: right; flex: 1;
-            padding-left: 2px; font-size: 0.65rem;
+
+        .lane-label { 
+            color: #aaa; 
+            min-width: 50px; 
+            font-size: 0.65rem; 
         }
+
+        .lane-value {
+            font-weight: bold; 
+            text-align: right; 
+            flex: 1;
+            padding-left: 2px; 
+            font-size: 0.65rem;
+        }
+
         .safe-text { color: #4CAF50; }
         .warning-text { color: #ff9800; }
         .danger-text { color: #f44336; }
@@ -111,178 +216,317 @@
         .positive-speed { color: #4CAF50; }
         .negative-speed { color: #f44336; }
 
+        .warning-container {
+            margin-top: 5px; 
+            padding-top: 5px; 
+            border-top: 1px solid #555;
+        }
+
+        .warning-line {
+            font-size: 0.6rem; 
+            padding: 1px 0; 
+            text-align: center;
+            line-height: 1.1;
+        }
+        .warning-line.safe { color: #4CAF50; }
+        .warning-line.warning { color: #ff9800; }
+        .warning-line.danger { color: #f44336; font-weight: bold; }
+
         .overtake-status {
-            background: #2d2d2d; border-radius: 6px; padding: 8px; margin: 6px 0;
-            border: 1px solid #444; text-align: center;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 8px; 
+            margin: 6px 0;
+            border: 1px solid #444; 
+            text-align: center;
         }
         .overtake-state {
-            font-size: 0.9rem; font-weight: bold; margin-bottom: 4px;
+            font-size: 0.9rem; 
+            font-weight: bold; 
+            margin-bottom: 4px;
             color: #4CAF50;
         }
         .overtake-reason {
-            font-size: 0.75rem; color: #ccc; line-height: 1.2;
+            font-size: 0.75rem; 
+            color: #ccc; 
+            line-height: 1.2;
         }
 
         .control-section {
-            background: #2d2d2d; border-radius: 6px; padding: 12px; margin: 6px 0;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 12px; 
+            margin: 6px 0;
             border: 1px solid #444;
         }
+
         .section-title {
-            color: #4CAF50; text-align: center; margin-bottom: 10px;
-            font-size: 0.9rem; font-weight: bold;
+            color: #4CAF50; 
+            text-align: center; 
+            margin-bottom: 10px;
+            font-size: 0.9rem; 
+            font-weight: bold;
         }
 
         .speed-control {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+            display: grid; 
+            grid-template-columns: 1fr 1fr;
+            gap: 8px; 
+            margin-bottom: 12px;
         }
 
         .lanechange-control {
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
         }
 
         .action-btn {
-            background: #2196F3; border: none; border-radius: 6px; color: white;
-            padding: 10px; font-size: 0.9rem; font-weight: bold; cursor: pointer;
-            transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
-            display: flex; align-items: center; justify-content: center; gap: 6px;
+            background: #2196F3;
+            border: none; 
+            border-radius: 6px; 
+            color: white;
+            padding: 10px; 
+            font-size: 0.9rem; 
+            font-weight: bold; 
+            cursor: pointer;
+            transition: all 0.15s ease; 
+            box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 6px;
             user-select: none;
         }
         .action-btn:hover { background: #1976D2; }
         .action-btn:active {
-            transform: scale(0.95); background: #a8d5aa !important;
+            transform: scale(0.95); 
+            background: #a8d5aa !important;
             box-shadow: 0 1px 2px rgba(33, 150, 243, 0.4);
         }
 
         .action-btn.speed-up {
-            background: #4CAF50; box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+            background: #4CAF50; 
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
         }
         .action-btn.speed-up:hover { background: #45a049; }
         .action-btn.speed-up:active {
-            background: #a8d5aa !important; box-shadow: 0 1px 2px rgba(76, 175, 80, 0.4);
+            background: #a8d5aa !important; 
+            box-shadow: 0 1px 2px rgba(76, 175, 80, 0.4);
         }
 
         .action-btn.speed-down {
-            background: #ff9800; box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
+            background: #ff9800; 
+            box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
         }
         .action-btn.speed-down:hover { background: #e68900; }
         .action-btn.speed-down:active {
-            background: #a8d5aa !important; box-shadow: 0 1px 2px rgba(255, 152, 0, 0.4);
+            background: #a8d5aa !important; 
+            box-shadow: 0 1px 2px rgba(255, 152, 0, 0.4);
         }
 
         .action-btn.left-turn {
-            background: #9C27B0; box-shadow: 0 2px 4px rgba(156, 39, 176, 0.3);
+            background: #9C27B0; 
+            box-shadow: 0 2px 4px rgba(156, 39, 176, 0.3);
         }
         .action-btn.left-turn:hover { background: #8E24AA; }
         .action-btn.left-turn:active {
-            background: #a8d5aa !important; box-shadow: 0 1px 2px rgba(156, 39, 176, 0.4);
+            background: #a8d5aa !important; 
+            box-shadow: 0 1px 2px rgba(156, 39, 176, 0.4);
         }
 
         .action-btn.right-turn {
-            background: #673AB7; box-shadow: 0 2px 4px rgba(103, 58, 183, 0.3);
+            background: #673AB7; 
+            box-shadow: 0 2px 4px rgba(103, 58, 183, 0.3);
         }
         .action-btn.right-turn:hover { background: #5E35B1; }
         .action-btn.right-turn:active {
-            background: #a8d5aa !important; box-shadow: 0 1px 2px rgba(103, 58, 183, 0.4);
+            background: #a8d5aa !important; 
+            box-shadow: 0 1px 2px rgba(103, 58, 183, 0.4);
         }
 
         .action-btn.cancel {
-            background: #f44336; box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
+            background: #f44336; 
+            box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
         }
         .action-btn.cancel:hover { background: #da190b; }
         .action-btn.cancel:active {
-            background: #a8d5aa !important; box-shadow: 0 1px 2px rgba(244, 67, 54, 0.4);
+            background: #a8d5aa !important; 
+            box-shadow: 0 1px 2px rgba(244, 67, 54, 0.4);
         }
 
         .auto-control {
-            background: #2d2d2d; border-radius: 6px; padding: 12px; margin: 6px 0;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 12px; 
+            margin: 6px 0;
             border: 1px solid #444;
         }
 
         .switch-container {
-            display: flex; justify-content: space-between; align-items: center;
-            margin: 6px 0; padding: 8px; background: #333; border-radius: 5px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin: 6px 0; 
+            padding: 8px; 
+            background: #333; 
+            border-radius: 5px;
             font-size: 0.8rem;
         }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .switch { 
+            position: relative; 
+            display: inline-block; 
+            width: 40px; 
+            height: 20px; 
+        }
+        .switch input { 
+            opacity: 0; 
+            width: 0; 
+            height: 0; 
+        }
         .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #666; transition: .4s; border-radius: 20px;
+            position: absolute; 
+            cursor: pointer; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0;
+            background-color: #666; 
+            transition: .4s; 
+            border-radius: 20px;
         }
         .slider:before {
-            position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
-            background-color: white; transition: .4s; border-radius: 50%;
+            position: absolute; 
+            content: ""; 
+            height: 14px; 
+            width: 14px; 
+            left: 3px; 
+            bottom: 3px;
+            background-color: white; 
+            transition: .4s; 
+            border-radius: 50%;
         }
         input:checked + .slider { background-color: #4CAF50; }
         input:checked + .slider:before { transform: translateX(20px); }
 
         .overtake-params {
-            background: #2d2d2d; border-radius: 6px; padding: 12px; margin: 6px 0;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 12px; 
+            margin: 6px 0;
             border: 1px solid #444;
         }
 
         .param-group {
-            margin-bottom: 12px; padding: 8px; background: #333; border-radius: 5px;
+            margin-bottom: 12px; 
+            padding: 8px; 
+            background: #333; 
+            border-radius: 5px;
         }
 
         .param-group-title {
-            color: #4CAF50; font-size: 0.8rem; font-weight: bold;
-            margin-bottom: 8px; text-align: center; border-bottom: 1px solid #555;
+            color: #4CAF50; 
+            font-size: 0.8rem; 
+            font-weight: bold;
+            margin-bottom: 8px; 
+            text-align: center; 
+            border-bottom: 1px solid #555;
             padding-bottom: 4px;
         }
 
         .param-item {
-            display: flex; justify-content: space-between; align-items: center;
-            margin: 6px 0; padding: 4px 0;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin: 6px 0; 
+            padding: 4px 0;
         }
 
         .param-label {
-            color: #ccc; font-size: 0.7rem; flex: 1;
+            color: #ccc; 
+            font-size: 0.7rem; 
+            flex: 1;
         }
 
         .param-value {
-            color: #4CAF50; font-size: 0.7rem; font-weight: bold;
-            min-width: 50px; text-align: right; margin-right: 8px;
+            color: #4CAF50; 
+            font-size: 0.7rem; 
+            font-weight: bold;
+            min-width: 50px; 
+            text-align: right; 
+            margin-right: 8px;
         }
 
         .param-slider {
-            flex: 2; -webkit-appearance: none; width: 100%; height: 6px;
-            border-radius: 3px; background: #555; outline: none;
+            flex: 2; 
+            -webkit-appearance: none; 
+            width: 100%; 
+            height: 6px;
+            border-radius: 3px; 
+            background: #555; 
+            outline: none;
         }
 
         .param-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
-            border-radius: 50%; background: #4CAF50; cursor: pointer;
+            -webkit-appearance: none; 
+            appearance: none; 
+            width: 16px; 
+            height: 16px;
+            border-radius: 50%; 
+            background: #4CAF50; 
+            cursor: pointer;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .param-slider::-moz-range-thumb {
-            width: 16px; height: 16px; border-radius: 50%; background: #4CAF50;
-            cursor: pointer; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            width: 16px; 
+            height: 16px; 
+            border-radius: 50%; 
+            background: #4CAF50;
+            cursor: pointer; 
+            border: none; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .save-btn {
-            background: #2196F3; border: none; border-radius: 4px; color: white;
-            padding: 6px 12px; font-size: 0.7rem; cursor: pointer;
-            transition: background 0.3s; margin-top: 8px; width: 100%;
+            background: #2196F3; 
+            border: none; 
+            border-radius: 4px; 
+            color: white;
+            padding: 6px 12px; 
+            font-size: 0.7rem; 
+            cursor: pointer;
+            transition: background 0.3s; 
+            margin-top: 8px; 
+            width: 100%;
         }
-
         .save-btn:hover { background: #1976D2; }
 
         .connection-info {
-            text-align: center; color: #888; font-size: 0.6rem; margin-top: 4px;
+            text-align: center; 
+            color: #888; 
+            font-size: 0.6rem; 
+            margin-top: 4px;
         }
 
         .ip-display {
-            font-family: 'Courier New', monospace; font-size: 0.7rem;
-            background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;
+            font-family: 'Courier New', monospace; 
+            font-size: 0.7rem;
+            background: rgba(255,255,255,0.1); 
+            padding: 2px 6px; 
+            border-radius: 3px;
             margin: 0 2px;
         }
         .ip-connected { color: #4CAF50; font-weight: bold; }
 
         .overtake-count {
-            background: #4CAF50; color: white; padding: 4px 8px;
-            border-radius: 12px; font-size: 0.7rem; font-weight: bold;
+            background: #4CAF50; 
+            color: white; 
+            padding: 4px 8px;
+            border-radius: 12px; 
+            font-size: 0.7rem; 
+            font-weight: bold;
         }
 
         .overtake-arrow { font-size: 1.2rem; margin: 0 5px; }
@@ -291,11 +535,17 @@
         .arrow-both { color: #4CAF50; }
 
         .status-details {
-            background: #2d2d2d; border-radius: 6px; padding: 8px; margin: 6px 0;
-            border: 1px solid #444; font-size: 0.7rem;
+            background: #2d2d2d; 
+            border-radius: 6px; 
+            padding: 8px; 
+            margin: 6px 0;
+            border: 1px solid #444; 
+            font-size: 0.7rem;
         }
         .status-row {
-            display: flex; justify-content: space-between; margin: 4px 0;
+            display: flex; 
+            justify-content: space-between; 
+            margin: 4px 0;
             padding: 2px 0;
         }
         .status-label { color: #ccc; }
@@ -303,7 +553,6 @@
         .status-warning { color: #ff9800; }
         .status-danger { color: #f44336; }
 
-        /* 滑块式三档调节器样式 */
         .lane-mode-slider-container {
             margin-top: 6px;
         }
@@ -353,17 +602,76 @@
             font-weight: bold;
         }
         
-        /* 当前车道显示样式 */
         .current-lane-display {
             font-size: 0.8rem;
             color: #2196F3;
             font-weight: bold;
             margin-top: 4px;
         }
+
+        .return-timeout-display {
+            font-size: 0.6rem;
+            color: #ff9800;
+            margin-top: 3px;
+            text-align: center;
+        }
+
+        .original-lane-status {
+            font-size: 0.6rem;
+            margin-top: 3px;
+            text-align: center;
+            padding: 2px;
+            border-radius: 3px;
+        }
+        .original-lane-clear {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        .original-lane-blocked {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .op-control-status {
+            font-size: 0.6rem;
+            margin-top: 3px;
+            text-align: center;
+            padding: 2px;
+            border-radius: 3px;
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .net-lane-changes-display {
+            font-size: 0.7rem;
+            margin-top: 3px;
+            text-align: center;
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        /* 🔥 修改：返回策略状态显示在道路类型栏 */
+        .return-strategy-status {
+            font-size: 0.6rem;
+            margin-top: 3px;
+            text-align: center;
+            padding: 2px;
+            border-radius: 3px;
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+
+        .road-type-display {
+            font-size: 0.6rem;
+            margin-top: 3px;
+            text-align: center;
+            color: #888;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- 🏷️ 头部区域 -->
         <div class="header">
             <h1>🚗 现代汽车自动超车控制器</h1>
             <div style="color: #888; font-size: 0.6rem; margin-top: 3px;">
@@ -371,28 +679,40 @@
             </div>
         </div>
 
-        <!-- 配置面板 -->
+        <!-- 📊 配置面板 -->
         <div class="config-panel">
             <div class="config-grid">
-                <!-- 超车成功次数 -->
+                <!-- 🎯 超车成功次数 -->
                 <div class="config-item">
                     <div class="config-title">🎯 超车成功次数</div>
                     <div class="overtake-count" id="overtake-count">0</div>
                 </div>
 
-                <!-- 巡航速度显示 -->
+                <!-- ⭐ 巡航速度显示 -->
                 <div class="config-item">
                     <div class="config-title">⭐ 巡航速度</div>
                     <div class="speed-display-large" id="cruise-speed-large">0</div>
                 </div>
 
-                <!-- 本车车速显示 -->
+                <!-- 🚗 本车车速显示 -->
                 <div class="config-item">
                     <div class="config-title">🚗 本车车速</div>
                     <div class="speed-display-large" id="current-speed-large">0</div>
                 </div>
 
-                <!-- 车道总数控制 -->
+                <!-- 🛣️ 道路类型 -->
+                <div class="config-item">
+                    <div class="config-title">🛣️ 道路类型</div>
+                    <div class="road-type-btn active" id="road-type-btn" onclick="toggleRoadType()">高速公路</div>
+                    
+                    <!-- 🔥 修改：返回策略状态显示在这里 -->
+                    <div class="return-strategy-status" id="return-strategy-status" style="display: none;"></div>
+                    
+                    <!-- 🛣️ 道路类型显示 -->
+                    <div class="road-type-display" id="road-type-display">-</div>
+                </div>
+
+                <!-- 🛣️ 车道总数控制 -->
                 <div class="config-item">
                     <div class="config-title">🛣️ 车道总数</div>
                     <div class="lane-control">
@@ -401,7 +721,7 @@
                         <button class="control-btn" id="lane-plus-btn" onclick="changeLaneCount(1)">+</button>
                     </div>
                     
-                    <!-- 滑块式三档调节器 -->
+                    <!-- 🎚️ 滑块式三档调节器 -->
                     <div class="lane-mode-slider-container">
                         <input type="range" min="0" max="2" value="1" class="lane-mode-slider" id="lane-mode-slider" oninput="updateLaneModeSlider()">
                         <div class="lane-mode-labels">
@@ -411,20 +731,15 @@
                         </div>
                     </div>
                     
+                    <!-- 🛣️ 当前车道显示 -->
                     <div class="current-lane-display" id="current-lane-display">当前车道: -</div>
-                </div>
-
-                <!-- 道路类型 -->
-                <div class="config-item">
-                    <div class="config-title">🛣️ 道路类型</div>
-                    <div class="road-type-btn active" id="road-type-btn" onclick="toggleRoadType()">高速公路</div>
                 </div>
             </div>
         </div>
 
-        <!-- 三车道显示 -->
+        <!-- 🚗 三车道显示 -->
         <div class="lane-display-container">
-            <!-- 左侧车道 -->
+            <!-- ⬅️ 左侧车道 -->
             <div class="lane-section" id="left-lane-section">
                 <div class="lane-title">左侧车道</div>
                 <div class="lane-data">
@@ -455,12 +770,12 @@
                     <span class="lane-label">边缘距离:</span>
                     <span class="lane-value" id="left-edge-dist">- m</span>
                 </div>
-                <div class="lane-data" style="justify-content: center; margin-top: 5px;">
-                    <span class="lane-value safe-text" id="left-warning">安全</span>
-                </div>
+                
+                <!-- ⚠️ 左侧警告信息区域 -->
+                <div class="warning-container" id="left-warning-container"></div>
             </div>
 
-            <!-- 当前车道 -->
+            <!-- 🎯 当前车道 -->
             <div class="lane-section active" id="center-lane-section">
                 <div class="lane-title">当前车道</div>
                 <div class="lane-data">
@@ -476,6 +791,10 @@
                     <span class="lane-value" id="speed-ratio-display">- %</span>
                 </div>
                 <div class="lane-data">
+                    <span class="lane-label">时间距离:</span>
+                    <span class="lane-value" id="time-gap">- 秒</span>
+                </div>
+                <div class="lane-data">
                     <span class="lane-label">前车速度:</span>
                     <span class="lane-value" id="lead-speed">无车</span>
                 </div>
@@ -484,19 +803,27 @@
                     <span class="lane-value" id="lead-distance">无车</span>
                 </div>
                 <div class="lane-data">
-                    <span class="lane-label">时间距离:</span>
-                    <span class="lane-value" id="time-gap">- 秒</span>
-                </div>
-                <div class="lane-data">
                     <span class="lane-label">相对速度:</span>
                     <span class="lane-value" id="lead-relative-speed">无车</span>
                 </div>
-                <div class="lane-data" style="justify-content: center;">
-                    <span class="lane-value safe-text" id="center-safety">无警告</span>
-                </div>
+                
+                <!-- 🔥 原车道超越状态显示 -->
+                <div class="original-lane-status" id="original-lane-status" style="display: none;"></div>
+                
+                <!-- 🆕 净变道次数显示 -->
+                <div class="net-lane-changes-display" id="net-lane-changes-display" style="display: none;"></div>
+                
+                <!-- 🛑 OP控制状态显示 -->
+                <div class="op-control-status" id="op-control-status" style="display: none;"></div>
+                
+                <!-- ⏰ 返回超时显示 -->
+                <div class="return-timeout-display" id="return-timeout-display" style="display: none;"></div>
+                
+                <!-- ❄️ 冷却时间显示 -->
+                <div class="return-timeout-display" id="cooldown-display" style="display: none;"></div>
             </div>
 
-            <!-- 右侧车道 -->
+            <!-- ➡️ 右侧车道 -->
             <div class="lane-section" id="right-lane-section">
                 <div class="lane-title">右侧车道</div>
                 <div class="lane-data">
@@ -527,13 +854,13 @@
                     <span class="lane-label">边缘距离:</span>
                     <span class="lane-value" id="right-edge-dist">- m</span>
                 </div>
-                <div class="lane-data" style="justify-content: center; margin-top: 5px;">
-                    <span class="lane-value safe-text" id="right-warning">安全</span>
-                </div>
+                
+                <!-- ⚠️ 右侧警告信息区域 -->
+                <div class="warning-container" id="right-warning-container"></div>
             </div>
         </div>
 
-        <!-- 超车状态显示 -->
+        <!-- 🚀 超车状态显示 -->
         <div class="overtake-status">
             <div class="overtake-state" id="overtake-state">
                 <span id="overtake-arrow" class="overtake-arrow"></span>
@@ -542,13 +869,13 @@
             <div class="overtake-reason" id="overtake-reason">分析道路情况中...</div>
         </div>
 
-        <!-- 合并的触发条件和未超车原因显示 -->
+        <!-- 📊 合并的触发条件和未超车原因显示 -->
         <div class="status-details" id="conditions-display" style="display: none;">
             <div class="section-title">📊 超车条件分析</div>
             <div id="conditions-list"></div>
         </div>
 
-        <!-- 速度控制 -->
+        <!-- 🚀 速度控制 -->
         <div class="control-section">
             <div class="section-title">🚀 速度控制</div>
             <div class="speed-control">
@@ -561,7 +888,7 @@
             </div>
         </div>
 
-        <!-- 强制变道控制 -->
+        <!-- 🔄 强制变道控制 -->
         <div class="control-section">
             <div class="section-title">🔄 强制变道控制</div>
             <div class="lanechange-control">
@@ -577,7 +904,7 @@
             </div>
         </div>
 
-        <!-- 自动控制 -->
+        <!-- 🤖 自动控制 -->
         <div class="auto-control">
             <div class="section-title">🤖 自动超车控制</div>
             <div class="switch-container">
@@ -597,11 +924,11 @@
             </div>
         </div>
 
-        <!-- 超车参数调节 -->
+        <!-- 🎛️ 超车参数调节 -->
         <div class="overtake-params">
             <div class="section-title">🎛️ 超车参数调节</div>
 
-            <!-- 超车触发条件 -->
+            <!-- 🚀 超车触发条件 -->
             <div class="param-group">
                 <div class="param-group-title">🚀 超车触发条件</div>
 
@@ -642,7 +969,7 @@
                 </div>
             </div>
 
-            <!-- 安全变道条件 -->
+            <!-- 🛡️ 安全变道条件 -->
             <div class="param-group">
                 <div class="param-group-title">🛡️ 安全变道条件</div>
 
@@ -671,30 +998,31 @@
                 </div>
             </div>
 
+            <!-- 💾 保存按钮 -->
             <button class="save-btn" onclick="saveOvertakeParams()">💾 保存参数设置</button>
             <button class="save-btn" onclick="defaultOvertakeParams()">🔄 恢复默认设置</button>
         </div>
 
-        <!-- 连接信息 -->
+        <!-- 🔌 连接信息 -->
         <div class="connection-info">
             系统运行中 | 现代汽车自动超车控制器 | 访问地址: <span id="connection-ip">-</span>:8088
         </div>
     </div>
 
     <script>
+        // 🎯 全局变量声明
         let currentLaneCount = 3;
         let currentRoadType = 'highway';
-        let autoLaneCountEnabled = true;
         let lastData = {};
         let updateInterval = 300;
 
-        // 超车参数值
+        // 🎛️ 超车参数值
         let overtakeParams = {
             highwayMinSpeed: 75,
             normalMinSpeed: 40,
             speedRatio: 80,
             followTimeGap: 3.0,
-            maxFollowTime: 120000, // 2分钟，单位毫秒
+            maxFollowTime: 2,  // 🎯 修复：使用分钟值
             minLaneWidth: 2.5,
             safeLaneWidth: 3.0,
             sideLeadDist: 15,
@@ -702,13 +1030,13 @@
             leadRelSpeed: -5
         };
 
-        // 默认超车参数
+        // 🔄 默认超车参数
         const defaultOvertakeValues = {
             highwayMinSpeed: 75,
             normalMinSpeed: 40,
             speedRatio: 80,
             followTimeGap: 3.0,
-            maxFollowTime: 120000,
+            maxFollowTime: 2,  // 🎯 修复：使用分钟值
             minLaneWidth: 2.5,
             safeLaneWidth: 3.0,
             sideLeadDist: 15,
@@ -716,7 +1044,9 @@
             leadRelSpeed: -5
         };
 
-        // 更新参数显示值
+        /**
+         * 📊 更新参数显示值
+         */
         function updateParamValue(paramId, unit) {
             const slider = document.getElementById(paramId);
             const valueElement = document.getElementById(paramId + '-value');
@@ -726,8 +1056,9 @@
                 valueElement.textContent = value + '%';
                 overtakeParams.speedRatio = value;
             } else if (paramId === 'max-follow-time') {
+                // 🎯 修复：直接存储分钟值
                 valueElement.textContent = value + ' ' + unit;
-                overtakeParams.maxFollowTime = value * 60 * 1000; // 转换为毫秒
+                overtakeParams.maxFollowTime = value;
             } else if (paramId === 'follow-time-gap') {
                 valueElement.textContent = value.toFixed(1) + ' ' + unit;
                 overtakeParams.followTimeGap = value;
@@ -741,7 +1072,9 @@
             }
         }
 
-        // 保存参数函数
+        /**
+         * 💾 保存参数函数
+         */
         function saveParams(url, params, btn, successMsg, failMsg, originalText) {
             btn.disabled = true;
             btn.innerHTML = '💾 保存中...';
@@ -755,31 +1088,32 @@
             .then(data => {
                 btn.innerHTML = `✅ ${successMsg}`;
                 setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
                 }, 2000);
             })
             .catch(error => {
                 btn.innerHTML = `❌ ${failMsg}`;
                 setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
                 }, 2000);
             });
         }
 
-        // 保存当前参数
+        /**
+         * 💾 保存超车参数
+         */
         function saveOvertakeParams() {
             const btn = event.target;
             const originalText = btn.innerHTML;
             
-            // 转换参数格式
             const paramsToSend = {
                 highwayMinSpeed: overtakeParams.highwayMinSpeed,
                 normalMinSpeed: overtakeParams.normalMinSpeed,
                 speedRatio: overtakeParams.speedRatio,
                 followTimeGap: overtakeParams.followTimeGap,
-                maxFollowTime: overtakeParams.maxFollowTime,
+                maxFollowTime: overtakeParams.maxFollowTime,  // 🎯 修复：使用当前值
                 minLaneWidth: overtakeParams.minLaneWidth,
                 safeLaneWidth: overtakeParams.safeLaneWidth,
                 sideLeadDist: overtakeParams.sideLeadDist,
@@ -790,26 +1124,36 @@
             saveParams('/params', paramsToSend, btn, '保存成功', '保存失败', originalText);
         }
 
-        // 恢复默认参数并保存
+        /**
+         * 🔄 恢复默认参数
+         */
         function defaultOvertakeParams() {
             const btn = event.target;
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '恢复中...';
 
-            // 恢复默认值
-            overtakeParams = { ...defaultOvertakeValues };
+            overtakeParams = {
+                highwayMinSpeed: 75,
+                normalMinSpeed: 40,
+                speedRatio: 80,
+                followTimeGap: 3.0,
+                maxFollowTime: 2,
+                minLaneWidth: 2.5,
+                safeLaneWidth: 3.0,
+                sideLeadDist: 15,
+                sideRelSpeed: 20,
+                leadRelSpeed: -5
+            };
 
-            // 刷新页面上的输入框显示
             loadOvertakeParams();
 
-            // 保存到后端
             const paramsToSend = {
                 highwayMinSpeed: overtakeParams.highwayMinSpeed,
                 normalMinSpeed: overtakeParams.normalMinSpeed,
                 speedRatio: overtakeParams.speedRatio,
                 followTimeGap: overtakeParams.followTimeGap,
-                maxFollowTime: overtakeParams.maxFollowTime,
+                maxFollowTime: overtakeParams.maxFollowTime,  // 🎯 修复：使用当前值
                 minLaneWidth: overtakeParams.minLaneWidth,
                 safeLaneWidth: overtakeParams.safeLaneWidth,
                 sideLeadDist: overtakeParams.sideLeadDist,
@@ -820,7 +1164,9 @@
             saveParams('/params', paramsToSend, btn, '恢复成功', '恢复失败', originalText);
         }
 
-        // 从服务器加载参数
+        /**
+         * 📥 从服务器加载参数
+         */
         function loadOvertakeParams(data = null) {
             if (!data) {
                 data = {
@@ -828,7 +1174,7 @@
                     nms: overtakeParams.normalMinSpeed,
                     sr: overtakeParams.speedRatio / 100,
                     ftg: overtakeParams.followTimeGap,
-                    mft: overtakeParams.maxFollowTime,
+                    mft: overtakeParams.maxFollowTime * 1,
                     mlw: overtakeParams.minLaneWidth,
                     slw: overtakeParams.safeLaneWidth,
                     sld: overtakeParams.sideLeadDist,
@@ -858,9 +1204,10 @@
                 document.getElementById('follow-time-gap-value').textContent = data.ftg.toFixed(1) + ' s';
             }
             if (data.mft !== undefined) {
+                // 🎯 关键修复：直接使用分钟值，不进行转换
                 overtakeParams.maxFollowTime = data.mft;
-                document.getElementById('max-follow-time').value = data.mft / 60000;
-                document.getElementById('max-follow-time-value').textContent = (data.mft / 60000) + ' 分钟';
+                document.getElementById('max-follow-time').value = data.mft;
+                document.getElementById('max-follow-time-value').textContent = data.mft + ' 分钟';
             }
             if (data.mlw !== undefined) {
                 overtakeParams.minLaneWidth = data.mlw;
@@ -889,12 +1236,13 @@
             }
         }
 
-        // 车道模式滑块更新
+        /**
+         * 🎚️ 车道模式滑块更新
+         */
         function updateLaneModeSlider() {
             const slider = document.getElementById('lane-mode-slider');
             const value = parseInt(slider.value);
             
-            // 更新标签激活状态
             document.getElementById('label-manual').classList.remove('active');
             document.getElementById('label-auto').classList.remove('active');
             document.getElementById('label-op').classList.remove('active');
@@ -911,7 +1259,6 @@
                 document.getElementById('label-op').classList.add('active');
             }
             
-            // 根据模式启用/禁用手动调节按钮
             const minusBtn = document.getElementById('lane-minus-btn');
             const plusBtn = document.getElementById('lane-plus-btn');
             
@@ -927,7 +1274,6 @@
                 plusBtn.style.opacity = '0.5';
             }
             
-            // 发送配置更新
             fetch('/config', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -935,6 +1281,9 @@
             });
         }
 
+        /**
+         * 🔢 改变车道总数
+         */
         function changeLaneCount(delta) {
             const slider = document.getElementById('lane-mode-slider');
             const mode = parseInt(slider.value) === 0 ? 'manual' : 
@@ -955,6 +1304,9 @@
             }
         }
 
+        /**
+         * 🛣️ 切换道路类型
+         */
         function toggleRoadType() {
             currentRoadType = currentRoadType === 'highway' ? 'normal' : 'highway';
             const btn = document.getElementById('road-type-btn');
@@ -973,6 +1325,9 @@
             });
         }
 
+        /**
+         * 🚀 发送速度命令
+         */
         function sendSpeedCommand(direction) {
             fetch('/control', {
                 method: 'POST',
@@ -981,6 +1336,9 @@
             });
         }
 
+        /**
+         * 🤖 切换自动超车
+         */
         function toggleAutoOvertake(enabled) {
             fetch('/overtake', {
                 method: 'POST',
@@ -989,6 +1347,9 @@
             });
         }
 
+        /**
+         * 🔄 切换返回原车道
+         */
         function toggleReturnLane(enabled) {
             fetch('/overtake', {
                 method: 'POST',
@@ -997,6 +1358,9 @@
             });
         }
 
+        /**
+         * 🎮 手动超车
+         */
         function manualOvertake(lane) {
             const btn = event.target;
             const originalText = btn.innerHTML;
@@ -1025,6 +1389,9 @@
             });
         }
 
+        /**
+         * ⛔ 取消超车
+         */
         function cancelOvertake() {
             fetch('/overtake', {
                 method: 'POST',
@@ -1033,14 +1400,119 @@
             });
         }
 
-        // 智能数据更新
+        /**
+         * ⚠️ 更新警告信息显示
+         */
+        function updateWarningDisplay(warnings, containerId, sectionId) {
+            const container = document.getElementById(containerId);
+            const section = document.getElementById(sectionId);
+            
+            container.innerHTML = '';
+            
+            if (warnings && warnings.length > 0) {
+                section.className = 'lane-section danger';
+                
+                warnings.forEach(warning => {
+                    const warningLine = document.createElement('div');
+                    warningLine.className = 'warning-line danger';
+                    warningLine.textContent = warning;
+                    container.appendChild(warningLine);
+                });
+            } else {
+                section.className = 'lane-section safe';
+                
+                const safeLine = document.createElement('div');
+                safeLine.className = 'warning-line safe';
+                safeLine.textContent = '安全';
+                container.appendChild(safeLine);
+            }
+        }
+
+        /**
+         * 🔥 更新原车道超越状态显示
+         */
+        function updateOriginalLaneStatus(isClear) {
+            const statusElement = document.getElementById('original-lane-status');
+            if (isClear) {
+                statusElement.textContent = '✅ 已超越原车道前车';
+                statusElement.className = 'original-lane-status original-lane-clear';
+                statusElement.style.display = 'block';
+            } else {
+                statusElement.textContent = '🔄 正在超越原车道前车';
+                statusElement.className = 'original-lane-status original-lane-blocked';
+                statusElement.style.display = 'block';
+            }
+        }
+
+        /**
+         * 🆕 更新净变道次数显示
+         */
+        function updateNetLaneChangesDisplay(netChanges) {
+            const displayElement = document.getElementById('net-lane-changes-display');
+            if (netChanges !== 0) {
+                const direction = netChanges > 0 ? '左' : '右';
+                const count = Math.abs(netChanges);
+                displayElement.textContent = `净变道: ${count}次${direction}`;
+                displayElement.style.display = 'block';
+            } else {
+                displayElement.style.display = 'none';
+            }
+        }
+
+        /**
+         * 🛑 更新OP控制状态显示
+         */
+        function updateOpControlStatus(isOpControlling, remainingTime) {
+            const statusElement = document.getElementById('op-control-status');
+            if (isOpControlling) {
+                statusElement.textContent = '🛑 OP自动控制中，超车已暂停';
+                statusElement.style.display = 'block';
+            } else if (remainingTime > 0) {
+                statusElement.textContent = `⏳ OP控制冷却中，${remainingTime.toFixed(1)}秒后恢复`;
+                statusElement.style.display = 'block';
+            } else {
+                statusElement.style.display = 'none';
+            }
+        }
+
+        /**
+         * 🔄 更新返回策略状态显示
+         */
+        function updateReturnStrategyStatus(enabled, roadType) {
+            const statusElement = document.getElementById('return-strategy-status');
+            if (enabled) {
+                statusElement.textContent = `🔄 返回原车道: 启用`;
+                statusElement.style.display = 'block';
+                statusElement.className = 'return-strategy-status';
+            } else {
+                statusElement.textContent = `⏸️ 返回原车道: 禁用`;
+                statusElement.style.display = 'block';
+                statusElement.className = 'return-strategy-status';
+            }
+        }
+
+        /**
+         * 🛣️ 更新道路类型显示
+         */
+        function updateRoadTypeDisplay(roadType) {
+            const displayElement = document.getElementById('road-type-display');
+            if (roadType === 'highway') {
+                displayElement.textContent = '高速公路';
+                displayElement.className = 'road-type-display';
+            } else {
+                displayElement.textContent = '普通道路';
+                displayElement.className = 'road-type-display';
+            }
+        }
+
+        /**
+         * 📊 智能数据更新
+         */
         function updateDisplay(data) {
-            // 加载超车参数
             if (data.hms !== lastData.hms || data.nms !== lastData.nms || data.sr !== lastData.sr) {
                 loadOvertakeParams(data);
             }
 
-            // IP地址显示
             if (data.ip !== lastData.ip) {
                 const localIpElement = document.getElementById('local-ip');
                 const connectionIp = document.getElementById('connection-ip');
@@ -1051,7 +1523,6 @@
                 }
             }
 
-            // 车辆信息 - 大字体显示
             if (data.s !== lastData.s) {
                 document.getElementById('current-speed-large').textContent = data.s || 0;
                 document.getElementById('current-speed').textContent = (data.s || 0) + ' km/h';
@@ -1061,7 +1532,6 @@
                 document.getElementById('cruise-speed').textContent = (data.c || 0) + ' km/h';
             }
 
-            // 当前车道前车信息
             if (data.ls !== lastData.ls) {
                 const leadSpeed = data.ls || 0;
                 document.getElementById('lead-speed').textContent = leadSpeed > 0 ? (leadSpeed + ' km/h') : '无车';
@@ -1080,7 +1550,21 @@
                                       relSpeed < 0 ? 'lane-value negative-speed' : 'lane-value safe-text';
             }
 
-            // 盲区状态
+            if (data.speed_ratio !== lastData.speed_ratio) {
+                const speedRatio = data.speed_ratio || 0;
+                const speedRatioPercent = Math.round(speedRatio * 100);
+                document.getElementById('speed-ratio-display').textContent = speedRatioPercent + ' %';
+                document.getElementById('speed-ratio-display').className = 
+                    speedRatio < (data.sr_threshold || 0.8) ? 'lane-value warning-text' : 'lane-value safe-text';
+            }
+
+            if (data.time_gap !== lastData.time_gap) {
+                const timeGap = data.time_gap || 0;
+                document.getElementById('time-gap').textContent = timeGap.toFixed(1) + ' 秒';
+                document.getElementById('time-gap').className = 
+                    (timeGap > 0 && timeGap <= (data.ftg || 3.0)) ? 'lane-value warning-text' : 'lane-value safe-text';
+            }
+
             if (data.lb !== lastData.lb) {
                 document.getElementById('left-rear-blindspot').textContent = data.lb ? '有车' : '无车';
                 document.getElementById('left-rear-blindspot').className = data.lb ? 'lane-value danger-text' : 'lane-value safe-text';
@@ -1098,13 +1582,11 @@
                 document.getElementById('right-front-blindspot').className = data.r_front_blind ? 'lane-value danger-text' : 'lane-value safe-text';
             }
 
-            // 配置信息
             if (data.lc !== lastData.lc) {
                 currentLaneCount = data.lc || 3;
                 document.getElementById('total-lanes-display').textContent = currentLaneCount;
             }
 
-            // 车道模式显示
             if (data.lane_count_mode !== lastData.lane_count_mode) {
                 const slider = document.getElementById('lane-mode-slider');
                 if (data.lane_count_mode === 'manual') {
@@ -1117,12 +1599,10 @@
                 updateLaneModeSlider();
             }
 
-            // 当前车道显示
             if (data.cl !== lastData.cl) {
                 document.getElementById('current-lane-display').textContent = `当前车道: ${data.cl || '-'}`;
             }
 
-            // 自动控制开关状态
             if (data.aoe !== lastData.aoe) {
                 document.getElementById('auto-overtake').checked = data.aoe !== undefined ? data.aoe : true;
             }
@@ -1130,7 +1610,6 @@
                 document.getElementById('return-lane').checked = data.srtl !== undefined ? data.srtl : true;
             }
 
-            // 道路类型
             if (data.rt !== lastData.rt) {
                 currentRoadType = data.rt || 'highway';
                 const btn = document.getElementById('road-type-btn');
@@ -1141,9 +1620,10 @@
                     btn.textContent = '普通道路';
                     btn.className = 'road-type-btn';
                 }
+                
+                updateRoadTypeDisplay(currentRoadType);
             }
 
-            // 左侧车道前车信息
             if (data.lls !== lastData.lls) {
                 const leftSpeed = data.lls || 0;
                 document.getElementById('left-lead-speed').textContent = leftSpeed > 0 ? (leftSpeed + ' km/h') : '无车';
@@ -1162,7 +1642,6 @@
                                       relSpeed < 0 ? 'lane-value negative-speed' : 'lane-value safe-text';
             }
 
-            // 右侧车道前车信息
             if (data.rls !== lastData.rls) {
                 const rightSpeed = data.rls || 0;
                 document.getElementById('right-lead-speed').textContent = rightSpeed > 0 ? (rightSpeed + ' km/h') : '无车';
@@ -1181,7 +1660,6 @@
                                       relSpeed < 0 ? 'lane-value negative-speed' : 'lane-value safe-text';
             }
 
-            // 车道宽度
             if (data.llw !== lastData.llw) {
                 document.getElementById('left-lane-width').textContent = (data.llw || 0).toFixed(1) + ' m';
             }
@@ -1189,7 +1667,6 @@
                 document.getElementById('right-lane-width').textContent = (data.rlw || 0).toFixed(1) + ' m';
             }
 
-            // 边缘距离
             if (data.led !== lastData.led) {
                 document.getElementById('left-edge-dist').textContent = (data.led || 0).toFixed(1) + ' m';
             }
@@ -1197,138 +1674,81 @@
                 document.getElementById('right-edge-dist').textContent = (data.red || 0).toFixed(1) + ' m';
             }
 
-            // 车道安全警告 - 包括车道宽度警告
-            let leftWarnings = [];
-            let rightWarnings = [];
-            let leftSectionClass = 'lane-section';
-            let rightSectionClass = 'lane-section';
+            updateWarningDisplay(data.left_warnings, 'left-warning-container', 'left-lane-section');
+            updateWarningDisplay(data.right_warnings, 'right-warning-container', 'right-lane-section');
 
-            if (data.left_lane_narrow) {
-                leftWarnings.push('车道过窄⚠️禁止变道');
-                leftSectionClass = 'lane-section narrow';
-            }
-            if (data.lb || data.l_front_blind) {
-                leftWarnings.push('盲区有车⚠️变道危险');
-                leftSectionClass = 'lane-section danger';
-            }
-            if (data.lld > 0 && data.lld < (data.sld || 15)) {
-                leftWarnings.push('侧前车过近⚠️变道危险');
-                leftSectionClass = 'lane-section danger';
-            }
-            if (data.llrs < -5) {
-                leftWarnings.push('侧前车过慢⚠️超车危险');
-                leftSectionClass = 'lane-section danger';
+            if (data.original_lane_clear !== lastData.original_lane_clear) {
+                updateOriginalLaneStatus(data.original_lane_clear);
             }
 
-            if (data.right_lane_narrow) {
-                rightWarnings.push('车道过窄⚠️禁止变道');
-                rightSectionClass = 'lane-section narrow';
-            }
-            if (data.rb || data.r_front_blind) {
-                rightWarnings.push('盲区有车⚠️变道危险');
-                rightSectionClass = 'lane-section danger';
-            }
-            if (data.rld > 0 && data.rld < (data.sld || 15)) {
-                rightWarnings.push('侧前车过近⚠️变道危险');
-                rightSectionClass = 'lane-section danger';
-            }
-            if (data.rlrs < -5) {
-                rightWarnings.push('侧前车过慢⚠️超车危险');
-                rightSectionClass = 'lane-section danger';
+            if (data.net_lane_changes !== lastData.net_lane_changes) {
+                updateNetLaneChangesDisplay(data.net_lane_changes);
             }
 
-            // 如果没有警告，设置为安全
-            if (leftWarnings.length === 0) {
-                leftSectionClass = 'lane-section safe';
-                document.getElementById('left-warning').textContent = '安全';
-                document.getElementById('left-warning').className = 'lane-value safe-text';
+            const isOpControlling = data.system_auto_control === 1;
+            const remainingOpCooldown = data.remaining_op_cooldown || 0;
+            updateOpControlStatus(isOpControlling, remainingOpCooldown);
+
+            if (data.return_strategy_enabled !== lastData.return_strategy_enabled || data.road_type_display !== lastData.road_type_display) {
+                updateReturnStrategyStatus(data.return_strategy_enabled, data.road_type_display);
+            }
+
+            const stateText = data.os || '等待超车条件';
+            document.getElementById('overtake-text').textContent = stateText;
+
+            const arrowElement = document.getElementById('overtake-arrow');
+            if (stateText.includes('向左')) {
+                arrowElement.innerHTML = '←';
+                arrowElement.className = 'overtake-arrow arrow-left';
+            } else if (stateText.includes('向右')) {
+                arrowElement.innerHTML = '→';
+                arrowElement.className = 'overtake-arrow arrow-right';
+            } else if (stateText.includes('超车成功')) {
+                arrowElement.innerHTML = '✓';
+                arrowElement.className = 'overtake-arrow arrow-both';
             } else {
-                document.getElementById('left-warning').textContent = leftWarnings.join(' | ');
-                document.getElementById('left-warning').className = 'lane-value danger-text';
+                arrowElement.innerHTML = '';
+                arrowElement.className = 'overtake-arrow';
             }
+            
+            document.getElementById('overtake-reason').textContent = data.or || '分析道路情况中...';
 
-            if (rightWarnings.length === 0) {
-                rightSectionClass = 'lane-section safe';
-                document.getElementById('right-warning').textContent = '安全';
-                document.getElementById('right-warning').className = 'lane-value safe-text';
-            } else {
-                document.getElementById('right-warning').textContent = rightWarnings.join(' | ');
-                document.getElementById('right-warning').className = 'lane-value danger-text';
-            }
-
-            document.getElementById('left-lane-section').className = leftSectionClass;
-            document.getElementById('right-lane-section').className = rightSectionClass;
-
-            // 系统自动控制状态
-            if (data.system_auto_control === 1) {
-                document.getElementById('overtake-state').innerHTML = '<span style="color: #ff9800;">⏸️ OP自动控制中</span>';
-                document.getElementById('overtake-reason').textContent = 'OP自动控制中，暂停超车功能';
-                
-                // 添加额外的状态显示
-                if (!document.getElementById('system-control-warning')) {
-                    const warning = document.createElement('div');
-                    warning.id = 'system-control-warning';
-                    warning.style.background = '#ff9800';
-                    warning.style.color = 'white';
-                    warning.style.padding = '5px';
-                    warning.style.borderRadius = '3px';
-                    warning.style.marginTop = '5px';
-                    warning.style.fontSize = '0.7rem';
-                    warning.textContent = '⚠️ OP自动控制中，自动超车已暂停';
-                    document.querySelector('.overtake-status').appendChild(warning);
-                }
-            } else {
-                // 移除警告显示
-                const warning = document.getElementById('system-control-warning');
-                if (warning) {
-                    warning.remove();
-                }
-                
-                // 自动超车状态
-                if (data.os !== lastData.os) {
-                    const stateText = data.os || '等待超车条件';
-                    document.getElementById('overtake-text').textContent = stateText;
-
-                    const arrowElement = document.getElementById('overtake-arrow');
-                    if (stateText.includes('向左')) {
-                        arrowElement.innerHTML = '←';
-                        arrowElement.className = 'overtake-arrow arrow-left';
-                    } else if (stateText.includes('向右')) {
-                        arrowElement.innerHTML = '→';
-                        arrowElement.className = 'overtake-arrow arrow-right';
-                    } else if (stateText.includes('超车成功')) {
-                        arrowElement.innerHTML = '✓';
-                        arrowElement.className = 'overtake-arrow arrow-both';
-                    } else {
-                        arrowElement.innerHTML = '';
-                        arrowElement.className = 'overtake-arrow';
-                    }
-                }
-                if (data.or !== lastData.or) {
-                    document.getElementById('overtake-reason').textContent = data.or || '分析道路情况中...';
-                }
-            }
-
-            // 超车成功次数
             if (data.oc !== lastData.oc) {
                 document.getElementById('overtake-count').textContent = data.oc || 0;
             }
 
-            // 合并的触发条件和未超车原因显示
+            const returnTimeoutDisplay = document.getElementById('return-timeout-display');
+            if (data.remaining_return_timeout > 0 && data.is_auto_overtake) {
+                returnTimeoutDisplay.style.display = 'block';
+                returnTimeoutDisplay.textContent = `返回超时: ${data.remaining_return_timeout.toFixed(1)}秒`;
+                returnTimeoutDisplay.className = 'return-timeout-display';
+            } else {
+                returnTimeoutDisplay.style.display = 'none';
+            }
+
+            const cooldownDisplay = document.getElementById('cooldown-display');
+            if (data.remaining_cooldown > 0) {
+                cooldownDisplay.style.display = 'block';
+                cooldownDisplay.textContent = `冷却时间: ${data.remaining_cooldown.toFixed(1)}秒`;
+                cooldownDisplay.className = 'return-timeout-display';
+            } else {
+                cooldownDisplay.style.display = 'none';
+            }
+
             updateConditionDisplay(data);
 
             lastData = { ...data };
         }
 
-        // 更新合并的触发条件和未超车原因显示
+        /**
+         * 📋 更新合并的触发条件和未超车原因显示
+         */
         function updateConditionDisplay(data) {
             const conditionsDisplay = document.getElementById('conditions-display');
             const conditionsList = document.getElementById('conditions-list');
 
-            // 合并触发条件和未超车原因
             const allConditions = [];
             
-            // 添加触发条件
             if (data.trigger_conditions && data.trigger_conditions.length > 0) {
                 allConditions.push({
                     type: 'trigger',
@@ -1337,7 +1757,6 @@
                 });
             }
             
-            // 添加未超车原因
             if (data.no_overtake_reasons && data.no_overtake_reasons.length > 0) {
                 allConditions.push({
                     type: 'reason',
@@ -1346,13 +1765,11 @@
                 });
             }
             
-            // 更新显示
             if (allConditions.length > 0) {
                 conditionsDisplay.style.display = 'block';
                 conditionsList.innerHTML = '';
                 
                 allConditions.forEach(section => {
-                    // 添加标题
                     const title = document.createElement('div');
                     title.className = 'status-row';
                     title.style.borderBottom = '1px solid #444';
@@ -1361,12 +1778,10 @@
                     title.innerHTML = `<span class="status-label">${section.title}</span>`;
                     conditionsList.appendChild(title);
                     
-                    // 添加项目
                     section.items.forEach(item => {
                         const row = document.createElement('div');
                         row.className = 'status-row';
                         
-                        // 根据类型设置不同的图标和颜色
                         let icon = '❓';
                         let colorClass = 'status-value';
                         
@@ -1394,7 +1809,6 @@
                         conditionsList.appendChild(row);
                     });
                     
-                    // 添加间隔
                     const spacer = document.createElement('div');
                     spacer.style.height = '8px';
                     conditionsList.appendChild(spacer);
@@ -1404,7 +1818,6 @@
             }
         }
 
-        // 优化状态更新
         let lastFetchTime = 0;
         function fetchStatus() {
             const now = Date.now();
@@ -1421,17 +1834,13 @@
                 });
         }
 
-        // 启动优化更新
         function startOptimizedUpdate() {
             fetchStatus();
             setTimeout(startOptimizedUpdate, updateInterval);
         }
 
-        // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 立即获取一次状态
             fetchStatus();
-            // 然后启动定期更新
             startOptimizedUpdate();
         });
     </script>
