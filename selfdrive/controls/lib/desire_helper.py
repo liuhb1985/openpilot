@@ -172,6 +172,7 @@ class DesireHelper:
     self.carrot_lane_change_count = 0
     self.carrot_cmd_index_last = 0
     self.carrot_blinker_state = BLINKER_NONE
+    self.carrot_overtake_cmd = False
 
     self.turn_desire_state = False
     self.desire_disable_count = 0
@@ -474,10 +475,11 @@ class DesireHelper:
       atc_blinker_state = self.carrot_blinker_state
       # 2025.10.19
       below_lane_change_speed = False
-      fork_left_right = True
-    elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and carrotMan.carrotCmd == "LANECHANGE": #来自app的变道命令
+      if self.carrot_overtake_cmd:
+        atc_left_right = True
+    elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and (carrotMan.carrotCmd == "LANECHANGE" or carrotMan.carrotCmd == "OVERTAKE"): #来自app的变道命令
       self.carrot_cmd_index_last = carrotMan.carrotCmdIndex
-      self.carrot_lane_change_count = int(LANE_CHANGE_TIME_MAX / DT_MDL)
+      self.carrot_lane_change_count = int(LANE_CHANGE_TIME_MAX*2 / DT_MDL)
       self.carrot_blinker_state = BLINKER_LEFT if carrotMan.carrotArg == "LEFT" else BLINKER_RIGHT
       print(f"---[{time.strftime("%H:%M:%S")}]Desire lanechange: {carrotMan.carrotArg},counter={self.carrot_lane_change_count},blinker={self.carrot_blinker_state},"
             f"state={self.lane_change_state},prev_desire_enabled={self.prev_desire_enabled},"
@@ -489,6 +491,8 @@ class DesireHelper:
       self.lane_change_disable = False # 重置禁止变道的标志
       self.lane_cnt_time = self.lane_count_stab_cnt
       self.lane_count_last = -1
+      if carrotMan.carrotCmd == "OVERTAKE":
+        self.carrot_overtake_cmd = True
     elif atc_type in ["turn left", "turn right"]: #来自carrot_man.py的update_auto_turn函数，转弯请求
       if self.atc_active != 2:
         below_lane_change_speed = True
@@ -961,7 +965,7 @@ class DesireHelper:
               else:
                 if lane_change_interval < 0.5 or self.lane_change_disable_count == 0 or not atc_left_right: #变道不延时或者延时已结束或者为非act_left_right，则立即变道
                   self.lane_change_state = LaneChangeState.laneChangeStarting
-                  self.trigger_name = "auto"
+                  trigger_name = "auto"
                 elif not self.lane_change_disable: #没有设置过延时
                   self.lane_change_disable_count = lane_change_interval
                   self.lane_change_disable = True
