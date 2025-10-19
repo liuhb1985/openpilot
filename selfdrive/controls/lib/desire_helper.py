@@ -472,6 +472,9 @@ class DesireHelper:
     atc_blinker_state = BLINKER_NONE
     if self.carrot_lane_change_count > 0: #carrotCmd为"LANECHANGE"是的0.2秒计数
       atc_blinker_state = self.carrot_blinker_state
+      # 2025.10.19
+      below_lane_change_speed = False
+      fork_left_right = True
     elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and carrotMan.carrotCmd == "LANECHANGE": #来自app的变道命令
       self.carrot_cmd_index_last = carrotMan.carrotCmdIndex
       self.carrot_lane_change_count = int(LANE_CHANGE_TIME_MAX / DT_MDL)
@@ -480,6 +483,12 @@ class DesireHelper:
             f"state={self.lane_change_state},prev_desire_enabled={self.prev_desire_enabled},"
             f"driver_blinker_changed={driver_blinker_changed},driver_desire_enabled={driver_desire_enabled}")
       atc_blinker_state = self.carrot_blinker_state #new
+      # 2025.10.19
+      self.atc_turn_cnt = self.continuousLaneChangeCnt #重置允许连续变道次数
+      self.lane_change_disable_count = lane_change_interval  # 重置连续变道延时
+      self.lane_change_disable = False # 重置禁止变道的标志
+      self.lane_cnt_time = self.lane_count_stab_cnt
+      self.lane_count_last = -1
     elif atc_type in ["turn left", "turn right"]: #来自carrot_man.py的update_auto_turn函数，转弯请求
       if self.atc_active != 2:
         below_lane_change_speed = True
@@ -613,7 +622,7 @@ class DesireHelper:
     radar_right = radarState.leadRight
     if radar_left.status or radar_right.status:
       if (self.showDebugLog & 16) > 0:
-        debugText = f"---Radar,"
+        debugText = "---Radar,"
       if radar_left.status:
         side_object_dist = radar_left.dRel + radar_left.vLead * 3.0
         side_object_block = (side_object_dist < vego4x or radar_left.dRel < (v_ego*self.min_drel_vego_time)) and abs(radar_left.vLead) > 2.8
@@ -926,7 +935,8 @@ class DesireHelper:
                     (atc_desire_enabled and driver_blinker_state != atc_blinker_state)  #或者用户打的灯和自动变道的方向相反
                      or torque_applied #或者用户施加了方向盘扭矩
                      or (auto_lane_change_trigger and (lane_change_interval < 0.5 or self.lane_change_disable_count == 0 or not atc_left_right))) #或符合了自动变道条件
-                ) or (self.carrot_blinker_state != BLINKER_NONE) ):
+                ) #or (self.carrot_blinker_state != BLINKER_NONE)
+                ):
               if not side_object_detected or (torque_applied and not block_lanechange_bsd): #侧前方无车或用户打了方向盘
                 self.lane_change_state = LaneChangeState.laneChangeStarting
                 trigger_type = 3
