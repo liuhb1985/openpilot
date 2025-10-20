@@ -438,11 +438,11 @@ class CarrotMan:
                       print(f"carrot: carrotCmdIndex={self.carrot_serv.esp32Index}, carrotCmd={self.carrot_serv.carrotCmd},carrotArg={self.carrot_serv.carrotArg}")
                   if "left_blind" in json_obj:
                     self.carrot_serv.left_blind = json_obj.get("left_blind")
-                    l_blindspot_alive = False
+                    l_blindspot_alive = True
                     l_blindspot_time = time.time()
                   if "right_blind" in json_obj:
                     self.carrot_serv.right_blind = json_obj.get("right_blind")
-                    r_blindspot_alive = False
+                    r_blindspot_alive = True
                     r_blindspot_time = time.time()
 
                   if (self.carrot_serv.showDebugLog & 32) > 0:

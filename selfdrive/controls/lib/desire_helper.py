@@ -910,18 +910,17 @@ class DesireHelper:
           #此处根据条件决定是否进入开始变道或转弯的流程，lane_change_available为真时表示旁边车道或者路沿的宽度稳定大于2.5米
           if lane_change_available and self.lane_change_delay == 0: #允许变道并且没有延时时间要求
             self.lane_change_delay_start = False
-            if self.blindspot_detected_counter > 0 and not ignore_bsd:  # bsd盲区检测次数还大于0
-              if torque_applied and not block_lanechange_bsd:
+            if (self.blindspot_detected_counter > 0 or side_object_detected) and not ignore_bsd:  # 有盲区（包括后盲区，侧盲区，前盲区）
+              if torque_applied and not block_lanechange_bsd: #没有设置有盲区轻方向盘不允许变道
                 self.lane_change_state = LaneChangeState.laneChangeStarting
                 trigger_type = 1
                 trigger_name = "torque bsd"
               else:
                 trigger_type = -2
                 trigger_name = "bsd block"
-                # 如果触发变道条件成立了，虽然盲区还在，但是可以开启倒计时，盲区消失后则可立即变道（删除，盲区结束后已即变道有点危险）
-                #if auto_lane_change_trigger and not self.lane_change_disable:
-                #  self.lane_change_disable_count = lane_change_interval
-                #  self.lane_change_disable = True
+                # 播报盲区有车
+                if 0 == (self.frame % int(2 / DT_MDL)):
+                  self.lane_change_audio(True, 6, 0)
               #盲区有车时重置变道延时计数器
               self.lane_change_disable_count = lane_change_interval
             elif self.laneChangeNeedTorque > 0:# or self.next_lane_change: # 需要轻推方向盘变道
@@ -941,18 +940,12 @@ class DesireHelper:
                      or (auto_lane_change_trigger and (lane_change_interval < 0.5 or self.lane_change_disable_count == 0 or not atc_left_right))) #或符合了自动变道条件
                 ) #or (self.carrot_blinker_state != BLINKER_NONE)
                 ):
-              if not side_object_detected or (torque_applied and not block_lanechange_bsd): #侧前方无车或用户打了方向盘
-                self.lane_change_state = LaneChangeState.laneChangeStarting
-                trigger_type = 3
-                if self.carrot_blinker_state == BLINKER_NONE:
-                  trigger_name = "driver"
-                else:
-                  trigger_name = "cmd"
+              self.lane_change_state = LaneChangeState.laneChangeStarting
+              trigger_type = 3
+              if self.carrot_blinker_state == BLINKER_NONE:
+                trigger_name = "driver"
               else:
-                trigger_type = -8
-                trigger_name = "driver fbsd"
-                if 0 == (self.frame % int(2 / DT_MDL)):
-                  self.lane_change_audio(True, 6, 0)  # 播报盲区有车
+                trigger_name = "cmd"
             elif torque_applied or auto_lane_change_trigger: #auto_lane_change_trigger在self.auto_lane_change_enable成立并且无其实阻止条件是则会为True
               if torque_applied: #如果用户施加了扭矩，则立即变道（不执行延时）
                 self.lane_change_state = LaneChangeState.laneChangeStarting
@@ -987,7 +980,7 @@ class DesireHelper:
             else:
               trigger_type = -5
               trigger_name = "no trig"
-              if side_object_detected and (0 == (self.frame % int(2/DT_MDL))):
+              if (self.blindspot_detected_counter > 0 or side_object_detected) and (0 == (self.frame % int(2/DT_MDL))):
                 self.lane_change_audio(True, 6, 0)  # 播报盲区有车
 
             if self.lane_change_state == LaneChangeState.laneChangeStarting:

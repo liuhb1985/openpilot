@@ -162,8 +162,8 @@ private:
     std::deque<bool> queue;   // 仅用于不安全 → 安全的滑动窗口
 };
 
-LaneDebouncerSingleDirection left_checker(12);
-LaneDebouncerSingleDirection right_checker(12);
+LaneDebouncerSingleDirection left_checker(10);
+LaneDebouncerSingleDirection right_checker(10);
 
 // ---------------- YOLO 检测 ----------------
 struct DetectionResult {
@@ -609,7 +609,7 @@ void display_loop() {
                     if (shared_images[i].empty()) continue;
                     std::string window_name = "Camera " + std::to_string(i);
                     cv::imshow(window_name, shared_images[i]);
-					
+
                     static std::vector<int> cam_ids;
                     if(cam_ids.size() < shared_images.size()) cam_ids.resize(shared_images.size());
                     cam_ids[i] = i;
@@ -691,8 +691,8 @@ void lane_check_thread() {
             }
         }
 
-        // 控制线程循环频率，例如 40ms 一次
-        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        // 控制线程循环频率，例如 100ms 一次
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
