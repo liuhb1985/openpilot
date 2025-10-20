@@ -98,6 +98,8 @@ USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=2 system/manager/manager.py  #使用locatio
 
 #通过C++的USB摄像头采集
 USE_USBCAM=1 system/manager/manager.py
+USE_USBCAM=1 JY62=1 system/manager/manager.py  #使用sensor_jy62
+USE_USBCAM=1 JY62=2 system/manager/manager.py  #使用locationd_jy62
 
 #如果只是测试一下摄像头显示，使用下面的命令
 USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 selfdrive/debug/uiview.py

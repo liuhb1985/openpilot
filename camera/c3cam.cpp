@@ -609,6 +609,12 @@ void display_loop() {
                     if (shared_images[i].empty()) continue;
                     std::string window_name = "Camera " + std::to_string(i);
                     cv::imshow(window_name, shared_images[i]);
+					
+                    static std::vector<int> cam_ids;
+                    if(cam_ids.size() < shared_images.size()) cam_ids.resize(shared_images.size());
+                    cam_ids[i] = i;
+
+                    cv::setMouseCallback(window_name, mouse_callback, &cam_ids[i]);
                 }
             }
         }

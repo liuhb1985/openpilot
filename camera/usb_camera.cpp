@@ -515,8 +515,8 @@ int main() {
     cam_max_num = devices.size();
 
     // 设置分辨率
-    int width = 2592;
-    int height = 1944;
+    int width = 1920;
+    int height = 1080;
 
     // 在主线程中创建共享的 VisionIPC 服务器
     VisionIpcServer* vipc_server = new VisionIpcServer("camerad");

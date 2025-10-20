@@ -5,8 +5,8 @@
 
 #define USE_ROADCAMERASTATE
 #define USE_WIDEROADCAMERASTATE
-#define CAM_WIDTH 2592//1920
-#define CAM_HEIGHT 1944//1080
+#define CAM_WIDTH 1920//2592//1920
+#define CAM_HEIGHT 1080//1944//1080
 #define CAM_FPS 20
 
 const char *PATH_VIDEOS = "/home/op/videos/"; // Save record videos.
