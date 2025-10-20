@@ -1445,6 +1445,153 @@ public:
         else if (rightFrontBlind){
             ui_draw_bsd(s, lane_barrier_vertices[1], &color2, true);
         }
+
+        int center_x = s->fb_w / 2;
+        int circle_radius = 30;
+        int vertical_spacing = 80;
+        int horizontal_offset = 150;
+        int top_y = 20;
+        int arrow_body_width = 12;
+        int arrow_body_length = 15;
+        int arrow_head_width = 28;
+        int arrow_head_length = 12;
+
+        // 计算整个箭头的总长度
+        int total_arrow_length = arrow_body_length + arrow_head_length;
+
+        //TEST
+    #if 0
+        left_blindspot = true;
+        carrotLeftBlind = true;
+        leftFrontBlind = true;
+        right_blindspot = true;
+        carrotRightBlind = true;
+        rightFrontBlind = true;
+    #endif
+
+        // 左侧圆形和向左箭头(从上到下)
+        if (leftFrontBlind) {
+            int cx = center_x - horizontal_offset;
+            int cy = top_y + circle_radius;  // 保持在最下方
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(0, 204, 0, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx - total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+        }
+        if (carrotLeftBlind) {
+            int cx = center_x - horizontal_offset;
+            int cy = top_y + vertical_spacing + circle_radius;  // 保持在中间
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(0, 0, 255, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx - total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+        }
+        if (left_blindspot) {
+            int cx = center_x - horizontal_offset;
+            int cy = top_y + vertical_spacing*2 + circle_radius;  // 保持在最上方
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(255, 215, 0, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx - total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+        }
+
+        // 右侧圆形和向右箭头(从上到下)
+        if (rightFrontBlind) {
+            int cx = center_x + horizontal_offset;
+            int cy = top_y + circle_radius;  // 保持在最下方
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(0, 204, 0, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx + total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+        }
+        if (carrotRightBlind) {
+            int cx = center_x + horizontal_offset;
+            int cy = top_y + vertical_spacing + circle_radius;  // 保持在中间
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(0, 0, 255, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx + total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 200));
+            nvgFill(s->vg);
+        }
+        if (right_blindspot) {
+            int cx = center_x + horizontal_offset;
+            int cy = top_y + vertical_spacing*2 + circle_radius;  // 保持在最上方
+            nvgBeginPath(s->vg);
+            nvgCircle(s->vg, cx, cy, circle_radius);
+            nvgFillColor(s->vg, nvgRGBA(255, 215, 0, 150));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgRect(s->vg, cx - total_arrow_length/2, cy - arrow_body_width/2,
+                    arrow_body_length, arrow_body_width);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 255));
+            nvgFill(s->vg);
+            nvgBeginPath(s->vg);
+            nvgMoveTo(s->vg, cx + total_arrow_length/2, cy);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy - arrow_head_width/2);
+            nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy + arrow_head_width/2);
+            nvgClosePath(s->vg);
+            nvgFillColor(s->vg, nvgRGBA(255, 0, 0, 255));
+            nvgFill(s->vg);
+        }
     }
 };
 
