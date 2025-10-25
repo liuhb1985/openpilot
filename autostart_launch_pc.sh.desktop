@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Exec=gnome-terminal -e "bash -c '/home/op/launch_pc.sh;$SHELL'"
+Exec=gnome-terminal -e "bash -c '/home/$LOGNAME/launch_pc.sh;$SHELL'"
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
