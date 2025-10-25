@@ -2,9 +2,9 @@
 
 echo "copy logo.ico"
 cp logo.ico /home/$LOGNAME/
-echo "copy sunnypilot.desktop"
-sudo cp sunnypilot.desktop /usr/share/applications/
-echo "chmod +x sunnypilot.desktop"
+echo "copy Carrotpilot.desktop"
+sudo cp Carrotpilot.desktop /usr/share/applications/
+echo "chmod +x Carrotpilot.desktop"
 sudo chmod +x /usr/share/applications/sunnypilot.desktop
 #增加启动脚本
 echo "copy launch_pc_jy62.sh"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Carrotpilot
+GenericName=Carrotpilot
+Comment=openpilot is an operating system for robotics
+Exec=gnome-terminal -e "bash -c '/home/$LOGNAME/launch_pc_jy62.sh;$SHELL'"
+Terminal=false
+Type=Application
+Icon=/home/$LOGNAME/logo.ico

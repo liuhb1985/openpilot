@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Sunnypilot
-GenericName=Sunnypilot
-Comment=openpilot is an operating system for robotics
-Exec=gnome-terminal -e "bash -c '/home/op/launch_pc.sh;$SHELL'"
-Terminal=false
-Type=Application
-Icon=/home/op/logo.ico
