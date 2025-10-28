@@ -41,7 +41,7 @@ def get_default_params():
 
     ("LongitudinalPersonalityMax", "3"),
     ("ShowDebugLog", "0"),
-    ("ShowDebugUI", "1"),
+    ("ShowDebugUI", "0"),
     ("ShowTpms", "1"),
     ("ShowDateTime", "1"),
     ("ShowPathEnd", "1"),
