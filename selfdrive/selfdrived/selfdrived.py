@@ -475,7 +475,7 @@ class SelfdriveD:
       self.events.add(EventName.fcw)
 
     # TODO: fix simulator
-    if gps_ok:
+    if 0:
       if not SIMULATION or REPLAY:
         # Not show in first 1.5 km to allow for driving out of garage. This event shows after 5 minutes
         gps_ok = self.sm.recv_frame[self.gps_location_service] > 0 and (self.sm.frame - self.sm.recv_frame[self.gps_location_service]) * DT_CTRL < 2.0
