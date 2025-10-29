@@ -323,10 +323,19 @@ class CarrotMan:
             self.xroadcate = 1
           self.carrot_serv.xroadcate = self.xroadcate
         else: #-2
-          xroadcate = 1 if self.carrot_serv.roadcate == 10 else 8
-          if xroadcate == 1:
-            if self.v_cruise_kph < 100:
-              xroadcate = 0
+          #xroadcate = 1 if self.carrot_serv.roadcate == 10 else 8
+          #if xroadcate == 1:
+          #  if self.v_cruise_kph < 100:
+          #    xroadcate = 0
+          if self.carrot_serv.roadcate == 0:
+            xroadcate = 1
+          elif self.carrot_serv.roadcate == 6:
+            xroadcate = 0
+          elif self.carrot_serv.roadcate == 1:
+            xroadcate = 8
+          else:
+            xroadcate = self.carrot_serv.roadcate
+
           self.xroadcate = xroadcate
           self.carrot_serv.xroadcate = self.xroadcate
 

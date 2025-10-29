@@ -162,8 +162,8 @@ private:
     std::deque<bool> queue;   // 仅用于不安全 → 安全的滑动窗口
 };
 
-LaneDebouncerSingleDirection left_checker(10);
-LaneDebouncerSingleDirection right_checker(10);
+LaneDebouncerSingleDirection left_checker(5);
+LaneDebouncerSingleDirection right_checker(5);
 
 // ---------------- YOLO 检测 ----------------
 struct DetectionResult {

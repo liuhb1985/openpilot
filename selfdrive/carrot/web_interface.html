@@ -667,6 +667,17 @@
             text-align: center;
             color: #888;
         }
+
+        /* 🚀 新增：预决策状态显示 */
+        .pre-decision-status {
+            font-size: 0.6rem;
+            margin-top: 3px;
+            text-align: center;
+            padding: 2px;
+            border-radius: 3px;
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -733,6 +744,9 @@
                     
                     <!-- 🛣️ 当前车道显示 -->
                     <div class="current-lane-display" id="current-lane-display">当前车道: -</div>
+                    
+                    <!-- 🚀 新增：预决策状态显示 -->
+                    <div class="pre-decision-status" id="pre-decision-status" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -1506,6 +1520,21 @@
         }
 
         /**
+         * 🚀 更新预决策状态显示
+         */
+        function updatePreDecisionStatus(bestDirection, bestScore) {
+            const statusElement = document.getElementById('pre-decision-status');
+            if (bestDirection && bestScore > 50) {
+                const directionText = bestDirection === 'LEFT' ? '左' : '右';
+                statusElement.textContent = `🚀 预决策: ${directionText}车道 (${bestScore.toFixed(1)}%)`;
+                statusElement.style.display = 'block';
+                statusElement.className = 'pre-decision-status';
+            } else {
+                statusElement.style.display = 'none';
+            }
+        }
+
+        /**
          * 📊 智能数据更新
          */
         function updateDisplay(data) {
@@ -1691,6 +1720,11 @@
 
             if (data.return_strategy_enabled !== lastData.return_strategy_enabled || data.road_type_display !== lastData.road_type_display) {
                 updateReturnStrategyStatus(data.return_strategy_enabled, data.road_type_display);
+            }
+
+            // 🚀 更新预决策状态显示
+            if (data.pre_decision_direction && data.pre_decision_score) {
+                updatePreDecisionStatus(data.pre_decision_direction, data.pre_decision_score);
             }
 
             const stateText = data.os || '等待超车条件';
