@@ -2853,10 +2853,10 @@ public:
       int bx = s->fb_w - 125;
       int by = s->fb_h - 280 / 2 + 15;
       auto tpms = car_state.getTpms();
-      float fl = tpms.getFl();
-      float fr = tpms.getFr();
-      float rl = tpms.getRl();
-      float rr = tpms.getRr();
+      float fl = tpms.getFl() * 0.07;
+      float fr = tpms.getFr() * 0.07;
+      float rl = tpms.getRl() * 0.07;
+      float rr = tpms.getRr() * 0.07;
 #ifdef __UI_TEST
       fl = fr = rl = rr = 29;
 #endif
