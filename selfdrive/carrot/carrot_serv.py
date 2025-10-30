@@ -829,7 +829,7 @@ class CarrotServ:
       atc_desired = min(atc_desired, self.calculate_current_speed(x_dist_to_turn - atc_dist, atc_speed, safe_sec, decel))
 
     if (self.showDebugLog & 1) > 0 and check_steer:
-      debugText = (f"***atc info: type={atc_type_org},{atc_type},xdist={x_dist_to_turn:.1f},max_xdist={self.xDistToTurnMax:.1f}(cnt:{self.xDistToTurnMaxCnt})," +
+      debugText = (f"***atc info: type=({x_turn_info}){atc_type_org},{atc_type},desire_speed={atc_desired:.1f},xdist={x_dist_to_turn:.1f},max_xdist={self.xDistToTurnMax:.1f}(cnt:{self.xDistToTurnMaxCnt})," +
                    f"start_dist={atc_start_dist:.1f},atc_dist={atc_dist:.1f},fork_dist={do_fork_dist:.1f}," +
                    f"[fork_dist_offset={fork_dist_offset:.1f},nav_fork_dist={do_fork_nav_dist:.1f},dec_dist={do_speed_decal_dist:.1f}]," +
                    f"atc_speed={atc_speed_org:.1f},{atc_speed:.1f},fork keep:{self.fork_speed_keep_time:.1f}s,{self.atc_speed_decal:.1f}km/h,paused={self.atc_paused}"
@@ -1302,13 +1302,13 @@ class CarrotServ:
           nRoadLimitSpeed = min(nRoadLimitSpeed + add_val, 60)
       else:
         nRoadLimitSpeed = 30
-      #self.nRoadLimitSpeed = nRoadLimitSpeed
-      if self.nRoadLimitSpeed != nRoadLimitSpeed:
-        self.nRoadLimitSpeed_counter += 1
-        if self.nRoadLimitSpeed_counter > 5:
-          self.nRoadLimitSpeed = nRoadLimitSpeed
-      else:
-        self.nRoadLimitSpeed_counter = 0
+      self.nRoadLimitSpeed = nRoadLimitSpeed
+      #if self.nRoadLimitSpeed != nRoadLimitSpeed:
+      #  self.nRoadLimitSpeed_counter += 1
+      #  if self.nRoadLimitSpeed_counter > 5:
+      #    self.nRoadLimitSpeed = nRoadLimitSpeed
+      #else:
+      #  self.nRoadLimitSpeed_counter = 0
 
       ### SDI
       self.nSdiType = int(json.get("nSdiType", -1))

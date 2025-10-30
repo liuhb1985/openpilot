@@ -407,12 +407,9 @@ void execAndReboot(const std::string& cmd) {
 void DevicePanel::calibration() {
   if (!uiState()->engaged()) {
     QStringList calibOptions;
-    calibOptions << tr("ClearAllParams")
+    calibOptions << tr("AllCalibParams")
                  << tr("CalibrationParams")
-                 << tr("LiveDelay")
-                 << tr("LiveTorqueParameters")
-                 << tr("LiveParameters")
-                 << tr("LiveParametersV2");
+                 << tr("AllLiveParams");
 
     QString selectedParam = MultiOptionDialog::getSelection(
       tr("Select calibration parameter to reset"),
@@ -435,10 +432,14 @@ void DevicePanel::calibration() {
       std::string base = "~/.comma/params/d";
       std::string cmd;
 
-      if (selectedParam == "ClearAllParams") {
+      if (selectedParam == "AllCalibParams" || selectedParam == "所有校准参数") {
         cmd = "cd " + base + " && rm -f CalibrationParams LiveParameters LiveParametersV2 LiveTorqueParameters LiveDelay";
       } else {
-        cmd = "cd " + base + " && rm -f " + selectedParam.toStdString();
+        if(selectedParam == "CalibrationParams" || selectedParam == "相机校准参数"){
+          cmd = "cd " + base + " && rm -f CalibrationParams";
+        }else if(selectedParam == "AllLiveParams" || selectedParam == "实时学习参数"){
+          cmd = "cd " + base + " && rm -f LiveParameters LiveParametersV2 LiveTorqueParameters LiveDelay";
+        }
       }
 
       execAndReboot(cmd);

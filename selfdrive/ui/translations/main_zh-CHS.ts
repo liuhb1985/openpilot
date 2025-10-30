@@ -413,12 +413,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>ClearAllParams</source>
-        <translation type="unfinished"></translation>
+        <source>AllCalibParams</source>
+        <translation>所有校准参数</translation>
     </message>
     <message>
         <source>CalibrationParams</source>
-        <translation type="unfinished"></translation>
+        <translation>相机校准参数</translation>
     </message>
     <message>
         <source>LiveDelay</source>
@@ -436,6 +436,10 @@
         <source>LiveParametersV2</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>AllLiveParams</source>
+        <translation>实时学习参数</translation>
+    </message>    
     <message>
         <source>Select calibration parameter to reset</source>
         <translation>请选择你要重置的校准参数</translation>
