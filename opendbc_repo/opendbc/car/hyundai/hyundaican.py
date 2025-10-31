@@ -35,6 +35,10 @@ def create_lkas11(packer, frame, CP, apply_torque, steer_req,
   values["CF_Lkas_MsgCount"] = frame % 0x10
 
   if CP.flags & HyundaiFlags.SEND_LFA.value or CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE):
+    if enabled and not sys_warning:
+        values["CF_Lkas_LdwsSysState"] = 3  # Green car with lanes icon
+    else:
+        values["CF_Lkas_LdwsSysState"] = 1  # White car with lanes icon
     values["CF_Lkas_LdwsActivemode"] = int(left_lane) + (int(right_lane) << 1)
     values["CF_Lkas_LdwsOpt_USM"] = 2
 
