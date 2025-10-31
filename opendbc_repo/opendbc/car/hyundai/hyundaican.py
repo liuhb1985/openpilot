@@ -124,7 +124,7 @@ def create_lfahda_mfc(packer, CC, blinking_signal):
   activeCarrot = CC.hudControl.activeCarrot
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
-    #"HDA_Active": 1 if activeCarrot >= 2 else 0,
+    "HDA_Active": 1 if activeCarrot >= 2 else 0,
     #"HDA_Icon_State": 2 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 2 else 0,
     "HDA_Icon_State": 0 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 1 else 0,
     "HDA_VSetReq": 0, #set_speed_in_units if activeCarrot >= 2 else 0,
