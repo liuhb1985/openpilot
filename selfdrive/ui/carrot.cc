@@ -739,11 +739,11 @@ public:
         else if (longActive) {
             if (xState == 3 || xState == 5) {      //XState.e2eStop, XState.e2eStopped
                 if (v_ego < 1.0) {
-                    sprintf(str, "%s", (trafficState >= 1000) ? tr("Signal Error").toStdString().c_str(): tr("Signal Ready").toStdString().c_str());
+                    sprintf(str, "%s", (trafficState >= 1000) ? "信号错误" : "信号等待");
                     ui_draw_text(s, x, disp_y, str, disp_size, COLOR_WHITE, BOLD);
                 }
                 else {
-                    ui_draw_text(s, x, disp_y, tr("Signal slowing").toStdString().c_str(), disp_size, COLOR_WHITE, BOLD);
+                    ui_draw_text(s, x, disp_y, "信号减速中", disp_size, COLOR_WHITE, BOLD);
                 }
 #if 0
                 else if (getStopDist() > 0.5) {
@@ -755,7 +755,7 @@ public:
 #endif
             }
             else if (xState == 4) {     //XState.e2ePrepare
-				      ui_draw_text(s, x, disp_y, "E2E주행중", disp_size, COLOR_WHITE, BOLD);
+				      ui_draw_text(s, x, disp_y, "E2E模式", disp_size, COLOR_WHITE, BOLD);
 			      }
             else if (xState == 0 || xState == 1 || xState == 2) {     //XState.lead
                 draw_dist = true;
@@ -1115,10 +1115,10 @@ protected:
         active_carrot = 2;
         nGoPosDist = 500000;
         nGoPosTime = 4 * 60 * 60;
-        szSdiDescr = "어린이 보호구역(스쿨존 시작 구간)";
+        szSdiDescr = "儿童保护区域（学校区域起始路段）";
         xTurnInfo = 1;
         xDistToTurn = 1000;
-        szPosRoadName = "구문천 1길 17";
+        szPosRoadName = "九文川1街17号";
 #endif
 
         //if (active_carrot <= 1) return;
@@ -1160,9 +1160,9 @@ protected:
             case 4: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_lane_change_r", 1.0f); break;
             case 7: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_turn_u", 1.0f); break;
             case 6: ui_draw_text(s, bx, by + 20, "TG", 35, COLOR_WHITE, BOLD); break;
-            case 8: ui_draw_text(s, bx, by + 20, "목적지", 35, COLOR_WHITE, BOLD); break;
+            case 8: ui_draw_text(s, bx, by + 20, "目的地", 35, COLOR_WHITE, BOLD); break;
             default:
-                sprintf(str, "감속:%d", xTurnInfo);
+                sprintf(str, "减速:%d", xTurnInfo);
                 ui_draw_text(s, bx, by + 20, str, 35, COLOR_WHITE, BOLD);
                 break;
             }
@@ -1197,8 +1197,7 @@ protected:
             int remaining_minutes = (int)nGoPosTime / 60;
             local->tm_min += remaining_minutes;
             mktime(local);
-            bool is_kor = s->language == "main_ko";
-            sprintf(str, "%s: %.1f%s(%02d:%02d)", (is_kor)?"도착":"ETA", (float)nGoPosTime / 60., (is_kor)?"분":"MIN", local->tm_hour, local->tm_min);
+            sprintf(str, "到达: %.1f分(%02d:%02d)", (float)nGoPosTime / 60., local->tm_hour, local->tm_min);
             ui_draw_text(s, tbt_x + 190, tbt_y + 80, str, 50, COLOR_WHITE, BOLD);
             sprintf(str, "%.1f%s", nGoPosDist / 1000. * ((s->scene.is_metric)?1:KM_TO_MILE), (s->scene.is_metric) ? "km" : "mile");
             ui_draw_text(s, tbt_x + 190 + 120, tbt_y + 130, str, 50, COLOR_WHITE, BOLD);
@@ -2572,7 +2571,7 @@ public:
         const SubMaster& sm = *(s->sm);
 
         // draw gap info
-        char driving_mode_str[32] = "연비";
+        char driving_mode_str[32] = "经济";
         int driving_mode = myDrivingMode;// params.getInt("MyDrivingMode");
         NVGcolor mode_color = COLOR_GREEN_ALPHA(210);
         NVGcolor text_color = COLOR_WHITE;
@@ -2803,8 +2802,12 @@ public:
 
     const char* get_tpms_text(float tpms) {
         if (tpms < 5 || tpms > 60) return "  -";
+
+        float bar = tpms * 0.0689476f;   // psi → bar 更换胎压显示单位
         static char str[32];
-        snprintf(str, sizeof(str), "%.0f", round(tpms));
+        snprintf(str, sizeof(str), "%.2f", bar);   // 保留两位小数
+        // static char str[32];
+        // snprintf(str, sizeof(str), "%.0f", round(tpms));
         return str;
     }
     void drawTpms(const UIState* s) {
@@ -2853,10 +2856,10 @@ public:
       int bx = s->fb_w - 125;
       int by = s->fb_h - 280 / 2 + 15;
       auto tpms = car_state.getTpms();
-      float fl = tpms.getFl() * 0.07;
-      float fr = tpms.getFr() * 0.07;
-      float rl = tpms.getRl() * 0.07;
-      float rr = tpms.getRr() * 0.07;
+      float fl = tpms.getFl();
+      float fr = tpms.getFr();
+      float rl = tpms.getRl();
+      float rr = tpms.getRr();
 #ifdef __UI_TEST
       fl = fr = rl = rr = 29;
 #endif
@@ -3214,7 +3217,42 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        sprintf(bottom_left, "%s", gitBranch.toStdString().c_str());
+
+        // 获取速度相关数据
+        float v_ego_kph = car_state.getVEgo() * MS_TO_KPH;
+        float v_cruise = car_state.getVCruiseCluster();
+
+        // 获取其他速度数据
+        float apply_speed = 250.0;
+        int nRoadLimitSpeed = 30;
+        int xSpdLimit = 0;
+        float cruiseTarget = 0.0;
+
+        // 从carrotMan获取数据（如果可用）
+        if (sm.alive("carrotMan")) {
+            const auto carrot_man = sm["carrotMan"].getCarrotMan();
+            apply_speed = carrot_man.getDesiredSpeed();
+            nRoadLimitSpeed = carrot_man.getNRoadLimitSpeed();
+            xSpdLimit = carrot_man.getXSpdLimit();
+        }
+
+        // 从longitudinalPlan获取cruiseTarget
+        if (sm.alive("longitudinalPlan")) {
+            const auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+            cruiseTarget = lp.getCruiseTarget();
+        }
+
+        // 格式化速度信息字符串
+        char speed_info[256];
+        sprintf(speed_info, "%s_%.0f_%.0f_%.0f_%d_%d_%.0f",
+                gitBranch.toStdString().c_str(),
+                v_ego_kph,
+                v_cruise,
+                apply_speed,
+                nRoadLimitSpeed,
+                xSpdLimit,
+                cruiseTarget);
+        sprintf(bottom_left, "%s", speed_info);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");

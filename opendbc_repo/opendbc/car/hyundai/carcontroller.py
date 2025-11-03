@@ -102,6 +102,10 @@ class CarController(CarControllerBase):
     self.steerDeltaUpOrg = self.steerDeltaUp = self.steerDeltaUpLC = self.params.STEER_DELTA_UP
     self.steerDeltaDownOrg = self.steerDeltaDown = self.steerDeltaDownLC = self.params.STEER_DELTA_DOWN
 
+    # CPv9pc fusion add: track current longitudinal source ('radar'|'camera')
+    self.long_control_source = None
+    self.long_switch_frame = 0
+
   def update(self, CC, CS, now_nanos):
 
     if self.frame % 50 == 0:
@@ -308,10 +312,20 @@ class CarController(CarControllerBase):
           else:
             can_sends.extend(hyundaicanfd.create_fca_warning_light(self.CP, self.packer, self.CAN, self.frame))
         if self.frame % 2 == 0:
-          if self.CP.flags & HyundaiFlags.CAMERA_SCC.value:
+          # decide source: radar or camera
+          camera_scc_flag = bool(self.CP.flags & HyundaiFlags.CAMERA_SCC.value)
+          chosen = self.choose_longitudinal_source(CC, CS, hud_control, camera_scc_flag)
+          # Smooth switching: remember source and record switch frame
+          if self.long_control_source != chosen:
+            self.long_control_source = chosen
+            self.long_switch_frame = self.frame
+
+          if chosen == "camera" and camera_scc_flag:
+            # camera SCC control (visual longitudinal)
             can_sends.append(hyundaicanfd.create_acc_control_scc2(self.packer, self.CAN, CC.enabled, self.accel_last, accel, stopping, CC.cruiseControl.override,
-                                                             set_speed_in_units, hud_control, self.hyundai_jerk, CS))
-            can_sends.extend(hyundaicanfd.create_tcs_messages(self.packer, self.CAN, CS)) # for sorento SCC radar...
+                                                                 set_speed_in_units, hud_control, self.hyundai_jerk, CS))
+            # TCS / radar assist messages if needed
+            can_sends.extend(hyundaicanfd.create_tcs_messages(self.packer, self.CAN, CS))
           else:
             can_sends.append(hyundaicanfd.create_acc_control(self.packer, self.CAN, CC.enabled, self.accel_last, accel, stopping, CC.cruiseControl.override,
                                                              set_speed_in_units, hud_control, self.hyundai_jerk.jerk_u, self.hyundai_jerk.jerk_l, CS))
@@ -340,10 +354,17 @@ class CarController(CarControllerBase):
         self.hyundai_jerk.check_carrot_cruise(CC, CS, hud_control, stopping, accel, actuators.aTarget)
         #jerk = 3.0 if actuators.longControlState == LongCtrlState.pid else 1.0
         use_fca = self.CP.flags & HyundaiFlags.USE_FCA.value
-        if camera_scc:
+        camera_scc_flag = bool(self.CP.flags & HyundaiFlags.CAMERA_SCC)
+        chosen = self.choose_longitudinal_source(CC, CS, hud_control, camera_scc_flag)
+        if self.long_control_source != chosen:
+          self.long_control_source = chosen
+          self.long_switch_frame = self.frame
+
+        # route to camera or radar command generator
+        if chosen == "camera" and camera_scc_flag:
           can_sends.extend(hyundaican.create_acc_commands_scc(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
-                                                          hud_control, set_speed_in_units, stopping,
-                                                          CC.cruiseControl.override, use_fca, CS, self.soft_hold_mode))
+                                                              hud_control, set_speed_in_units, stopping,
+                                                              CC.cruiseControl.override, use_fca, CS, self.soft_hold_mode))
         else:
           can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
                                                 hud_control, set_speed_in_units, stopping,
@@ -588,3 +609,33 @@ class HyundaiJerk:
         self.cb_upper = np.clip(0.9 + accel * 0.2, 0, 1.2)
         self.cb_lower = np.clip(0.8 + accel * 0.2, 0, 1.2)
 
+  # CPv9pc fusion add: decision helper for longitudinal source
+  def choose_longitudinal_source(self, CC, CS, hud_control, camera_scc):
+    """
+    Decide whether to use 'radar' or 'camera' for longitudinal control.
+    Rules (CarrotPilot style):
+      - If radar (SCC) sees a lead -> prefer radar
+      - Else if camera_scc supported -> prefer camera
+      - ATC/activeCarrot can force camera decel behaviour if configured
+    Returns: 'radar' or 'camera'
+    """
+    # If we have explicit radar object visible, prefer radar
+    has_radar_lead = hud_control.leadVisible
+
+    # activeCarrot indicates special camera-based speed decel (speed camera, ATC)
+    active_camera_decel = hud_control.activeCarrot == 3
+
+    # If radar has lead, prefer radar
+    if has_radar_lead:
+      return "radar"
+
+    # If no radar lead and camera SCC is available, use camera
+    if camera_scc:
+      # if active camera decel prefer camera
+      if active_camera_decel:
+        return "camera"
+      # prefer camera when no radar target
+      return "camera"
+
+    # fallback to radar if camera not supported
+    return "radar"
