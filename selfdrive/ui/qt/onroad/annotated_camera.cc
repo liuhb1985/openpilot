@@ -24,7 +24,7 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
 
   experimental_btn = new ExperimentalButton(this);
   main_layout->addWidget(experimental_btn, 0, Qt::AlignTop | Qt::AlignRight);
-  
+
   record_timer = std::make_shared<QTimer>();
 	QObject::connect(record_timer.get(), &QTimer::timeout, [=]() {
     if(recorder) {
@@ -35,7 +35,7 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
 
 	recorder = new ScreenRecoder(this);
 	main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight);
-  
+
 }
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
@@ -169,8 +169,13 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
 
     // Wide or narrow cam dependent on speed
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
+    bool wide_cam_valid = frames.count("wide") && !frames["wide"].empty();   // 帧有效性
+    bool tele_cam_valid = frames.count("road") && !frames["road"].empty();   // 长焦有效性
+    bool night_mode = s->scene.light_level < 50;  // 夜间判断，可调整阈值
+
     if (has_wide_cam) {
       float v_ego = sm["carState"].getCarState().getVEgo();
+      // 默认速度条件切换
       if ((v_ego < 5) || available_streams.size() == 1) {
         wide_cam_requested = true;
       } else if (v_ego > 8) {
@@ -178,6 +183,26 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       }
       //wide_cam_requested = wide_cam_requested && sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
       //wide_cam_requested = wide_cam_requested && s->scene.carrot_experimental_mode;
+      if (night_mode && !wide_cam_valid && tele_cam_valid) {
+          wide_cam_requested = false; // 使用长焦
+      }
+
+      // 丢帧容错：如果两路都不可用，用最近有效帧继续绘制
+      if (!wide_cam_valid && !tele_cam_valid) {
+          if (!last_wide_frame.empty()) {
+              wide_cam_requested = true;
+              frames["wide"] = last_wide_frame;
+          } else if (!last_tele_frame.empty()) {
+              wide_cam_requested = false;
+              frames["road"] = last_tele_frame;
+          } else {
+              return; // 两路都无可用帧，直接退出
+          }
+      }
+
+      // 缓存最近有效帧
+      if (wide_cam_valid) last_wide_frame = frames["wide"];
+      if (tele_cam_valid) last_tele_frame = frames["road"];
     }
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
@@ -192,7 +217,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   model.draw(painter, rect());
   painter.beginNativePainting();
   try {
-      ui_draw(s, &model, width(), height());      
+      ui_draw(s, &model, width(), height());
   } catch (const std::exception &e) {
 	LOGE("ui_nvg_draw failed: %s", e.what());
     print_stack_trace();
