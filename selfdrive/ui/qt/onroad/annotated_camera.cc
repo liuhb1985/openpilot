@@ -94,7 +94,7 @@ mat4 AnnotatedCameraWidget::calcFrameMatrix() {
    // Compute the calibration transformation matrix
   const auto calib_transform = intrinsic_matrix * calibration;
 
-  float zoom = wide_cam ? 2.0 : 1.1;
+  float zoom = wide_cam ? 1.5 : 1.1;
   Eigen::Vector3f inf(1000., 0., 0.);
   auto Kep = calib_transform * inf;
 
@@ -171,9 +171,9 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam) {
       float v_ego = sm["carState"].getCarState().getVEgo();
-      if ((v_ego < 10) || available_streams.size() == 1) {
+      if ((v_ego < 5) || available_streams.size() == 1) {
         wide_cam_requested = true;
-      } else if (v_ego > 15) {
+      } else if (v_ego > 8) {
         wide_cam_requested = false;
       }
       //wide_cam_requested = wide_cam_requested && sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
