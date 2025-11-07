@@ -122,15 +122,38 @@ def create_clu11(packer, frame, clu11, button, CP):
 
 def create_lfahda_mfc(packer, CC, blinking_signal):
   activeCarrot = CC.hudControl.activeCarrot
+
+  # --- HDA Icon State ---
+  # 0 = off
+  # 1 = standby (gray)
+  # 2 = active (green)
+  # 3 = blinking (lane change)
+  # 4 = animated (HDA2 lane change animation)
+
+  # Default
+  HDA_Icon_State = 0
+
+  if activeCarrot == 4:
+    HDA_Icon_State = 4
+  elif activeCarrot == 3:
+    HDA_Icon_State = 3 if blinking_signal else 2
+  elif activeCarrot == 2:
+    HDA_Icon_State = 2
+  elif activeCarrot == 1:
+    HDA_Icon_State = 1
+
   values = {
+    # LFA 图标
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
-    #"HDA_Active": 1 if activeCarrot >= 2 else 0,
-    #"HDA_Icon_State": 2 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 2 else 0,
-    "HDA_Icon_State": 0 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 1 else 0,
-    "HDA_VSetReq": 0, #set_speed_in_units if activeCarrot >= 2 else 0,
-    "HDA_USM" : 2,
-    "HDA_Icon_Wheel" : 1 if CC.latActive else 0,
-    #"HDA_Chime" : 1 if CC.latActive else 0, # comment for K9 chime,
+    # HDA 激活
+    "HDA_Active": 1 if activeCarrot >= 2 else 0,
+    # HDA 图标控制
+    "HDA_Icon_State": HDA_Icon_State,
+    # HDA 其他字段
+    "HDA_VSetReq": 0,
+    "HDA_USM": 2,
+    # 方向盘图标
+    "HDA_Icon_Wheel": 1 if CC.latActive else 0,
   }
   return packer.make_can_msg("LFAHDA_MFC", 0, values)
 
