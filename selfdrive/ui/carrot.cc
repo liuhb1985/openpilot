@@ -2805,7 +2805,7 @@ public:
 
         float bar = tpms * 0.0689476f;   // psi → bar 更换胎压显示单位
         static char str[32];
-        snprintf(str, sizeof(str), "%.2f", bar);   // 保留两位小数
+        snprintf(str, sizeof(str), "%.1f", bar);   // 保留两位小数
         // static char str[32];
         // snprintf(str, sizeof(str), "%.0f", round(tpms));
         return str;
