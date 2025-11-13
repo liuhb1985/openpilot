@@ -1042,7 +1042,7 @@ class CarrotMan:
       self.save_toggle_values()
       try:
         #with open("/data/backup_params.json", "rb") as file:
-        with open("/data/toggle_values.json", "rb") as file:
+        with open("/home/$LOGNAME/openpilot/toggle_values.json", "rb") as file:
           ftp.storbinary(f'STOR toggles-{current_time}.json', file)
       except Exception as e:
         print(f"ftp params sending error...: {e}")
