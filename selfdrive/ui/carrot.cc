@@ -2876,7 +2876,7 @@ public:
         memoryUsage = deviceState.getMemoryUsagePercent();
         const auto cpuTempC = deviceState.getCpuTempC();
         const auto cpuUsagePercent = deviceState.getCpuUsagePercent();
-        gpuUsage = deviceState.getGpuUsagePercent();
+        const auto gpuUsage = deviceState.getGpuUsagePercent();
         cpuTemp = 0.0f;
         if (cpuTempC.size() > 0) {
             for (int i = 0; i < cpuTempC.size(); i++) {
