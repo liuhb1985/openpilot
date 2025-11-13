@@ -2576,11 +2576,11 @@ public:
         NVGcolor mode_color = COLOR_GREEN_ALPHA(210);
         NVGcolor text_color = COLOR_WHITE;
         switch (driving_mode) {
-        case 1: strcpy(driving_mode_str, tr("ECO").toStdString().c_str()); mode_color = COLOR_GREEN_ALPHA(210);  break;
-        case 2: strcpy(driving_mode_str, tr("SAFE").toStdString().c_str()); mode_color = COLOR_ORANGE_ALPHA(210);  text_color = COLOR_WHITE;  break;
-        case 3: strcpy(driving_mode_str, tr("NORM").toStdString().c_str()); mode_color = COLOR_GREY_ALPHA(210);  text_color = COLOR_WHITE;  break;
-        case 4: strcpy(driving_mode_str, tr("FAST").toStdString().c_str()); mode_color = COLOR_RED_ALPHA(210);  break;
-        default: strcpy(driving_mode_str, tr("ERRM").toStdString().c_str()); break;
+        case 1: strcpy(driving_mode_str, tr("经 济").toStdString().c_str()); mode_color = COLOR_GREEN_ALPHA(210);  break;
+        case 2: strcpy(driving_mode_str, tr("安 全").toStdString().c_str()); mode_color = COLOR_ORANGE_ALPHA(210);  text_color = COLOR_WHITE;  break;
+        case 3: strcpy(driving_mode_str, tr("标 准").toStdString().c_str()); mode_color = COLOR_BLUE_ALPHA(210);  text_color = COLOR_WHITE;  break;
+        case 4: strcpy(driving_mode_str, tr("运 动").toStdString().c_str()); mode_color = COLOR_RED_ALPHA(210);  break;
+        default: strcpy(driving_mode_str, tr("错 误").toStdString().c_str()); break;
         }
         int dx = bx - 50;
         int dy = by + 175;
@@ -2876,6 +2876,7 @@ public:
         memoryUsage = deviceState.getMemoryUsagePercent();
         const auto cpuTempC = deviceState.getCpuTempC();
         const auto cpuUsagePercent = deviceState.getCpuUsagePercent();
+        gpuUsage = deviceState.getGpuUsagePercent();
         cpuTemp = 0.0f;
         if (cpuTempC.size() > 0) {
             for (int i = 0; i < cpuTempC.size(); i++) {
@@ -2886,12 +2887,11 @@ public:
 
         cpuUsage = 0.0f;
         if (cpuUsagePercent.size() > 0) {
-            int cpu_size = 0;
-            for (cpu_size = 0; cpu_size < cpuUsagePercent.size(); cpu_size++) {
-                if (cpuUsagePercent[cpu_size] <= 0) break;
-                cpuUsage += cpuUsagePercent[cpu_size];
+            float total_usage = 0.0f;
+            for (int i = 0; i < cpuUsagePercent.size(); i++) {
+                total_usage += cpuUsagePercent[i];
             }
-            if (cpu_size > 0) cpuUsage /= cpu_size;
+            cpuUsage = total_usage / cpuUsagePercent.size();
         }
 
         auto peripheralState = sm["peripheralState"].getPeripheralState();
@@ -3188,7 +3188,7 @@ public:
         const auto live_delay = sm["liveDelay"].getLiveDelay();
         const auto live_torque_params = sm["liveTorqueParameters"].getLiveTorqueParameters();
         const auto live_params = sm["liveParameters"].getLiveParameters();
-        str.sprintf("LD[%.0f%%,%.2f],LT[%.0f%%,%s](LA[%.2f]/FRIC[%.2f]), SR(%.1f,%.1f)",
+        str.sprintf("LD[%.0f%%,%.2f],LT[%.0f%%,%s](%.2f/%.2f), SR(%.1f,%.1f)",
             (float)live_delay.getCalPerc(), live_delay.getLateralDelay(),
             (float)live_torque_params.getCalPerc(), live_torque_params.getLiveValid() ? "ON" : "OFF",
             live_torque_params.getLatAccelFactorFiltered(), live_torque_params.getFrictionCoefficientFiltered(),
@@ -3217,42 +3217,7 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-
-        // 获取速度相关数据
-        float v_ego_kph = car_state.getVEgo() * MS_TO_KPH;
-        float v_cruise = car_state.getVCruiseCluster();
-
-        // 获取其他速度数据
-        float apply_speed = 250.0;
-        int nRoadLimitSpeed = 30;
-        int xSpdLimit = 0;
-        float cruiseTarget = 0.0;
-
-        // 从carrotMan获取数据（如果可用）
-        if (sm.alive("carrotMan")) {
-            const auto carrot_man = sm["carrotMan"].getCarrotMan();
-            apply_speed = carrot_man.getDesiredSpeed();
-            nRoadLimitSpeed = carrot_man.getNRoadLimitSpeed();
-            xSpdLimit = carrot_man.getXSpdLimit();
-        }
-
-        // 从longitudinalPlan获取cruiseTarget
-        if (sm.alive("longitudinalPlan")) {
-            const auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
-            cruiseTarget = lp.getCruiseTarget();
-        }
-
-        // 格式化速度信息字符串
-        char speed_info[256];
-        sprintf(speed_info, "%s_%.0f_%.0f_%.0f_%d_%d_%.0f",
-                gitBranch.toStdString().c_str(),
-                v_ego_kph,
-                v_cruise,
-                apply_speed,
-                nRoadLimitSpeed,
-                xSpdLimit,
-                cruiseTarget);
-        sprintf(bottom_left, "%s", speed_info);
+        sprintf(bottom_left, "%s", gitBranch.toStdString().c_str());
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
