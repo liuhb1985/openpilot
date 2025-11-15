@@ -15,12 +15,12 @@ HOUR=$(date +%H)
 # 判断时间
 if [ "$HOUR" -ge 8 ] && [ "$HOUR" -lt 17 ]; then
     echo "☀️ 白天模式：启用广角 + 长焦摄像头"
-    USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py
+    USE_USBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py
     #USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用sensor_jy62
-    #USE_WEBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
+    #USE_USBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
 else
     echo "🌙 夜间模式：仅启用长焦摄像头"
     #USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py
     #USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用sensor_jy62
-    USE_WEBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
+    USE_USBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
 fi
