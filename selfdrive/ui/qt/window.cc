@@ -1,6 +1,7 @@
 #include "selfdrive/ui/qt/window.h"
 
 #include <QFontDatabase>
+#include <QKeyEvent>
 
 #include "system/hardware/hw.h"
 
@@ -63,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     }
   )");
   setAttribute(Qt::WA_NoSystemBackground);
+  installEventFilter(this);
 }
 
 void MainWindow::openSettings(int index, const QString &param) {
@@ -79,6 +81,19 @@ void MainWindow::closeSettings() {
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
+  if (event->type() == QEvent::KeyPress) {
+    QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+    if (keyEvent->key() == Qt::Key_F11) {
+      // Toggle fullscreen mode
+      if (isFullScreen()) {
+        showNormal();
+      } else {
+        showFullScreen();
+      }
+      return true;
+    }
+  }
+
   bool ignore = false;
   switch (event->type()) {
     case QEvent::TouchBegin:
