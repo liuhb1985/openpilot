@@ -36,8 +36,8 @@ const Eigen::Matrix3f FCAM_INTRINSIC_MATRIX = (Eigen::Matrix3f() <<
 // tici ecam focal probably wrong? magnification is not consistent across frame
 // Need to retrain model before this can be changed
 const Eigen::Matrix3f ECAM_INTRINSIC_MATRIX = (Eigen::Matrix3f() <<
-  567.0, 0.0, 2592.0 / 2,
-  0.0, 567.0, 1944.0 / 2,
+  793.0, 0.0, 2592.0 / 2,
+  0.0, 793.0, 1944.0 / 2,
   0.0, 0.0, 1.0).finished();
 
 typedef enum UIStatus {
