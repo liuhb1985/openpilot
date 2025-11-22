@@ -2704,7 +2704,7 @@ public:
             dx = bx - 35;
             dy = by - 200;
             mode_color = COLOR_GREEN_ALPHA(190);
-            if (disp_timer < 100) {
+            if (disp_timer < 50) {
                 ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (cpuTemp>80 && blink_timer<=8)?COLOR_RED : mode_color, 15, 2);
                 ui_draw_text(s, dx, dy-5, "CPU", 25, COLOR_WHITE, BOLD);
                 sprintf(str, "%.0f\u00B0C", cpuTemp);
