@@ -104,7 +104,8 @@ DebugStream dcout;
 // ---------------- ROI ----------------
 struct CameraROI {
     std::vector<cv::Point> polygon;
-    int selected_idx = -1; // 拖动顶点索引
+    int selected_idx = -1;
+    std::vector<CameraROI> sub_rois; // 支持多个子ROI区域，用于左盲区和右盲区
 };
 std::vector<CameraROI> camera_rois;
 std::vector<int> camera_car;
@@ -161,6 +162,21 @@ private:
     bool status;              // 当前稳定状态
     std::deque<bool> queue;   // 仅用于不安全 → 安全的滑动窗口
 };
+
+// 定义左右盲区的状态
+enum BlindSpotSide {
+    LEFT_BLIND_SPOT = 0,
+    RIGHT_BLIND_SPOT = 1
+};
+
+// 盲区检测状态
+struct BlindSpotStatus {
+    bool left_detected = false;
+    bool right_detected = false;
+};
+
+// 每个摄像头的盲区状态
+std::vector<BlindSpotStatus> camera_blind_spots;
 
 LaneDebouncerSingleDirection left_checker(5);
 LaneDebouncerSingleDirection right_checker(5);
@@ -295,15 +311,35 @@ DetectionResult detect_cars(cv::Mat& frame) {
 
 
 // ---------------- ROI 判断 ----------------
-bool is_in_roi(const cv::Rect& box, const std::vector<cv::Point>& polygon) {
-    if (polygon.empty()) return true;
-    int cx = box.x + box.width / 2;
-    int cy = box.y + box.height;
-    return cv::pointPolygonTest(polygon, cv::Point(cx, cy), false) >= 0;
+bool is_in_roi(const cv::Rect& rect, const std::vector<cv::Point>& polygon) {
+    if (polygon.size() < 3) return false;
+
+    // 检查矩形的中心点是否在多边形内
+    cv::Point2f center = cv::Point2f(rect.x + rect.width/2.0f, rect.y + rect.height/2.0f);
+    return cv::pointPolygonTest(polygon, center, false) >= 0;
+}
+
+// 重载函数，用于检查点是否在任何子ROI区域内
+bool is_in_any_roi(const cv::Rect& rect, const std::vector<CameraROI>& sub_rois) {
+    for (const auto& sub_roi : sub_rois) {
+        if (is_in_roi(rect, sub_roi.polygon)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // ---------------- 摄像头捕获线程 ----------------
-void capture_from_camera(const std::string& device, int cam_id) {
+void capture_thread(int cam_id, const std::string& device) {
+    dcout << "capture_thread " << cam_id << " start" << std::endl;
+
+    // 确保 camera_car 有足够空间
+    {
+        std::lock_guard<std::mutex> lock(lane_mutex);
+        if (cam_id >= camera_car.size()) camera_car.resize(cam_id + 1);
+        if (cam_id >= camera_blind_spots.size()) camera_blind_spots.resize(cam_id + 1);
+    }
+
     int fd = open(device.c_str(), O_RDWR);
     if (fd == -1) { std::cerr << "Failed to open " << device << std::endl; return; }
 
@@ -394,8 +430,30 @@ void inference_thread(int cam_id) {
                 std::vector<cv::Rect> cars_box_in_roi;
 
                 if (cam_id < camera_rois.size()) {
+                    // 重置当前摄像头的盲区检测状态
+                    if (cam_id < camera_blind_spots.size()) {
+                        camera_blind_spots[cam_id] = {}; // 重置状态
+                    }
+                    
                     for (auto &car : cars) {
-                        if (is_in_roi(car, camera_rois[cam_id].polygon)) {
+                        // 检查车辆是否在任何子ROI区域内
+                        bool in_any_roi = false;
+                        for (size_t roi_idx = 0; roi_idx < camera_rois[cam_id].sub_rois.size(); roi_idx++) {
+                            const auto& sub_roi = camera_rois[cam_id].sub_rois[roi_idx];
+                            if (is_in_roi(car, sub_roi.polygon)) {
+                                in_any_roi = true;
+                                // 标记对应的盲区检测状态
+                                if (cam_id < camera_blind_spots.size()) {
+                                    if (roi_idx == 0) { // 假设索引0是左盲区
+                                        camera_blind_spots[cam_id].left_detected = true;
+                                    } else if (roi_idx == 1) { // 假设索引1是右盲区
+                                        camera_blind_spots[cam_id].right_detected = true;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (in_any_roi) {
                             cars_in_roi.push_back(car);
                         }
                     }
@@ -410,15 +468,20 @@ void inference_thread(int cam_id) {
 
                 if (cam_id < camera_rois.size()) {
                     for (auto &car : cars_box) {
-                        if (is_in_roi(car, camera_rois[cam_id].polygon)) {
+                        if (is_in_any_roi(car, camera_rois[cam_id].sub_rois)) {
                             cars_box_in_roi.push_back(car);
                         }
                     }
                 }
 
                 // 绘制前检查 polygon 是否有效
-                if (cam_id < camera_rois.size() && !camera_rois[cam_id].polygon.empty()) {
-                    cv::polylines(img, std::vector<std::vector<cv::Point>>{camera_rois[cam_id].polygon}, true, cv::Scalar(0,255,0), 2);
+                if (cam_id < camera_rois.size() && !camera_rois[cam_id].sub_rois.empty()) {
+                    // 绘制所有子ROI区域
+                    for (const auto& sub_roi : camera_rois[cam_id].sub_rois) {
+                        if (!sub_roi.polygon.empty()) {
+                            cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(0,255,0), 2);
+                        }
+                    }
                 }
 
                 for (auto &car : cars_box_in_roi) {
@@ -452,13 +515,20 @@ void inference_thread(int cam_id) {
 
 // ---------------- 保存/加载 ROI ----------------
 std::mutex roi_file_mutex;
+std::mutex save_mutex;
 
-void save_rois_threadsafe(const std::string& filename){
-    std::lock_guard<std::mutex> lock(roi_file_mutex);
+void save_rois_threadsafe(const std::string& filename) {
+    std::lock_guard<std::mutex> lock(save_mutex);
     std::ofstream ofs(filename);
-    for(auto& roi: camera_rois){
-        for(auto& pt: roi.polygon) ofs << pt.x << " " << pt.y << " ";
-        ofs << "\n";
+    if (!ofs.is_open()) return;
+    for (const auto& cam_roi : camera_rois) {
+        // 保存每个摄像头的所有子ROI区域
+        for (const auto& sub_roi : cam_roi.sub_rois) {
+            for (const auto& pt : sub_roi.polygon) {
+                ofs << pt.x << " " << pt.y << " ";
+            }
+            ofs << "\n";
+        }
     }
 }
 
@@ -474,20 +544,50 @@ void load_rois(const std::string& filename){
     if(!ifs.is_open()) return;
     camera_rois.clear();
     std::string line;
+    int cam_id = 0;
     while(std::getline(ifs,line)){
-        CameraROI roi;
-        std::istringstream iss(line);
+        // 每两行对应一个摄像头的两个ROI区域（左盲区和右盲区）
+        CameraROI camera_roi;
+        
+        // 第一个ROI区域（例如左盲区）
+        CameraROI sub_roi_1;
+        std::istringstream iss1(line);
         int x,y;
-        while(iss>>x>>y) roi.polygon.push_back(cv::Point(x,y));
-        camera_rois.push_back(roi);
+        while(iss1>>x>>y) sub_roi_1.polygon.push_back(cv::Point(x,y));
+        camera_roi.sub_rois.push_back(sub_roi_1);
+        
+        // 尝试读取第二个ROI区域（例如右盲区）
+        if(std::getline(ifs,line)) {
+            CameraROI sub_roi_2;
+            std::istringstream iss2(line);
+            while(iss2>>x>>y) sub_roi_2.polygon.push_back(cv::Point(x,y));
+            camera_roi.sub_rois.push_back(sub_roi_2);
+        }
+        
+        camera_rois.push_back(camera_roi);
+        cam_id++;
     }
 }
 
 // ---------------- ROI 鼠标回调 ----------------
 void mouse_callback(int event, int x, int y, int flags, void* userdata) {
-    int cam_id = *reinterpret_cast<int*>(userdata); // 获取窗口对应的摄像头ID
-    if (cam_id < 0 || cam_id >= camera_rois.size()) return;
-    auto& roi = camera_rois[cam_id];
+    // userdata现在包含摄像头ID和ROI索引的组合信息
+    int* data = reinterpret_cast<int*>(userdata);
+    int cam_id = data[0];  // 摄像头ID
+    int roi_idx = data[1]; // ROI索引 (0=左盲区, 1=右盲区)
+    
+    // 确保有足够的ROI容器
+    if (cam_id < 0) return;
+    while (camera_rois.size() <= cam_id) {
+        camera_rois.emplace_back();
+    }
+    
+    // 确保该摄像头有足够的ROI区域（至少2个用于左右盲区）
+    while (camera_rois[cam_id].sub_rois.size() <= roi_idx) {
+        camera_rois[cam_id].sub_rois.emplace_back();
+    }
+    
+    auto& roi = camera_rois[cam_id].sub_rois[roi_idx];
 
     auto distance = [](cv::Point a, cv::Point b) { return std::sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)); };
     const int select_radius = 10;
@@ -498,11 +598,12 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
     if (event == cv::EVENT_LBUTTONDOWN) {
         // 选择最近顶点拖动
         roi.selected_idx = -1;
-        for (int i = 0; i < roi.polygon.size(); i++)
+        for (int i = 0; i < roi.polygon.size(); i++) {
             if (distance(roi.polygon[i], cv::Point(x, y)) < select_radius) {
                 roi.selected_idx = i;
                 return;
             }
+        }
         // 没有选中顶点，新增顶点
         roi.polygon.push_back(cv::Point(x, y));
         changed = true;
@@ -522,7 +623,10 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         float min_dist = select_radius;
         for (int i = 0; i < roi.polygon.size(); i++) {
             float d = distance(roi.polygon[i], cv::Point(x, y));
-            if (d < min_dist) { min_dist = d; idx = i; }
+            if (d < min_dist) { 
+                min_dist = d; 
+                idx = i; 
+            }
         }
         if (idx != -1) {
             roi.polygon.erase(roi.polygon.begin() + idx);
@@ -610,11 +714,20 @@ void display_loop() {
                     std::string window_name = "Camera " + std::to_string(i);
                     cv::imshow(window_name, shared_images[i]);
 
-                    static std::vector<int> cam_ids;
-                    if(cam_ids.size() < shared_images.size()) cam_ids.resize(shared_images.size());
-                    cam_ids[i] = i;
-
-                    cv::setMouseCallback(window_name, mouse_callback, &cam_ids[i]);
+                    // 为每个摄像头创建多个ROI区域的数据
+                    static std::vector<std::vector<std::array<int, 2>>> cam_roi_ids;
+                    if(cam_roi_ids.size() <= i) cam_roi_ids.resize(i + 1);
+                    if(cam_roi_ids[i].size() < 2) cam_roi_ids[i].resize(2);
+                    
+                    // 第一个ROI区域（左盲区）
+                    cam_roi_ids[i][0][0] = i;  // cam_id
+                    cam_roi_ids[i][0][1] = 0;  // roi_idx (左盲区)
+                    cv::setMouseCallback(window_name, mouse_callback, cam_roi_ids[i][0].data());
+                    
+                    // 第二个ROI区域（右盲区）
+                    cam_roi_ids[i][1][0] = i;  // cam_id
+                    cam_roi_ids[i][1][1] = 1;  // roi_idx (右盲区)
+                    cv::setMouseCallback(window_name, mouse_callback, cam_roi_ids[i][1].data());
                 }
             }
         }
@@ -638,40 +751,57 @@ void display_loop() {
 
 // 线程函数
 void lane_check_thread() {
+    // 初始化摄像头盲区状态
+    camera_blind_spots.resize(devices.size());
+    
     while (running) {
-        std::vector<int> lane_unsafe_tmp(2, 0); // 2 个元素，初始值都是 0
-        std::vector<int> lane_safe_tmp(2, 0);
-
-        int land_id = 0;
-
+        // 为每个盲区分别统计检测结果
+        std::vector<int> left_blind_detected(camera_sign.size(), 0);   // 每个摄像头在左盲区的检测结果
+        std::vector<int> right_blind_detected(camera_sign.size(), 0);  // 每个摄像头在右盲区的检测结果
+        
         // 上锁保护共享数据
         {
             std::lock_guard<std::mutex> lock(lane_mutex);
 
             for(int cam_id = 0; cam_id < camera_car.size(); cam_id++){
-                if(camera_sign[cam_id] >= lane_unsafe_tmp.size()){
+                if(camera_sign[cam_id] >= camera_blind_spots.size()){
                     continue;
                 }
-                land_id = camera_sign[cam_id];
-
+                
+                // 根据camera_car的值判断是否有车辆在任意盲区内
                 if(camera_car[cam_id] > 0){
-                    lane_unsafe_tmp[land_id] |= 1<<cam_id;
-                }
-            }
-
-            for(int i=0; i<lane_unsafe_tmp.size(); i++){
-                if(lane_unsafe_tmp[i] > 0){
-                    lane_safe_tmp[i] = false;
-                }
-                else{
-                    lane_safe_tmp[i] = true;
+                    // 检查该摄像头的左右盲区状态
+                    if (cam_id < camera_blind_spots.size()) {
+                        if (camera_blind_spots[cam_id].left_detected) {
+                            left_blind_detected[camera_sign[cam_id]] |= 1<<cam_id;
+                        }
+                        if (camera_blind_spots[cam_id].right_detected) {
+                            right_blind_detected[camera_sign[cam_id]] |= 1<<cam_id;
+                        }
+                    }
                 }
             }
         }
 
+        // 分别计算左右盲区的安全状态
+        std::vector<bool> left_safe_status(camera_sign.size(), true);
+        std::vector<bool> right_safe_status(camera_sign.size(), true);
+        
+        for(size_t i = 0; i < left_safe_status.size(); i++){
+            if(left_blind_detected[i] > 0){
+                left_safe_status[i] = false;
+            }
+        }
+        
+        for(size_t i = 0; i < right_safe_status.size(); i++){
+            if(right_blind_detected[i] > 0){
+                right_safe_status[i] = false;
+            }
+        }
+
         // 更新消抖
-        left_checker.update(lane_safe_tmp[0]);
-        right_checker.update(lane_safe_tmp[1]);
+        left_checker.update(std::all_of(left_safe_status.begin(), left_safe_status.end(), [](bool v) { return v; }));
+        right_checker.update(std::all_of(right_safe_status.begin(), right_safe_status.end(), [](bool v) { return v; }));
 
         bool left_status = left_checker.get_status();
         bool right_status = right_checker.get_status();
@@ -1036,7 +1166,7 @@ int main() {
     // 创建摄像头采集和推理线程
     std::vector<std::thread> threads;
     for (int i = 0; i < cam_max_num; i++) {
-        threads.emplace_back(capture_from_camera, devices[i], i);
+        threads.emplace_back(capture_thread, i, devices[i]);
         threads.emplace_back(inference_thread, i);
     }
 

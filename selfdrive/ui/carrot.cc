@@ -2895,11 +2895,12 @@ public:
 
         cpuUsage = 0.0f;
         if (cpuUsagePercent.size() > 0) {
-            float total_usage = 0.0f;
-            for (int i = 0; i < cpuUsagePercent.size(); i++) {
-                total_usage += cpuUsagePercent[i];
+            int cpu_size = 0;
+            for (cpu_size = 0; cpu_size < cpuUsagePercent.size(); cpu_size++) {
+                if (cpuUsagePercent[cpu_size] <= 0) break;
+                cpuUsage += cpuUsagePercent[cpu_size];
             }
-            cpuUsage = total_usage / cpuUsagePercent.size();
+            if (cpu_size > 0) cpuUsage /= cpu_size;
         }
 
         auto peripheralState = sm["peripheralState"].getPeripheralState();
