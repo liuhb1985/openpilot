@@ -177,7 +177,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
         wide_cam_requested = false;
       }
       //wide_cam_requested = wide_cam_requested && sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
-      //wide_cam_requested = wide_cam_requested && s->scene.carrot_experimental_mode;
+      wide_cam_requested = wide_cam_requested && s->scene.carrot_experimental_mode;
     }
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
