@@ -14,7 +14,7 @@
     "positions":[
       {"camera_id":0,"x":0,"y":0,"description":"左上角"},
       {"camera_id":1,"x":640,"y":0,"description":"左下角"},
-      {"camera_id":2,"x":1280,"y":0,"description":"右上角"},
+      {"camera_id":2,"x":1280,"y":0,"description":"右上角"}
     ]
   },
 
