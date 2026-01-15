@@ -52,13 +52,32 @@ all_includes = [f'-I{Dir(p).abspath}' for p in openpilot_includes] + opencv_cfla
 all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + ['onnxruntime'] + system_libs
 all_libpath = [Dir(p).abspath for p in openpilot_libpath] + [onnx_lib]
 
-# ---------------- Program: cam_blindspot ----------------
-#env.Program(
-#    target='cam_blindspot',
-#    source=['cam_blindspot.cpp', 'json11.cpp'],
-#    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
-#    LIBS=all_libs,
-#    LIBPATH=all_libpath,
-#    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
-#)
+# ---------------- Program: c3cam ----------------
+env.Program(
+    target='c3cam',
+    source=['c3cam.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
 
+# ---------------- Program: c3cam_8845 ----------------
+env.Program(
+    target='c3cam_8845',
+    source=['c3cam_8845.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
+
+# ---------------- Program: web_camera ----------------
+env.Program(
+    target='usb_camera',
+    source=['usb_camera.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)

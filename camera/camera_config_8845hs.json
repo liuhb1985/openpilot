@@ -1,0 +1,26 @@
+{
+  "debug": false,
+  "raw_conf_threshold": 0.5,
+  "nms_conf_threshold": 0.5,
+  "nms_threshold": 0.5,
+  "show_video": true,
+  "single_window": false,
+
+  "cameras": [
+    {
+      "device": "/dev/v4l/by-path/pci-0000:c6:00.4-usb-0:1.2:1.0-video-index0",
+      "sign": 0,
+      "car_detect": 1
+    },
+    {
+      "device": "/dev/v4l/by-path/pci-0000:c6:00.4-usb-0:1.3:1.0-video-index0",
+      "sign": 1,
+      "car_detect": 0
+    },
+    {
+      "device": "/dev/v4l/by-path/pci-0000:c6:00.4-usb-0:1.4:1.0-video-index0",
+      "sign": 1,
+      "car_detect": 0
+    }
+  ]
+}

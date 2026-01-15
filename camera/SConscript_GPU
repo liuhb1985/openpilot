@@ -1,0 +1,92 @@
+import os
+from SCons.Script import DefaultEnvironment, Dir
+
+env = DefaultEnvironment()
+
+# ---------------- OpenCV 配置 ----------------
+opencv_cflags = os.popen('pkg-config --cflags opencv4').read().strip().split()
+opencv_libs = os.popen('pkg-config --libs opencv4').read().strip().split()
+
+# ---------------- ONNX Runtime 路径 ----------------
+onnx_include = Dir('#/third_party/onnxruntime-rocm/include/onnxruntime').abspath
+onnx_lib = Dir('#/third_party/onnxruntime-rocm/lib').abspath
+
+# ---------------- openpilot 头文件路径 ----------------
+# 添加 openpilot 核心头文件路径
+openpilot_includes = [
+    '#',                                          # 根目录
+    '#msgq',                                      # msgq 目录
+    '#third_party/libyuv/include',               # libyuv
+    '#third_party/json11',                       # json11
+    '#msgq_repo/msgq/visionipc',                 # VisionIPC 头文件
+]
+
+# ---------------- openpilot 库路径 ----------------
+openpilot_libpath = [
+    '#msgq_repo',                                # msgq 库
+    '#third_party',                              # 第三方库
+    '#third_party/libyuv/x86_64/lib',
+    '#common',                                   # common 库
+]
+
+# ---------------- openpilot 库 ----------------
+# 需要链接的 openpilot 库
+openpilot_libs = [
+    'visionipc',                                 # VisionIPC 库
+    'msgq',                                      # 消息队列库
+    'common',                                    # 通用工具库
+    'yuv',                                       # libyuv 库
+    'json11',                                    # JSON 库
+    'zmq',                                       # ZeroMQ 库
+    'OpenCL'
+]
+
+# ---------------- FFmpeg 库 ----------------
+ffmpeg_libs = ['avdevice', 'avformat', 'avcodec', 'avutil', 'swscale']
+
+# ---------------- 系统库 ----------------
+system_libs = ['pthread', 'm', 'dl', 'stdc++', 'jpeg']  # 添加 jpeg
+
+# ---------------- 合并所有配置 ----------------
+all_includes = [f'-I{Dir(p).abspath}' for p in openpilot_includes] + opencv_cflags
+all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + ['onnxruntime'] + system_libs
+all_libpath = [Dir(p).abspath for p in openpilot_libpath] + [onnx_lib]
+
+# ---------------- Program: c3cam ----------------
+env.Program(
+    target='c3cam',
+    source=['c3cam.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
+
+# ---------------- Program: c3cam_8845 ----------------
+env.Program(
+    target='c3cam_8845',
+    source=['c3cam_8845.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
+
+env.Program(
+    target='c3cam_amdgpu',
+    source=['c3cam_amdgpu.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
+
+# ---------------- Program: web_camera ----------------
+env.Program(
+    target='usb_camera',
+    source=['usb_camera.cpp', 'json11.cpp'],
+    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+    LIBS=all_libs,
+    LIBPATH=all_libpath,
+    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+)
