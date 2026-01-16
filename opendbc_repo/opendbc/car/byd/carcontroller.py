@@ -43,6 +43,10 @@ class CarController(CarControllerBase):
 
     self.apply_accel_last = 0
 
+    # 用于检测前车距离变化（判断前车是否移动）
+    self.last_lead_distance = 0.0
+    self.last_update_time = 0.0
+
   def update(self, CC, CS, now_nanos):
     can_sends = []
 
@@ -230,11 +234,24 @@ class CarController(CarControllerBase):
         fusion_distance = 199
         data_source = "no_radar"
 
+        # 获取视觉前车距离（用于判断前车是否移动）
+        if hasattr(self, 'sm') and self.sm.alive['modelV2']:
+            lead_data = self.sm['modelV2'].lead
+            if lead_data.prob > 0.5 and not math.isnan(lead_data.x[0]):
+                vision_lead_distance = lead_data.x[0]
+                # 计算距离变化率（前车移动速度）
+                if self.last_lead_distance > 0:
+                    dt = time.time() - self.last_update_time
+                    if dt > 0:
+                        # 距离在减小，说明前车在移动
+                        relative_speed = (self.last_lead_distance - vision_lead_distance) / dt
+                self.last_lead_distance = vision_lead_distance
+                self.last_update_time = time.time()
+
         if hasattr(self, 'sm') and self.sm.alive['radarState']:
             lead_one = self.sm['radarState'].leadOne
             if lead_one.status:
                 lead_speed = lead_one.vLead if not math.isnan(lead_one.vLead) else 0.0
-                relative_speed = lead_one.vRel if not math.isnan(lead_one.vRel) else 0.0
                 fusion_distance = lead_one.dRel
                 data_source = "radar"
             else:
@@ -360,7 +377,7 @@ class CarController(CarControllerBase):
       # 发送控制命令
       can_sends.append(bydcan.acc_cmd(self.packer, self.CP, CS.cam_acc,
                                      getattr(CS, 'mrr_leading_dist', 199),
-                                     final_accel, self.rfss, self.sss, CC.longActive,))
+                                     final_accel, self.rfss, self.sss, CC.longActive, relative_speed,))
 
       self.apply_accel_last = final_accel
       self.last_acc_frame = self.frame + 1

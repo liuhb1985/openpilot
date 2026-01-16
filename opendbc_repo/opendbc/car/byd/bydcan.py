@@ -62,7 +62,7 @@ def create_steering_control(packer, CP, cam_msg: dict, req_torque, req_prepare, 
     return packer.make_can_msg("ACC_MPC_STATE", CanBus.ESC, values)
 
 # op long control
-def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActive):
+def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActive, lead_v_rel=0.0):
     values = {}
 
     values = {s: cam_msg[s] for s in [
@@ -108,9 +108,10 @@ def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActiv
     else:
         # 使用原车雷达纵向控制 - 保持原车雷达激活
         # 自动处理停车3秒后需要深踩油门才能恢复跟车的问题
-        # 当车辆停车且纵向控制激活时，发送ResumeFromStandstill=1来恢复跟车
+        # 当车辆停车、纵向控制激活且前车在移动（相对速度 > 0）时，发送ResumeFromStandstill=1来恢复跟车
         auto_resume = 0
-        if sss == 1 and cam_msg["AccControlActive"] == 1:
+        if sss == 1 and cam_msg["AccControlActive"] == 1 and lead_v_rel > 0.5:
+            # lead_v_rel > 0.5 表示前车在移动（相对速度 > 0.5 m/s = 1.8 km/h）
             auto_resume = 1  # 自动恢复跟车
         
         values.update({
