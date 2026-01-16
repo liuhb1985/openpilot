@@ -57,8 +57,9 @@ def cython_suffix_emitter(env, source):
   return "$CYTHONCFILESUFFIX"
 
 def generate(env):
-  env["CYTHON"] = "cythonize"
-  env["CYTHONCOM"] = "$CYTHON $CYTHONFLAGS $SOURCE"
+  env["CYTHON"] = "cython"
+  env["CYTHONFLAGS"] = "--cplus"
+  env["CYTHONCOM"] = "$CYTHON $CYTHONFLAGS -o $TARGET $SOURCE"
   env["CYTHONCFILESUFFIX"] = ".cpp"
 
   c_file, _ = SCons.Tool.createCFileBuilders(env)

@@ -68,4 +68,6 @@ public:
   explicit MultiOptionDialog(const QString &prompt_text, const QStringList &l, const QString &current, QWidget *parent);
   static QString getSelection(const QString &prompt_text, const QStringList &l, const QString &current, QWidget *parent);
   QString selection;
+private:
+  QString initialSelection;
 };

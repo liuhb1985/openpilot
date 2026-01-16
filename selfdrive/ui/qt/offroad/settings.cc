@@ -795,11 +795,14 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     }
 
     QStringList manufacturers = car_groups.keys();
-    QString selectedManufacturer = MultiOptionDialog::getSelection("Select Manufacturer", manufacturers, manufacturers.isEmpty() ? "" : manufacturers.first(), this);
+    // Always start with empty selection for manufacturer dialog to allow any manufacturer to be selected
+    QString selectedManufacturer = MultiOptionDialog::getSelection("Select Manufacturer", manufacturers, "", this);
 
     if (!selectedManufacturer.isEmpty()) {
       QStringList cars = car_groups[selectedManufacturer];
-      QString selectedCar = MultiOptionDialog::getSelection("Select your car", cars, selected, this);
+      // Check if selected is a valid car name in this manufacturer's list
+      QString currentCar = cars.contains(selected) ? selected : "";
+      QString selectedCar = MultiOptionDialog::getSelection("Select your car", cars, currentCar, this);
 
       if (!selectedCar.isEmpty()) {
         if (selectedCar == "[ Not Selected ]") {

@@ -360,11 +360,14 @@ def manager_thread() -> None:
 
 def main() -> None:
   manager_init()
-  print(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
-  os.system(f"python ../../opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
-  os.system(f"python ../../opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
+  param_path = Params().get_param_path()
+  opendbc_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "opendbc_repo")
+  print(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/hyundai/values.py > {param_path}/SupportedCars")
+  os.system(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/hyundai/values.py > {param_path}/SupportedCars")
+  os.system(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/gm/values.py > {param_path}/SupportedCars_gm")
+  os.system(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/toyota/values.py > {param_path}/SupportedCars_toyota")
+  os.system(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/mazda/values.py > {param_path}/SupportedCars_mazda")
+  os.system(f"cd {opendbc_path} && PYTHONPATH={opendbc_path} python3 opendbc/car/byd/values.py >> {param_path}/SupportedCars")
 
   if os.getenv("PREPAREONLY") is not None:
     return

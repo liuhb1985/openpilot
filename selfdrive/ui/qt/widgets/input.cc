@@ -2,6 +2,7 @@
 
 #include <QPushButton>
 #include <QButtonGroup>
+#include <QDebug>
 
 #include "system/hardware/hw.h"
 #include "selfdrive/ui/qt/util.h"
@@ -246,14 +247,8 @@ bool ConfirmationDialog::rich(const QString &prompt_text, QWidget *parent) {
 
 // MultiOptionDialog
 
-MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringList &l, const QString &current, QWidget *parent) : DialogBase(parent) {
+MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringList &l, const QString &current, QWidget *parent) : DialogBase(parent), selection(QString()), initialSelection(current) {
   QFrame *container = new QFrame(this);
-  container->setStyleSheet(R"(
-    QFrame { background-color: #1B1B1B; }
-    #confirm_btn[enabled="false"] { background-color: #2B2B2B; }
-    #confirm_btn:enabled { background-color: #465BEA; }
-    #confirm_btn:enabled:pressed { background-color: #3049F4; }
-  )");
 
   QVBoxLayout *main_layout = new QVBoxLayout(container);
   main_layout->setContentsMargins(55, 50, 55, 50);
@@ -285,6 +280,19 @@ MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringLi
   QPushButton *confirm_btn = new QPushButton(tr("Select"));
   confirm_btn->setObjectName("confirm_btn");
   confirm_btn->setEnabled(false);
+  confirm_btn->setStyleSheet(R"(
+    QPushButton:disabled {
+      background-color: #333333;
+      color: #666666;
+    }
+    QPushButton:enabled {
+      background-color: #465BEA;
+      color: white;
+    }
+    QPushButton:pressed {
+      background-color: #2C2CE2;
+    }
+  )");
 
   int total_button = 0;
   int current_selected_button = 0;
@@ -295,9 +303,13 @@ MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringLi
     QPushButton *selectionLabel = new QPushButton(s);
     selectionLabel->setCheckable(true);
     selectionLabel->setChecked(s == current);
-    QObject::connect(selectionLabel, &QPushButton::toggled, [=](bool checked) {
-      if (checked) selection = s;
-      if (selection != current) {
+
+    // Connect toggled signal
+    QObject::connect(selectionLabel, &QPushButton::toggled, [this, s, confirm_btn](bool checked) {
+      if (checked) {
+        this->selection = s;
+      }
+      if (this->selection != this->initialSelection) {
         confirm_btn->setEnabled(true);
       } else {
         confirm_btn->setEnabled(false);
