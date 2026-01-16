@@ -93,7 +93,8 @@ def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActiv
         jerk_upper = jerk_base_upper + accel * CarControllerParams.K_accel_jerk_upper
         jerk_lower = jerk_base_lower
 
-    if longActive :
+    if longActive:
+        # 使用OP视觉纵向控制 - 接管原车雷达控制
         values.update({
             "AccelCmd" : accel,
             "ComfortBandUpper" : 0.05 if mrr_leaddist > 50 else 0.10,
@@ -102,6 +103,12 @@ def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActiv
             "JerkLowerLimit" : jerk_lower,
             "ResumeFromStandstill" : rfss,
             "StandstillState" : sss,
+            "AccControlActive" : 1,  # 激活OP纵向控制
+        })
+    else:
+        # 使用原车雷达纵向控制 - 保持原车雷达激活
+        values.update({
+            "AccControlActive" : cam_msg["AccControlActive"],  # 保留原车值
         })
 
     data = packer.make_can_msg("ACC_CMD", CanBus.ESC, values)[1]
