@@ -270,7 +270,7 @@ def create_pigeon() -> tuple[TTYPigeon, messaging.PubMaster]:
   set_power(False)
   time.sleep(0.1)
   set_power(True)
-  time.sleep(0.5)
+  time.sleep(1)
 
   pigeon = TTYPigeon()
   return pigeon, pm

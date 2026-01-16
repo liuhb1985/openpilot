@@ -276,7 +276,7 @@ def main(demo=False):
 
   # messaging
   pm = PubMaster(["modelV2", "drivingModelData", "cameraOdometry"])
-  sm = SubMaster(["deviceState", "carState", "roadCameraState", "liveCalibration", "driverMonitoringState", "carControl", "liveDelay", "carrotMan", "radarState"])
+  sm = SubMaster(["deviceState", "carState", "roadCameraState", "liveCalibration", "driverMonitoringState", "carControl", "liveDelay", "carrotMan", "radarState", "amapNavi"])
 
   publish_state = PublishState()
   params = Params()
@@ -307,7 +307,7 @@ def main(demo=False):
   long_delay = CP.longitudinalActuatorDelay + LONG_SMOOTH_SECONDS
   prev_action = log.ModelDataV2.Action()
 
-  DH = DesireHelper()
+  DH = DesireHelper(sm)
 
   frame = 0
   custom_lat_delay = 0.0
@@ -438,6 +438,7 @@ def main(demo=False):
       modelv2_send.modelV2.meta.blinker = DH.blinker
       modelv2_send.modelV2.meta.leftFrontBlind = int(DH.leftFrontBlind)
       modelv2_send.modelV2.meta.rightFrontBlind = int(DH.rightFrontBlind)
+      modelv2_send.modelV2.meta.atcBsd = int(DH.atc_bsd)
       if DH.event_test_frame > 0:
         modelv2_send.modelV2.meta.laneChangeState = LaneChangeState.preLaneChange
         modelv2_send.modelV2.meta.laneChangeDirection = LaneChangeDirection.left

@@ -1195,6 +1195,7 @@ struct ModelDataV2 {
     blinker @19 :Text;
     leftFrontBlind @20 :Int32;
     rightFrontBlind @21 :Int32;
+    atcBsd @22 :Int32;
 
     # deprecated
     brakeDisengageProbDEPRECATED @2 :Float32;
@@ -2690,7 +2691,8 @@ struct Event {
     # DON'T change the ID (e.g. @107)
     # DON'T change which struct it points to
     carrotMan @107 :Custom.CarrotMan;
-    customReserved1 @108 :Custom.CustomReserved1;
+    amapNavi @108 :Custom.AmapNavi; #新加的导航和雷达消息
+    #customReserved1 @108 :Custom.CustomReserved1;
     customReserved2 @109 :Custom.CustomReserved2;
     customReserved3 @110 :Custom.CustomReserved3;
     customReserved4 @111 :Custom.CustomReserved4;

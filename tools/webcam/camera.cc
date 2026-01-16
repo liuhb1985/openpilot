@@ -602,7 +602,7 @@ void camera::saving_loop() {
     });
     file_manager.detach();
 
-    const std::chrono::milliseconds frame_duration(1000 / 20); // 30 FPS
+    const std::chrono::milliseconds frame_duration(1000 / 30); // 30 FPS
     auto next_frame_time = std::chrono::steady_clock::now();
 
     while (!m_do_exit) {
@@ -637,7 +637,7 @@ void camera::saving_loop() {
         pkt->data = mjpeg_data_copy.data();
         pkt->size = mjpeg_data_copy.size();
         pkt->stream_index = stream->index;
-        pkt->pts = av_rescale_q(frame_count, {1, 20}, stream->time_base);
+        pkt->pts = av_rescale_q(frame_count, {1, 30}, stream->time_base);
         pkt->dts = pkt->pts;
 
         if (av_interleaved_write_frame(fmt_ctx, pkt) < 0) {

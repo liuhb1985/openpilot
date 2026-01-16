@@ -733,6 +733,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("UseLaneLineSpeed", "车道线模式速度(0)", "车道线模式，使用 lat_mpc 控制", 0, 200, 5));
   latLongToggles->addItem(new CValueControl("UseLaneLineCurveSpeed", "车道线模式弯道速度(0)", "车道线模式，仅在高速时生效", 0, 200, 5));
   latLongToggles->addItem(new CValueControl("AdjustLaneOffset", "车道偏移调整(0)cm", "", 0, 500, 5));
+  latLongToggles->addItem(new CValueControl("AdjustCurveOffset", "弯道偏移调整(0)cm", "", -500, 500, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "轻推方向变道", "-1:禁用变道, 0:无需轻推方向, 1:需要轻推方向变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("AutoLaneChangeMinSpeed", "打灯变道最低速度", "低于这个速度打灯不自动变道", -1, 100, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeDelay", "变道延迟", "单位 x0.1秒", 0, 100, 5));

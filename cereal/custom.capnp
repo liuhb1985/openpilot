@@ -55,7 +55,9 @@ struct CarrotMan @0x81c2f05a394cf4af {
 	rightBlind @38 : Int32;
 }
 
-struct CustomReserved1 @0xaedffd8f31e7b55d {
+struct AmapNavi @0xaedffd8f31e7b55d {
+	leftBlind @0 : Int32;
+	rightBlind @1 : Int32;
 }
 
 struct CustomReserved2 @0xf35cc4560bbf6ec2 {

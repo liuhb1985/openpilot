@@ -82,6 +82,7 @@ _services: dict[str, tuple] = {
   "rawAudioData": (False, 20.),
 
   "carrotMan": (True, 0.),
+  "amapNavi": (True, 0.), #新加导航雷达消息
   "navInstructionCarrot": (True, 1., 10),
 
   # debug
