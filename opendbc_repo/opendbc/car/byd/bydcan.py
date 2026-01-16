@@ -107,7 +107,14 @@ def acc_cmd(packer, CP, cam_msg: dict, mrr_leaddist, accel, rfss, sss, longActiv
         })
     else:
         # 使用原车雷达纵向控制 - 保持原车雷达激活
+        # 自动处理停车3秒后需要深踩油门才能恢复跟车的问题
+        # 当车辆停车且纵向控制激活时，发送ResumeFromStandstill=1来恢复跟车
+        auto_resume = 0
+        if sss == 1 and cam_msg["AccControlActive"] == 1:
+            auto_resume = 1  # 自动恢复跟车
+        
         values.update({
+            "ResumeFromStandstill" : auto_resume,  # 自动恢复跟车
             "AccControlActive" : cam_msg["AccControlActive"],  # 保留原车值
         })
 
