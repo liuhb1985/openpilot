@@ -117,9 +117,9 @@ class CarState(CarStateBase):
 
         ret.vEgoRaw = float(self.speed_kph * CV.KPH_TO_MS) # KPH to m/s
         ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-        ret.aEgo = cp.vl["AXAY"]["Ax"] - cp.vl["AXAY"]["AxOffset"]    # 纵向加速度
-        ret.aEgoY = cp.vl["AXAY"]["AY"] - cp.vl["AXAY"]["AYOffset"]  # 横向加速度
-        ret.yawRate = cp.vl["YAW_RATE"]["YawRate"] - cp.vl["YAW_RATE"]["YawRateOffset"] #偏航率
+        # ret.aEgo = cp.vl["AXAY"]["Ax"] - cp.vl["AXAY"]["AxOffset"]    # 纵向加速度
+        # ret.aEgoY = cp.vl["AXAY"]["AY"] - cp.vl["AXAY"]["AYOffset"]  # 横向加速度
+        # ret.yawRate = cp.vl["YAW_RATE"]["YawRate"] - cp.vl["YAW_RATE"]["YawRateOffset"] #偏航率
 
         ret.standstill = (speed_raw == 0)
 

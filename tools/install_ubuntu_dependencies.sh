@@ -46,6 +46,7 @@ function install_ubuntu_common_requirements() {
     libglfw3-dev \
     libglib2.0-0 \
     libjpeg-dev \
+    libturbojpeg \
     libqt5charts5-dev \
     libncurses5-dev \
     libssl-dev \
@@ -82,6 +83,7 @@ function install_ubuntu_lts_latest_requirements() {
     qtbase5-dev-tools \
     python3-dev \
     python3-venv \
+    python3-flask
     cmake \
     cargo \
     rustc \

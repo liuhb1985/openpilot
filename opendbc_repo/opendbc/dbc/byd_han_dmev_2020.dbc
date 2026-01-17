@@ -63,8 +63,8 @@ BO_ 307 STALKS: 8 XXX
  SG_ LightsOn : 1|1@1+ (1,0) [0|1] "" XXX
  SG_ HeadLight : 2|1@1+ (1,0) [0|1] "" XXX
  SG_ FullBeamOn : 3|1@1+ (1,0) [0|1] "" XXX
- SG_ LeftIndicator : 4|1@0+ (1,0) [0|1] "" XXX
- SG_ RightIndicator : 5|1@0+ (1,0) [0|1] "" XXX
+ SG_ LeftIndicator : 37|1@0+ (1,0) [0|1] "" XXX
+ SG_ RightIndicator : 38|1@0+ (1,0) [0|1] "" XXX
  SG_ RearFogLight : 7|1@0+ (1,0) [0|1] "" XXX
  SG_ TURN_SIGNAL_SWITCH : 36|3@1+ (1,0) [0|7] "" XXX
  SG_ AutoHeadlight : 40|1@0+ (1,0) [0|1] "" XXX
