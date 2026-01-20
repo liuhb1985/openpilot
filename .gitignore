@@ -35,8 +35,18 @@ tools/sim.org
 *.o-*
 *.os
 *.os-*
+
+# Ignore .so and .a files except acados libraries
 *.so
 *.a
+
+# Exceptions for acados libraries
+!third_party/acados/*/libacados.so
+!third_party/acados/*/libblasfeo.so
+!third_party/acados/*/libhpipm.so
+!third_party/acados/*/libqpOASES_e.so*
+!third_party/acados/*/lib/*.so
+!third_party/acados/*/lib/*.a
 *.clb
 *.class
 *.pyxbldc

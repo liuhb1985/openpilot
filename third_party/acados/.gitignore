@@ -1,5 +1,12 @@
 acados_repo/
-lib
+
+# Ignore lib directories in root, but allow in architecture directories
+lib/
 !x86_64/
 !larch64/
 !aarch64/
+
+# Allow library files in architecture directories
+!x86_64/lib/
+!larch64/lib/
+!aarch64/lib/
