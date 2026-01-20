@@ -89,7 +89,9 @@ function install_ubuntu_lts_latest_requirements() {
     rustc \
     python3-cffi \
     python3-pycparser \
-    python3-ply
+    python3-ply \
+    libopenblas-dev \
+    libgfortran5
   cd $(dirname "$(readlink -f "$0")")
   $SUDO dpkg -i libicu66_66.1-2ubuntu2.1_amd64.deb libicu-dev_66.1-2ubuntu2.1_amd64.deb icu-devtools_66.1-2ubuntu2.1_amd64.deb
 }
