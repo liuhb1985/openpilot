@@ -1,1 +1,7 @@
 libyuv/
+
+# Allow library files in architecture directories
+!x86_64/lib/
+!larch64/lib/
+!aarch64/lib/
+!Darwin/lib/
