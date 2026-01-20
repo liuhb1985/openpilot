@@ -111,7 +111,6 @@ Pipfile
 .history
 .ionide
 .vs
-tools/scripts/hotplug-virtual-display.sh
 system/sensord_wt/sensord_wt
 system/sensord_wt/wt_calibration_tool
 opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc
