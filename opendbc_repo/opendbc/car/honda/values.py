@@ -52,6 +52,7 @@ class HondaSafetyFlags(IntFlag):
   BOSCH_LONG = 2
   NIDEC_ALT = 4
   RADARLESS = 8
+  NIDEC_PCM_LONG = 16
 
 
 class HondaFlags(IntFlag):

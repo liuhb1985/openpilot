@@ -35,6 +35,7 @@ static int honda_brake = 0;
 static bool honda_brake_switch_prev = false;
 static bool honda_alt_brake_msg = false;
 static bool honda_fwd_brake = false;
+static bool honda_nidec_pcm_long = false;
 static bool honda_bosch_long = false;
 static bool honda_bosch_radarless = false;
 typedef enum {HONDA_NIDEC, HONDA_BOSCH} HondaHw;
@@ -73,7 +74,7 @@ static uint8_t honda_get_counter(const CANPacket_t *to_push) {
 }
 
 static void honda_rx_hook(const CANPacket_t *to_push) {
-  const bool pcm_cruise = ((honda_hw == HONDA_BOSCH) && !honda_bosch_long) || (honda_hw == HONDA_NIDEC);
+  const bool pcm_cruise = ((honda_hw == HONDA_BOSCH) && !honda_bosch_long) || ((honda_hw == HONDA_NIDEC) && !honda_nidec_pcm_long);
   int pt_bus = honda_get_pt_bus();
 
   int addr = GET_ADDR(to_push);
@@ -216,25 +217,31 @@ static bool honda_tx_hook(const CANPacket_t *to_send) {
 
   // ACC_HUD: safety check (nidec w/o pedal)
   if ((addr == 0x30C) && (bus == bus_pt)) {
-    int pcm_speed = (GET_BYTE(to_send, 0) << 8) | GET_BYTE(to_send, 1);
-    int pcm_gas = GET_BYTE(to_send, 2);
+    // Skip ACC_HUD check in Nidec PCM mode
+    if (honda_hw == HONDA_NIDEC && !honda_nidec_pcm_long) {
+      int pcm_speed = (GET_BYTE(to_send, 0) << 8) | GET_BYTE(to_send, 1);
+      int pcm_gas = GET_BYTE(to_send, 2);
 
-    bool violation = false;
-    violation |= longitudinal_speed_checks(pcm_speed, HONDA_NIDEC_LONG_LIMITS);
-    violation |= longitudinal_gas_checks(pcm_gas, HONDA_NIDEC_LONG_LIMITS);
-    if (violation) {
-      tx = false;
+      bool violation = false;
+      violation |= longitudinal_speed_checks(pcm_speed, HONDA_NIDEC_LONG_LIMITS);
+      violation |= longitudinal_gas_checks(pcm_gas, HONDA_NIDEC_LONG_LIMITS);
+      if (violation) {
+        tx = false;
+      }
     }
   }
 
   // BRAKE: safety check (nidec)
   if ((addr == 0x1FA) && (bus == bus_pt)) {
-    honda_brake = (GET_BYTE(to_send, 0) << 2) + ((GET_BYTE(to_send, 1) >> 6) & 0x3U);
-    if (longitudinal_brake_checks(honda_brake, HONDA_NIDEC_LONG_LIMITS)) {
-      tx = false;
-    }
-    if (honda_fwd_brake) {
-      tx = false;
+    // Skip brake check in Nidec PCM mode
+    if (honda_hw == HONDA_NIDEC && !honda_nidec_pcm_long) {
+      honda_brake = (GET_BYTE(to_send, 0) << 2) + ((GET_BYTE(to_send, 1) >> 6) & 0x3U);
+      if (longitudinal_brake_checks(honda_brake, HONDA_NIDEC_LONG_LIMITS)) {
+        tx = false;
+      }
+      if (honda_fwd_brake) {
+        tx = false;
+      }
     }
   }
 
@@ -304,8 +311,10 @@ static bool honda_tx_hook(const CANPacket_t *to_send) {
 
 static safety_config honda_nidec_init(uint16_t param) {
   static CanMsg HONDA_N_TX_MSGS[] = {{0xE4, 0, 5}, {0x194, 0, 4}, {0x1FA, 0, 8}, {0x30C, 0, 8}, {0x33D, 0, 5}};
+  static CanMsg HONDA_N_PCM_TX_MSGS[] = {{0xE4, 0, 5}, {0x194, 0, 4}, {0x33D, 0, 5}};  // Nidec PCM mode: no 0x1FA/0x30C
 
   const uint16_t HONDA_PARAM_NIDEC_ALT = 4;
+  const uint16_t HONDA_PARAM_NIDEC_PCM_LONG = 16;
 
   honda_hw = HONDA_NIDEC;
   honda_brake = 0;
@@ -314,6 +323,7 @@ static safety_config honda_nidec_init(uint16_t param) {
   honda_alt_brake_msg = false;
   honda_bosch_long = false;
   honda_bosch_radarless = false;
+  honda_nidec_pcm_long = GET_FLAG(param, HONDA_PARAM_NIDEC_PCM_LONG);
 
   safety_config ret;
 
@@ -330,7 +340,12 @@ static safety_config honda_nidec_init(uint16_t param) {
     SET_RX_CHECKS(honda_common_rx_checks, ret);
   }
 
-  SET_TX_MSGS(HONDA_N_TX_MSGS, ret);
+  // Use different TX messages based on PCM mode
+  if (honda_nidec_pcm_long) {
+    SET_TX_MSGS(HONDA_N_PCM_TX_MSGS, ret);
+  } else {
+    SET_TX_MSGS(HONDA_N_TX_MSGS, ret);
+  }
 
   return ret;
 }
@@ -413,7 +428,9 @@ static int honda_nidec_fwd_hook(int bus_num, int addr) {
     bool is_lkas_msg = (addr == 0xE4) || (addr == 0x194) || (addr == 0x33D);
     bool is_acc_hud_msg = addr == 0x30C;
     bool is_brake_msg = addr == 0x1FA;
-    bool block_fwd = is_lkas_msg || is_acc_hud_msg || (is_brake_msg && !honda_fwd_brake);
+    // In Nidec PCM mode, allow ACC messages from radar to pass through
+    bool block_acc_msg = !honda_nidec_pcm_long;
+    bool block_fwd = is_lkas_msg || (is_acc_hud_msg && block_acc_msg) || (is_brake_msg && !honda_fwd_brake && !honda_nidec_pcm_long);
     if (!block_fwd) {
       bus_fwd = 0;
     }

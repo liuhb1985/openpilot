@@ -249,6 +249,13 @@ class Car:
     cs_send.carState = CS
     cs_send.carState.canErrorCounter = self.can_rcv_cum_timeout_counter
     cs_send.carState.cumLagMs = -self.rk.remaining * 1000.
+
+    # 从 carrotMan 获取盲区数据
+    if self.sm.alive['carrotMan']:
+      carrot_man = self.sm['carrotMan']
+      cs_send.carState.leftBlindspot = (carrot_man.leftBlind & 2) != 0
+      cs_send.carState.rightBlindspot = (carrot_man.rightBlind & 2) != 0
+
     self.pm.send('carState', cs_send)
 
     if RD is not None:

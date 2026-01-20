@@ -47,7 +47,7 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = not ret.openpilotLongitudinalControl
     else:
       ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.hondaNidec)]
-      ret.openpilotLongitudinalControl = True
+      ret.openpilotLongitudinalControl = alpha_long
 
       ret.pcmCruise = True
 
@@ -206,6 +206,9 @@ class CarInterface(CarInterfaceBase):
 
     if ret.openpilotLongitudinalControl and candidate in HONDA_BOSCH:
       ret.safetyConfigs[0].safetyParam |= HondaSafetyFlags.BOSCH_LONG.value
+
+    if not ret.openpilotLongitudinalControl and candidate not in HONDA_BOSCH:
+      ret.safetyConfigs[0].safetyParam |= HondaSafetyFlags.NIDEC_PCM_LONG.value
 
     if candidate in HONDA_BOSCH_RADARLESS:
       ret.safetyConfigs[0].safetyParam |= HondaSafetyFlags.RADARLESS.value

@@ -20,7 +20,6 @@ void setMainWindow(QWidget *w) {
     w->setMaximumSize(DEVICE_SCREEN_SIZE);
     W->resize(DEFAULT_WINDOW_SIZE);//设置初始大小
     w->move(770,558);//窗口向右一定560像素
-    w->resize(sz);
   } else {
     w->setFixedSize(DEVICE_SCREEN_SIZE * scale);
   }

@@ -987,7 +987,23 @@ class DesireHelper:
           #此处根据条件决定是否进入开始变道或转弯的流程，lane_change_available为真时表示旁边车道或者路沿的宽度稳定大于2.5米
           if lane_change_available and self.lane_change_delay == 0: #允许变道并且没有延时时间要求
             self.lane_change_delay_start = False
-            if (self.blindspot_detected_counter > 0 or side_object_detected) and not ignore_bsd:  # 有盲区（包括后盲区，侧盲区，前盲区）
+            # 手动打灯变道具有最高优先级,不管盲区有没有车
+            if ((driver_desire_enabled and  #驾驶员打灯变道
+                   self.driver_lane_change_delay == 0 and #没有命令打灯后的延时
+                  (self.stockBlinkerCtrl == 0 or #未通过外挂控制原车Blinker
+                   (blinker_val_pre == BLINKER_NONE and self.blinker_val == BLINKER_NONE) or not atc_desire_enabled or #没有esp32打灯或不在自动变道情况下
+                    (atc_desire_enabled and driver_blinker_state != atc_blinker_state)  #或者用户打的灯和自动变道的方向相反
+                     or torque_applied #或者用户施加了方向盘扭矩
+                     or (auto_lane_change_trigger and (lane_change_interval < 0.5 or self.lane_change_disable_count == 0 or not atc_left_right))) #或符合了自动变道条件
+                ) #or (self.carrot_blinker_state != BLINKER_NONE)
+                ):
+              self.lane_change_state = LaneChangeState.laneChangeStarting
+              trigger_type = 3
+              if self.carrot_blinker_state == BLINKER_NONE:
+                trigger_name = "driver"
+              else:
+                trigger_name = "cmd"
+            elif (self.blindspot_detected_counter > 0 or side_object_detected) and not ignore_bsd:  # 有盲区（仅对自动变道和轻推方向盘生效）
               if torque_applied and not block_lanechange_bsd: #没有设置有盲区轻方向盘不允许变道
                 self.lane_change_state = LaneChangeState.laneChangeStarting
                 trigger_type = 1
@@ -1009,11 +1025,7 @@ class DesireHelper:
                       if auto_lane_change_trigger_no_bsd: #符合自动变道的条件
                         if self.atc_bsd == BLINKER_NONE:
                           print(f"atc lane change bsd {'left' if blinker_state == BLINKER_LEFT else 'right'} blocked")
-                        self.atc_bsd = blinker_state #自动变道被盲区阻止
-                    elif driver_desire_enabled: #手动打灯变道
-                      if self.atc_bsd == BLINKER_NONE:
-                        print(f'driver lane change bsd {'left' if blinker_state == BLINKER_LEFT else 'right'} blocked')
-                      self.atc_bsd = blinker_state + BLINKER_BOTH  #手动变道被盲区阻止
+                          self.atc_bsd = blinker_state #自动变道被盲区阻止
               #盲区有车时重置变道延时计数器
               self.lane_change_disable_count = lane_change_interval
             elif self.laneChangeNeedTorque > 0:# or self.next_lane_change: # 需要轻推方向盘变道
@@ -1024,21 +1036,6 @@ class DesireHelper:
               else:
                 trigger_type = -3
                 trigger_name = "no torque"
-            elif ((driver_desire_enabled and  #驾驶员打灯变道
-                   self.driver_lane_change_delay == 0 and #没有命令打灯后的延时
-                  (self.stockBlinkerCtrl == 0 or #未通过外挂控制原车Blinker
-                   (blinker_val_pre == BLINKER_NONE and self.blinker_val == BLINKER_NONE) or not atc_desire_enabled or #没有esp32打灯或不在自动变道情况下
-                    (atc_desire_enabled and driver_blinker_state != atc_blinker_state)  #或者用户打的灯和自动变道的方向相反
-                     or torque_applied #或者用户施加了方向盘扭矩
-                     or (auto_lane_change_trigger and (lane_change_interval < 0.5 or self.lane_change_disable_count == 0 or not atc_left_right))) #或符合了自动变道条件
-                ) #or (self.carrot_blinker_state != BLINKER_NONE)
-                ):
-              self.lane_change_state = LaneChangeState.laneChangeStarting
-              trigger_type = 3
-              if self.carrot_blinker_state == BLINKER_NONE:
-                trigger_name = "driver"
-              else:
-                trigger_name = "cmd"
             elif torque_applied or auto_lane_change_trigger: #auto_lane_change_trigger在self.auto_lane_change_enable成立并且无其实阻止条件是则会为True
               if torque_applied: #如果用户施加了扭矩，则立即变道（不执行延时）
                 self.lane_change_state = LaneChangeState.laneChangeStarting
