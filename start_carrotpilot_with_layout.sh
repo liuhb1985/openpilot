@@ -7,7 +7,7 @@ sudo chmod -R 777 /dev/bus/usb/*
 cd ~/MinerU
 
 # 设置环境变量并激活虚拟环境
-export FINGERPRINT="HONDA_ACCORD"
+export FINGERPRINT="HYUNDAI_SANTA_FE"
 export SKIP_FW_QUERY="1"
 source .venv/bin/activate
 
