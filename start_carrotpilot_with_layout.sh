@@ -4,18 +4,18 @@
 sudo chmod -R 777 /dev/bus/usb/*
 
 # 进入 MinerU 目录
-cd ~/MinerU
+cd /home/$LOGNAME/openpilot &&
 
 # 设置环境变量并激活虚拟环境
-export FINGERPRINT="HYUNDAI_SANTA_FE"
-export SKIP_FW_QUERY="1"
-source .venv/bin/activate
+export FINGERPRINT="HYUNDAI_SANTA_FE" &&
+export SKIP_FW_QUERY="1" &&
+source .venv/bin/activate &&
 
 # 在后台启动系统管理器
 USE_WEBCAM=1 ROAD_CAM=0 python3 system/manager/manager.py &
 
 # 等待窗口创建
-sleep 5
+sleep 1
 
 # 获取屏幕尺寸
 SCREEN_WIDTH=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f1)
