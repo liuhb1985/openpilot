@@ -413,27 +413,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>ClearAllParams</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>CalibrationParams</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>LiveDelay</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>LiveTorqueParameters</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>LiveParameters</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>LiveParametersV2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -444,27 +424,35 @@
         <source>Are you sure you want to reset %1?</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>AllCalibParams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AllLiveParams</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>DrawCarrot</name>
     <message>
-        <source>ECO</source>
+        <source>经 济</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>SAFE</source>
+        <source>安 全</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>NORM</source>
+        <source>标 准</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>FAST</source>
+        <source>运 动</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>ERRM</source>
+        <source>错 误</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -137,7 +137,7 @@ procs = [
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
-  NativeProcess("c3cam_8845", "camera", ["./c3cam_8845"], always_run, enabled=PC),
+  NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
   PythonProcess("webrtcd", "system.webrtc.webrtcd", notcar),
   PythonProcess("webjoystick", "tools.bodyteleop.web", notcar),
   PythonProcess("joystick", "tools.joystick.joystick_control", and_(joystick, iscar)),

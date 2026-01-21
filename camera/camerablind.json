@@ -3,8 +3,8 @@
   "raw_conf_threshold": 0.5,
   "nms_conf_threshold": 0.5,
   "nms_threshold": 0.5,
-  "show_video":true,
-  "single_window":false,
+  "show_video": true,
+  "single_window": true,
 
   "windows_setting":{
     "window_width":640,
@@ -12,7 +12,7 @@
     "window_spacing":80,
     "screen_width":1920,
     "positions":[
-      {"camera_id":0,"x":0,"y":0,"description":"左上角"},
+      {"camera_id":0,"x":0,"y":640,"description":"左上角"},
       {"camera_id":1,"x":640,"y":0,"description":"左下角"},
       {"camera_id":2,"x":1280,"y":0,"description":"右上角"}
     ]
@@ -20,20 +20,9 @@
 
   "cameras": [
     {
-      "device": "/dev/v4l/by-path/pci-0000:c4:00.3-usb-0:1.3.2:1.0-video-index0",
+      "device": "/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1.2:1.0-video-index0",
       "sign": 0,
-      "car_detect": 1
-    },
-    {
-      "device": "/dev/v4l/by-path/pci-0000:c4:00.3-usb-0:1.3.4:1.0-video-index0",
-      "sign": 1,
-      "car_detect": 1
-    },
-    {
-      "device": "/dev/v4l/by-path/pci-0000:c4:00.3-usb-0:1.3.3:1.0-video-index0",
-      "sign": 1,
       "car_detect": 1
     }
   ]
 }
-

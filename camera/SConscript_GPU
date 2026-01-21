@@ -63,13 +63,14 @@ env.Program(
 )
 
 # ---------------- Program: c3cam_8845 ----------------
+# ---------------- Program: cam_blindspot ----------------
 env.Program(
-    target='c3cam_8845',
-    source=['c3cam_8845.cpp', 'json11.cpp'],
-    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
-    LIBS=all_libs,
-    LIBPATH=all_libpath,
-    LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+   target='cam_blindspot',
+   source=['cam_blindspot.cpp', 'json11.cpp'],
+   CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
+   LIBS=all_libs,
+   LIBPATH=all_libpath,
+   LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
 )
 
 env.Program(
