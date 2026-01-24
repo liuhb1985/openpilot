@@ -922,11 +922,11 @@
     </message>
     <message>
         <source>Reboot</source>
-        <translation>재부팅</translation>
+        <translation type="vanished">재부팅</translation>
     </message>
     <message>
         <source>Power Off</source>
-        <translation>전원 끄기</translation>
+        <translation type="vanished">전원 끄기</translation>
     </message>
     <message>
         <source>openpilot requires the device to be mounted within 4° left or right and within 5° up or 9° down. openpilot is continuously calibrating, resetting is rarely required.</source>
@@ -954,7 +954,7 @@
     </message>
     <message>
         <source>Are you sure you want to reboot?</source>
-        <translation>재부팅하시겠습니까?</translation>
+        <translation type="vanished">재부팅하시겠습니까?</translation>
     </message>
     <message>
         <source>Disengage to Reboot</source>
@@ -962,7 +962,7 @@
     </message>
     <message>
         <source>Are you sure you want to power off?</source>
-        <translation>전원을 끄시겠습니까?</translation>
+        <translation type="vanished">전원을 끄시겠습니까?</translation>
     </message>
     <message>
         <source>Disengage to Power Off</source>
@@ -1038,6 +1038,26 @@
     </message>
     <message>
         <source>Git pull &amp; Reboot?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>关闭UI窗口</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>电脑关机</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定关闭UI窗口吗?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定电脑关机吗 ？？?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

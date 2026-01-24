@@ -930,11 +930,11 @@
     </message>
     <message>
         <source>Reboot</source>
-        <translation>Neustart</translation>
+        <translation type="vanished">Neustart</translation>
     </message>
     <message>
         <source>Power Off</source>
-        <translation>Ausschalten</translation>
+        <translation type="vanished">Ausschalten</translation>
     </message>
     <message>
         <source>openpilot requires the device to be mounted within 4° left or right and within 5° up or 9° down. openpilot is continuously calibrating, resetting is rarely required.</source>
@@ -962,7 +962,7 @@
     </message>
     <message>
         <source>Are you sure you want to reboot?</source>
-        <translation>Bist du sicher, dass du das Gerät neu starten möchtest?</translation>
+        <translation type="vanished">Bist du sicher, dass du das Gerät neu starten möchtest?</translation>
     </message>
     <message>
         <source>Disengage to Reboot</source>
@@ -970,7 +970,7 @@
     </message>
     <message>
         <source>Are you sure you want to power off?</source>
-        <translation>Bist du sicher, dass du das Gerät ausschalten möchtest?</translation>
+        <translation type="vanished">Bist du sicher, dass du das Gerät ausschalten möchtest?</translation>
     </message>
     <message>
         <source>Disengage to Power Off</source>
@@ -1046,6 +1046,26 @@
     </message>
     <message>
         <source>Reboot &amp; Disengage to Calibration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>关闭UI窗口</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>电脑关机</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定关闭UI窗口吗?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>确定电脑关机吗 ？？?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

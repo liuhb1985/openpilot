@@ -3068,7 +3068,7 @@ public:
         strcpy(bottom, str.toStdString().c_str());
 
         // bottom_left
-        QString gitBranch = QString::fromStdString(params.get("GitBranch"));
+        QString gitBranch = QString::fromStdString("Carrotpilot - v9");
         sprintf(bottom_left, "%s", gitBranch.toStdString().c_str());
 
         // bottom_right
