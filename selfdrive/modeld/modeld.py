@@ -440,7 +440,7 @@ def main(demo=False):
       modelv2_send.modelV2.meta.rightFrontBlind = int(DH.rightFrontBlind)
       modelv2_send.modelV2.meta.atcBsd = int(DH.atc_bsd)
       if DH.event_test_frame > 0:
-        modelv2_send.modelV2.meta.laneChangeState = LaneChangeState.preLaneChange
+        modelv2_send.modelV2.meta.1 = LaneChangeState.preLaneChange
         modelv2_send.modelV2.meta.laneChangeDirection = LaneChangeDirection.left
 
       fill_pose_msg(posenet_send, model_output, meta_main.frame_id, vipc_dropped_frames, meta_main.timestamp_eof, live_calib_seen)

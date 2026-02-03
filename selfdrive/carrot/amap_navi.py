@@ -185,7 +185,10 @@ class AmapNaviServ:
     self.broadcast_ip = self.navi_get_broadcast_address() #广播地址
     self.broadcast_port = 4210 #广播端口
     self.listen_port = 4211 #监听地址
+    self.lane_remote_port = 4212
     self.lane_port = 4213  # 监听地址
+    self.navi_port = 7706
+    self.navi_remote_port = 7705
     self.local_ip_address = "0.0.0.0" #本地ip地址
 
     self.clients = {}  # 保存多个客户端
@@ -232,6 +235,9 @@ class AmapNaviServ:
     self.sec_count_down = 0
     self.frame = 0
     self.lane_online = False
+
+    self.app_addr = None
+    self.app_port = 4212
 
     threading.Thread(target=self.navi_broadcast_info).start()
     #threading.Thread(target=self.navi_comm_thread).start()
@@ -292,8 +298,8 @@ class AmapNaviServ:
       meta = modelV2.meta
 
       atc_type = carrotMan.atcType
-      laneWidthLeft = min(3.5, round(meta.laneWidthLeft, 1))
-      laneWidthRight = min(3.5, round(meta.laneWidthRight, 1))
+      laneWidthLeft = max(1.2, min(3.5, round(meta.laneWidthLeft, 1)))
+      laneWidthRight = max(1.2, min(3.5, round(meta.laneWidthRight, 1)))
       #distanceToRoadEdgeLeft = round(meta.distanceToRoadEdgeLeft, 1)
       #distanceToRoadEdgeRight = round(meta.distanceToRoadEdgeRight, 1)
 
@@ -619,7 +625,7 @@ class AmapNaviServ:
                   right_lane = int(json_obj.get("right_lane"))
                   self.shared_data.right_lane = 0 if right_lane < 1 else right_lane
               #响应
-              resp_msg = self.make_lane_broadcast(self.lane_port)
+              resp_msg = self.make_broadcast_message(self.lane_port, "lane")
               resp_dat = resp_msg.encode('utf-8')
               sock.sendto(resp_dat, addr)
               #print(resp_dat)
@@ -639,6 +645,16 @@ class AmapNaviServ:
                 echo = json.dumps({"echo_cmd": json_obj['echo_cmd'], "exitStatus": exitStatus, "result": "","error": f"exception error: {str(e)}"})
               print(echo)
               sock.sendto(echo.encode(), addr)
+            else:
+              #响应
+              resp_msg = self.make_broadcast_message(self.lane_port, "lane")
+              resp_dat = resp_msg.encode('utf-8')
+              sock.sendto(resp_dat, addr)
+              #print(resp_dat)
+            if "device" in json_obj:
+              device = json_obj.get("device")
+              if device == "app":
+                self.app_addr = addr
           except Exception as e:
             print(f"_lane_recv_thread: json error...: {e}")
             print(data)
@@ -652,13 +668,6 @@ class AmapNaviServ:
           print(f"lane recv error: {e}")
           time.sleep(1)
 
-  def make_lane_broadcast(self, port):
-    msg = {}
-    msg['ip'] = self.local_ip_address
-    msg['port'] = port
-    msg['device'] = "op"
-
-    return json.dumps(msg)
   # ----------------------
   # UDP 接收线程（修改：初始化 client_active）
   # ----------------------
@@ -1290,6 +1299,9 @@ class AmapNaviServ:
                         navi_dat = navi_msg.encode('utf-8')
                       if navi_dat is not None:
                         sock.sendto(navi_dat, (ip, port))
+                        sock.sendto(navi_dat, (ip, self.navi_remote_port))
+                        #if self.app_addr is not None:
+                        #  sock.sendto(navi_dat, self.app_addr)
                         if (self.shared_data.showDebugLog & 32) > 0:
                           print(f"sendto {ip} (overtake): {navi_dat}")
                     elif (device_type == "lidar" or device_type == "camera") and ((frame % 10) == 0):  # 雷达模块
@@ -1314,14 +1326,25 @@ class AmapNaviServ:
 
             # 每2秒广播一次自己的ip和端口
             if frame % 20 == 0:
-              broadcast_msg = self.make_broadcast_message()
+              broadcast_msg = self.make_broadcast_message(self.listen_port, "op")
               broadcast_dat = broadcast_msg.encode('utf-8')
-              if self.broadcast_ip is not None and broadcast_dat is not None:
+              if self.broadcast_ip is None:
                 self.broadcast_ip = self.navi_get_broadcast_address()
+              if self.broadcast_ip is not None and broadcast_dat is not None:
                 sock.sendto(broadcast_dat, (self.broadcast_ip, self.broadcast_port))
                 broadcast_cnt += 1
                 if (self.shared_data.showDebugLog & 32) > 0:
                   print(f"broadcasting: {self.broadcast_ip}:{self.broadcast_port},{broadcast_msg}")
+
+              lane_broadcast_msg = self.make_broadcast_message(self.lane_port, "lane")
+              lane_broadcast_dat = lane_broadcast_msg.encode('utf-8')
+              if self.broadcast_ip is not None and lane_broadcast_dat is not None:
+                sock.sendto(lane_broadcast_dat, (self.broadcast_ip, self.lane_remote_port))
+
+              navi_broadcast_msg = self.make_broadcast_message(self.navi_port, "navi")
+              navi_broadcast_dat = navi_broadcast_msg.encode('utf-8')
+              if self.broadcast_ip is not None and navi_broadcast_dat is not None:
+                sock.sendto(navi_broadcast_dat, (self.broadcast_ip, self.navi_remote_port))
 
           except Exception as e:
             if (self.shared_data.showDebugLog & 32) > 0:
@@ -1669,11 +1692,11 @@ class AmapNaviServ:
 
     return json.dumps(msg)
 
-  def make_broadcast_message(self):
+  def make_broadcast_message(self, port, device):
     msg = {}
     msg['ip'] = self.local_ip_address
-    msg['port'] = self.listen_port
-    msg['device'] = "op"
+    msg['port'] = port
+    msg['device'] = device
 
     return json.dumps(msg)
 

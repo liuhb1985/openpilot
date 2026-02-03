@@ -905,7 +905,7 @@ class CarrotServ:
             decel_priority = True
         elif (do_fork_nav_dist > 0) and (x_dist_to_turn <= do_fork_nav_dist): #设置了导航距离控制转弯后，如果距离小于设置值是立即变道
           atc_type += " now"
-        if x_dist_to_turn < do_speed_decal_dist: #距离路口的距离小于设定值时要开始减速了，因为到匝道口前nRoadLimitSpeed其实没有变，所以只能用这种方法进行减速
+        if x_dist_to_turn < do_speed_decal_dist and (0 <= self.roadcate <= 1 or "right" in atc_type): #距离路口的距离小于设定值时要开始减速了，因为到匝道口前nRoadLimitSpeed其实没有变，所以只能用这种方法进行减速
           atc_bsd_adjust_enable = False
           if auto_decel_rate > 0 and check_steer: #设置了减速比率
             if atc_speed > decel_speed_min: #只有车速大于最小设定速度时才允许降速
@@ -915,9 +915,10 @@ class CarrotServ:
         # 如果上面的条件都不成立，则atc_type直接就是查表得到的类型，即atc_type = mapping["type"]
 
     #速度保持
+    '''
     if check_steer:
-      if atc_type_org in ["fork left", "fork right"] and self.atc_speed_decal > 0:
-        self.fork_speed_keep_time = min(-1, self.fork_speed_keep_time - 1)  # 保持速度的时间递减
+      if self.atc_speed_decal > 0 and atc_type_org in ["fork left", "fork right"]:
+        self.fork_speed_keep_time = max(-1, self.fork_speed_keep_time - 1)  # 保持速度的时间递减
         if self.fork_speed_keep_time > 0:
           atc_speed = min(atc_speed, self.atc_speed_decal) #保持之前的速度
         if self.fork_speed_keep_time == 0:
@@ -925,6 +926,7 @@ class CarrotServ:
       else:
         self.fork_speed_keep_time = -1
         self.atc_speed_decal = 0
+    '''
 
     if self.autoTurnMapChange > 0 and check_steer:
       #print(f"x_dist_to_turn: {x_dist_to_turn}, atc_start_dist: {atc_start_dist}")
@@ -976,6 +978,18 @@ class CarrotServ:
       decel = self.autoNaviSpeedDecelRate
       safe_sec = 2.0
       atc_desired = min(atc_desired, self.calculate_current_speed(x_dist_to_turn - atc_dist, atc_speed, safe_sec, decel))
+
+    #保持进匝道前的速度
+    if check_steer:
+      if self.atc_speed_decal > 0 and self.fork_speed_keep_time > 0:
+        self.fork_speed_keep_time = max(-1, self.fork_speed_keep_time - 1)  # 保持速度的时间递减
+        if self.fork_speed_keep_time > 0:
+          atc_desired = min(atc_desired, self.atc_speed_decal) #保持之前的速度
+        if self.fork_speed_keep_time == 0:
+          self.atc_speed_decal = 0
+      else:
+        self.fork_speed_keep_time = -1
+        self.atc_speed_decal = 0
 
     # ==========================================================
     # 盲区受阻标志

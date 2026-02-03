@@ -288,6 +288,8 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"EVTable", PERSISTENT},
     {"LongPitch", PERSISTENT},
     {"ActivateCruiseAfterBrake", CLEAR_ON_MANAGER_START},   // for GM autoResume
+    {"CustomSteerOffset", PERSISTENT},
+    {"SteerAngleOffset", PERSISTENT},
     {"CustomSR", PERSISTENT},
     {"SteerRatioRate", PERSISTENT},
     {"SoftRestartTriggered", CLEAR_ON_MANAGER_START},
