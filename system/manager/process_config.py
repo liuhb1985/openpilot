@@ -135,6 +135,7 @@ procs = [
   PythonProcess("uploader", "system.loggerd.uploader", enable_connect),
   PythonProcess("statsd", "system.statsd", always_run),
 
+
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
   NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
