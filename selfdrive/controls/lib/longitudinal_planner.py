@@ -16,6 +16,9 @@ from openpilot.selfdrive.car.cruise import V_CRUISE_MAX, V_CRUISE_UNSET
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 
+#new
+from openpilot.selfdrive.controls.lib.dec.longitudinal_planner import LongitudinalPlannerSP
+
 
 LON_MPC_STEP = 0.2  # first step is 0.2s
 A_CRUISE_MIN = -2.0 #-1.2
@@ -54,10 +57,14 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, CP):
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 
-class LongitudinalPlanner:
+class LongitudinalPlanner(LongitudinalPlannerSP): #new
   def __init__(self, CP, init_v=0.0, init_a=0.0, dt=DT_MDL):
     self.CP = CP
     self.mpc = LongitudinalMpc(dt=dt)
+    #new
+    self.mpc.mode = 'acc'
+    LongitudinalPlannerSP.__init__(self, self.CP, self.mpc)
+    #new
     self.fcw = False
     self.dt = dt
     self.allow_throttle = True
@@ -102,7 +109,13 @@ class LongitudinalPlanner:
     return x, v, a, j, throttle_prob
 
   def update(self, sm, carrot):
+    #self.mpc.mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
+    #new
     self.mpc.mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
+    LongitudinalPlannerSP.update(self, sm)
+    if dec_mpc_mode := self.get_mpc_mode():
+      self.mpc.mode = dec_mpc_mode
+    #new
 
     if len(sm['carControl'].orientationNED) == 3:
       accel_coast = get_coast_accel(sm['carControl'].orientationNED[1])

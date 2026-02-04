@@ -126,6 +126,10 @@ def main():
 
   min_sr, max_sr = 0.5 * CP.steerRatio, 2.0 * CP.steerRatio
 
+  #自定义方向盘偏移
+  CustomSteerOffset = params_reader.get_bool("CustomSteerOffset")
+  SteerAngleOffset = params_reader.get_float("SteerAngleOffset") / 10.0
+
   params = params_reader.get("LiveParameters")
 
   # Check if car model matches
@@ -175,7 +179,14 @@ def main():
   params_memory = Params("/dev/shm/params")
   params_memory.remove("LastGPSPosition")
 
+  frame = 0
   while True:
+    #读取自定义方向盘角度
+    frame += 1
+    if (frame % 100) == 0:
+      CustomSteerOffset = params_reader.get_bool("CustomSteerOffset")
+      SteerAngleOffset = params_reader.get_float("SteerAngleOffset") / 10.0
+
     sm.update()
     if sm.all_checks():
       for which in sorted(sm.updated.keys(), key=lambda x: sm.logMonoTime[x]):
@@ -190,7 +201,7 @@ def main():
         lat = location.positionGeodetic.value[0]
         lon = location.positionGeodetic.value[1]
         params_memory.put("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
-        
+
       x = learner.kf.x
       P = np.sqrt(learner.kf.P.diagonal())
       if not all(map(math.isfinite, x)):
@@ -202,6 +213,12 @@ def main():
                                   angle_offset_average - MAX_ANGLE_OFFSET_DELTA, angle_offset_average + MAX_ANGLE_OFFSET_DELTA)
       angle_offset = np.clip(math.degrees(x[States.ANGLE_OFFSET].item() + x[States.ANGLE_OFFSET_FAST].item()),
                           angle_offset - MAX_ANGLE_OFFSET_DELTA, angle_offset + MAX_ANGLE_OFFSET_DELTA)
+
+      #如果有自定义方向盘偏移，则使用方向盘偏移
+      if CustomSteerOffset:
+        angle_offset_average = SteerAngleOffset
+        angle_offset = angle_offset_average
+
       roll = np.clip(float(x[States.ROAD_ROLL].item()), roll - ROLL_MAX_DELTA, roll + ROLL_MAX_DELTA)
       roll_std = float(P[States.ROAD_ROLL].item())
       if learner.active and learner.speed > LOW_ACTIVE_SPEED:
