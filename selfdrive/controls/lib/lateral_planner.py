@@ -255,6 +255,7 @@ class LateralPlanner:
 
     radar_left_info = ""
     radar_right_info = ""
+    '''
     radar_state = sm['radarState']
     lead_left = radar_state.leadLeft
     lead_right = radar_state.leadRight
@@ -263,7 +264,7 @@ class LateralPlanner:
       radar_left_info = f"| L:{lead_left.dRel:.1f}m,{lead_left.vLead * 3.6:.0f}km/h"
     if lead_right.status:
       radar_right_info += f"| R:{lead_right.dRel:.1f}m,{lead_right.vLead * 3.6:.0f}km/h"
-
+    '''
     debugText = (
       f"{'lanemode' if self.lanelines_active else 'laneless'} | " +
       f"{self.LP.lane_width_left:.1f}m | " +

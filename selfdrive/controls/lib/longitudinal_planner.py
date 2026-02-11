@@ -18,7 +18,7 @@ from openpilot.common.params import Params
 
 #new
 from openpilot.selfdrive.controls.lib.dec.longitudinal_planner import LongitudinalPlannerSP
-
+from openpilot.selfdrive.carrot.config import UnifiedParams
 
 LON_MPC_STEP = 0.2  # first step is 0.2s
 A_CRUISE_MIN = -2.0 #-1.2
@@ -86,7 +86,22 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
 
     self.v_cruise_kph = 0.0
 
-    self.params = Params()
+    self.sys_params = Params()
+    #new
+    self.params = UnifiedParams()
+    self.frame = 0
+    self.DynamicExperimentalSpeed = -1
+    self.DynamicExperimentalLatA = 0.0
+    self.UserExperimentalMode = False
+    # ===== 动态实验模式迟滞参数 =====
+    self._exp_latched = False  # 当前是否被动态逻辑锁定为实验模式
+    self._exp_on_counter = 0  # 连续满足进入条件的帧数
+    self._exp_off_counter = 0  # 连续满足退出条件的帧数
+    self._exp_on_frames = 10  # 连续10帧才进入（比如 20Hz ≈ 0.5s）
+    self._exp_off_frames = 20  # 连续20帧才退出（更保守）
+    self._exp_hyst_speed = 5.0  # km/h 迟滞
+    self._exp_hyst_latA = 0.5  # m/s^2 迟滞
+    #new
 
   @staticmethod
   def parse_model(model_msg):
@@ -111,10 +126,86 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
   def update(self, sm, carrot):
     #self.mpc.mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
     #new
+    if self.frame % 100 == 0:
+      self.DynamicExperimentalSpeed = self.params.get_int("DynamicExperimentalSpeed")
+      self.DynamicExperimentalLatA = self.params.get_float("DynamicExperimentalLatA")*0.1
+    self.frame += 1
+
+    modelData = sm['modelV2']
+    orientation_rate = np.array(modelData.orientationRate.z)
+    velocity = np.array(modelData.velocity.x)
+    max_pred_lat_acc = np.amax(np.abs(orientation_rate) * velocity)
+    v_ego = sm['carState'].vEgo
+    v_ego_kph = v_ego * 3.6
+
     self.mpc.mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
-    LongitudinalPlannerSP.update(self, sm)
-    if dec_mpc_mode := self.get_mpc_mode():
-      self.mpc.mode = dec_mpc_mode
+
+    # ===============================
+    # 动态实验模式（进阶迟滞版）
+    # ===============================
+
+    # 条件开（进入实验模式）
+    cond_speed_on = (
+      self.DynamicExperimentalSpeed > 0 and
+      5 < v_ego_kph < max(10, self.DynamicExperimentalSpeed)
+    )
+
+    cond_lat_on = (
+      0 < self.DynamicExperimentalLatA < max_pred_lat_acc
+    )
+
+    # 条件关（退出实验模式，加迟滞）
+    cond_speed_off = (
+      self.DynamicExperimentalSpeed > 0 and
+      (v_ego_kph < 2 or v_ego_kph > self.DynamicExperimentalSpeed + self._exp_hyst_speed)
+    )
+
+    cond_lat_off = (
+      self.DynamicExperimentalLatA > 0 and
+      max_pred_lat_acc <= max(0.3, self.DynamicExperimentalLatA - self._exp_hyst_latA)
+    )
+
+    enter_exp = cond_speed_on or cond_lat_on
+    exit_exp = cond_speed_off and cond_lat_off
+
+    # ========= 时间确认（防抖）=========
+    if enter_exp:
+      self._exp_on_counter += 1
+    else:
+      self._exp_on_counter = 0
+    if exit_exp:
+      self._exp_off_counter += 1
+    else:
+      self._exp_off_counter = 0
+
+    # ========= 模式切换 =========
+    # 设定值为0表示动态实验模式
+    if self.DynamicExperimentalSpeed == 0 and self.DynamicExperimentalLatA == 0:
+      LongitudinalPlannerSP.update(self, sm)
+      if dec_mpc_mode := self.get_mpc_mode():
+        self.mpc.mode = dec_mpc_mode
+
+    # 设置值大于0表示条件实验模式
+    elif self._exp_on_counter >= self._exp_on_frames and not self._exp_latched:
+      # 进入实验模式
+      #if not sm['selfdriveState'].experimentalMode and not self.UserExperimentalMode:
+      #  self.sys_params.put_bool_nonblocking("ExperimentalMode", True)
+      self.sys_params.put_bool_nonblocking("ExperimentalMode", True)
+
+      self.mpc.mode = 'blended'
+      self._exp_latched = True
+      self.UserExperimentalMode = True
+      self._exp_off_counter = 0
+
+    elif self._exp_off_counter >= self._exp_off_frames and self._exp_latched:
+      # 退出实验模式
+      #if sm['selfdriveState'].experimentalMode:
+      #  self.sys_params.put_bool_nonblocking("ExperimentalMode", False)
+      self.sys_params.put_bool_nonblocking("ExperimentalMode", False)
+
+      self._exp_latched = False
+      self.UserExperimentalMode = False
+      self._exp_on_counter = 0
     #new
 
     if len(sm['carControl'].orientationNED) == 3:
@@ -160,7 +251,7 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
       self.v_desired_filter.x = v_ego
       # Clip aEgo to cruise limits to prevent large accelerations when becoming active
       self.a_desired = np.clip(sm['carState'].aEgo, accel_limits[0], accel_limits[1])
-      
+
       self.mpc.prev_a = np.full(N+1, self.a_desired) ## carrot
       accel_limits_turns[0] = accel_limits_turns[0] = 0.0 ## carrot
 

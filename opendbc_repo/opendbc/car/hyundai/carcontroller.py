@@ -325,7 +325,6 @@ class CarController(CarControllerBase):
           can_sends.extend(self.create_button_messages(CC, CS, use_clu11=False))
 
     else:
-      print("-------------cruiseControl.create_lkas11!----------------\n")
       can_sends.append(hyundaican.create_lkas11(self.packer, self.frame, self.CP, apply_torque, apply_steer_req,
                                                 torque_fault, CS.lkas11, sys_warning, sys_state, CC.enabled,
                                                 hud_control.leftLaneVisible, hud_control.rightLaneVisible,
