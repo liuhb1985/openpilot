@@ -66,6 +66,8 @@ def get_default_params():
     ("AutoEngage", "0"),
     ("DisableMinSteerSpeed", "0"),
     ("SoftHoldMode", "0"),
+    ("EnableDisconnectShutdown", "0"),
+    ("DisconnectShutdownDelay", "30"),
 
     ("AutoSpeedUptoRoadSpeedLimit", "0"),
     ("AutoRoadSpeedAdjust", "-1"),

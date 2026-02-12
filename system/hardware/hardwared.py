@@ -222,6 +222,12 @@ def hardware_thread(end_event, hw_queue) -> None:
   device_go_off_road = False
 
   restart_triggered_ts = 0.
+  # 添加：记录上次检测到 Panda 连接的时间
+  last_panda_connected_ts = time.monotonic()
+  # 添加：是否启用断开连接自动关机（可通过参数控制）
+  enable_disconnect_shutdown = params.get_bool("EnableDisconnectShutdown")
+  # 添加：断开连接后关机的延时时间（秒），默认 5 秒
+  disconnect_shutdown_delay = params.get_int("DisconnectShutdownDelay") if params.get_int("DisconnectShutdownDelay") > 0 else 10
 
   while not end_event.is_set():
     sm.update(PANDA_STATES_TIMEOUT)
@@ -251,6 +257,22 @@ def hardware_thread(end_event, hw_queue) -> None:
       if onroad_conditions["ignition"]:
         onroad_conditions["ignition"] = False
         cloudlog.error("panda timed out onroad")
+        # 添加：检测到 Panda 超时断开，记录时间
+        last_panda_connected_ts = time.monotonic()
+        cloudlog.info("Panda disconnected, last connected timestamp updated")
+
+    # 添加：检测断开连接自动关机逻辑
+    if enable_disconnect_shutdown:
+      # 检查当前是否有 Panda 连接
+      panda_connected = peripheral_panda_present and (time.monotonic() - sm.recv_time['pandaStates']) <= DISCONNECT_TIMEOUT
+
+      if not panda_connected and not onroad_conditions["ignition"]:
+        # Panda 未连接且未点火
+        disconnect_duration = time.monotonic() - last_panda_connected_ts
+        if disconnect_duration >= disconnect_shutdown_delay:
+          # 达到关机延时，执行关机
+          cloudlog.warning(f"Auto shutdown: Panda disconnected for {disconnect_duration:.1f}s")
+          params.put_bool("DoShutdown", True)
 
     # Run at 2Hz, plus either edge of ignition
     ign_edge = (started_ts is not None) != onroad_conditions["ignition"]

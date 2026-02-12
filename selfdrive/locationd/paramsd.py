@@ -88,8 +88,12 @@ class ParamsLearner:
       self.steering_angle = msg.steeringAngleDeg
       self.speed = msg.vEgo
 
+      #new
+      MAX_STRAIGHT_YAW_RATE = 0.05  # rad/s, 约2.8°/s，可根据实际调整
+      straight_road = abs(self.yaw_rate) < MAX_STRAIGHT_YAW_RATE
+      #new
       in_linear_region = abs(self.steering_angle) < 45
-      self.active = self.speed > MIN_ACTIVE_SPEED and in_linear_region
+      self.active = self.speed > MIN_ACTIVE_SPEED and in_linear_region and straight_road
 
       if self.active:
         self.kf.predict_and_observe(t, ObservationKind.STEER_ANGLE, np.array([[math.radians(msg.steeringAngleDeg)]]))
@@ -125,10 +129,6 @@ def main():
   cloudlog.info("paramsd got CarParams")
 
   min_sr, max_sr = 0.5 * CP.steerRatio, 2.0 * CP.steerRatio
-
-  #自定义方向盘偏移
-  CustomSteerOffset = params_reader.get_bool("CustomSteerOffset")
-  SteerAngleOffset = params_reader.get_float("SteerAngleOffset") / 10.0
 
   params = params_reader.get("LiveParameters")
 
@@ -179,14 +179,7 @@ def main():
   params_memory = Params("/dev/shm/params")
   params_memory.remove("LastGPSPosition")
 
-  frame = 0
   while True:
-    #读取自定义方向盘角度
-    frame += 1
-    if (frame % 100) == 0:
-      CustomSteerOffset = params_reader.get_bool("CustomSteerOffset")
-      SteerAngleOffset = params_reader.get_float("SteerAngleOffset") / 10.0
-
     sm.update()
     if sm.all_checks():
       for which in sorted(sm.updated.keys(), key=lambda x: sm.logMonoTime[x]):
@@ -213,12 +206,6 @@ def main():
                                   angle_offset_average - MAX_ANGLE_OFFSET_DELTA, angle_offset_average + MAX_ANGLE_OFFSET_DELTA)
       angle_offset = np.clip(math.degrees(x[States.ANGLE_OFFSET].item() + x[States.ANGLE_OFFSET_FAST].item()),
                           angle_offset - MAX_ANGLE_OFFSET_DELTA, angle_offset + MAX_ANGLE_OFFSET_DELTA)
-
-      #如果有自定义方向盘偏移，则使用方向盘偏移
-      if CustomSteerOffset:
-        angle_offset_average = SteerAngleOffset
-        angle_offset = angle_offset_average
-
       roll = np.clip(float(x[States.ROAD_ROLL].item()), roll - ROLL_MAX_DELTA, roll + ROLL_MAX_DELTA)
       roll_std = float(P[States.ROAD_ROLL].item())
       if learner.active and learner.speed > LOW_ACTIVE_SPEED:

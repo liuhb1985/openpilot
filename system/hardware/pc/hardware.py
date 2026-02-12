@@ -136,7 +136,7 @@ class Pc(HardwareBase):
       cpu_zones.append(ThermalZone('thermal_zone0'))
 
     # CPU 显示 GPU 温度
-    final_cpu = cpu_zones if cpu_zones else gpu_zones
+    final_cpu = gpu_zones if gpu_zones else cpu_zones
     final_gpu = gpu_zones if gpu_zones else None
 
     return ThermalConfig(
