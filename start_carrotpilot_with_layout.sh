@@ -4,10 +4,10 @@
 sudo chmod -R 777 /dev/bus/usb/*
 
 # 进入 MinerU 目录
-cd ~/MinerU
+cd /home/$LOGNAME/DS-dev
 
 # 设置环境变量并激活虚拟环境
-export FINGERPRINT="HONDA_ACCORD"
+export FINGERPRINT="HYUNDAI_SANTA_FE"
 export SKIP_FW_QUERY="1"
 source .venv/bin/activate
 
@@ -21,7 +21,7 @@ wait_for_cameras() {
     local check_interval=2
 
     # 期望的摄像头数量
-    local expected_cameras=4
+    local expected_cameras=2
 
     # 获取当前已检测到的摄像头数量
     local last_camera_count=0
