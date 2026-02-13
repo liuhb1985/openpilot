@@ -432,6 +432,18 @@
         <source>AllLiveParams</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Auto Shutdown on Disconnect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Auto poweroff when Panda disconnects</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disconnect Delay (sec)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>DrawCarrot</name>
@@ -737,21 +749,6 @@ Firehose Mode allows you to maximize your training data uploads to improve openp
     <message>
         <source>Cancel</source>
         <translation>Cancelar</translation>
-    </message>
-</context>
-<context>
-    <name>PathEndDrawer</name>
-    <message>
-        <source>Signal Error</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Signal Ready</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Signal slowing</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
