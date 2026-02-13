@@ -258,6 +258,8 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"LaneChangeBsd", PERSISTENT},
     {"MaxAngleFrames", PERSISTENT},
     {"SoftHoldMode", PERSISTENT},
+    {"EnableDisconnectShutdown", PERSISTENT},
+    {"DisconnectShutdownDelay", PERSISTENT},
     {"LatMpcPathCost", PERSISTENT},
     {"LatMpcMotionCost", PERSISTENT},
     {"LatMpcAccelCost", PERSISTENT},
