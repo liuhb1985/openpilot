@@ -288,8 +288,8 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   // offroad-only buttons
 
   // 断开连接自动关机
-  addItem(new CValueControl("EnableDisconnectShutdown", tr("Auto Shutdown on Disconnect"), tr("Auto poweroff when Panda disconnects"), 0, 1, 1));
-  addItem(new CValueControl("DisconnectShutdownDelay", tr("Disconnect Delay (sec)"), "", 1, 60, 1));
+  addItem(new CValueControl("EnableDisconnectShutdown", "断开panda自动关机", tr("Auto poweroff when Panda disconnects"), 0, 1, 1));
+  addItem(new CValueControl("DisconnectShutdownDelay", "自动关机延时 (sec)", "", 1, 60, 1));
 
   auto dcamBtn = new ButtonControl(tr("Driver Camera"), tr("PREVIEW"),
                                    tr("Preview the driver facing camera to ensure that driver monitoring has good visibility. (vehicle must be off)"));
