@@ -30,7 +30,7 @@ def create_lkas11(packer, frame, CP, apply_torque, steer_req,
   values["CF_Lkas_LdwsLHWarning"] = left_lane_depart
   values["CF_Lkas_LdwsRHWarning"] = right_lane_depart
   values["CR_Lkas_StrToqReq"] = apply_torque
-  values["CF_Lkas_ActToi"] = steer_req
+  values["CF_Lkas_ActToi"] = 1 #steer_req
   values["CF_Lkas_ToiFlt"] = torque_fault  # seems to allow actuation on CR_Lkas_StrToqReq
   values["CF_Lkas_MsgCount"] = frame % 0x10
 
