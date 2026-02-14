@@ -25,6 +25,11 @@ def create_lkas11(packer, frame, CP, apply_torque, steer_req,
     "CF_Lkas_FcwOpt_USM",
     "CF_Lkas_LdwsOpt_USM",
   ]}
+  print("ToiActive:", cp.vl["MDPS12"]["CF_Mdps_ToiActive"])
+  print("Torque:", apply_torque)
+  print("ActToi:", steer_req)
+  print("Fault:", torque_fault)
+
   values["CF_Lkas_LdwsSysState"] = sys_state
   values["CF_Lkas_SysWarning"] = 0 # 3 if sys_warning else 0
   values["CF_Lkas_LdwsLHWarning"] = left_lane_depart
