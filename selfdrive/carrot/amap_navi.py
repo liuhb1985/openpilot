@@ -11,6 +11,7 @@ from openpilot.common.realtime import Ratekeeper
 #from openpilot.common.params import Params
 from openpilot.system.hardware import PC
 from openpilot.selfdrive.carrot.config import UnifiedParams
+from openpilot.selfdrive.carrot.web_interface import WebInterface
 
 BLINKER_NONE = 0
 BLINKER_LEFT = 1
@@ -178,8 +179,8 @@ class AmapNaviServ:
   def __init__(self):
     self.shared_data = SharedData() #new
     self.params = UnifiedParams()
-    #self.sm = messaging.SubMaster(['carState', 'modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
-    self.sm = messaging.SubMaster(['modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
+    self.sm = messaging.SubMaster(['carState', 'modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
+    #self.sm = messaging.SubMaster(['modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
     self.pm = messaging.PubMaster(['amapNavi'])
 
     self.broadcast_ip = self.navi_get_broadcast_address() #广播地址
@@ -243,6 +244,12 @@ class AmapNaviServ:
     #threading.Thread(target=self.navi_comm_thread).start()
     self.start_navi_comm()
 
+    #WEB
+    self.web_interface = WebInterface(self, port=8088)
+    self.web_interface_thread = threading.Thread(target=self.web_interface.start_web_server, args=[])
+    self.web_interface_thread.daemon = True
+    self.web_interface_thread.start()
+
   def public_amap_navi(self):
     msg = messaging.new_message('amapNavi')
     msg.valid = True
@@ -250,6 +257,11 @@ class AmapNaviServ:
                               (2 if self.shared_data.left_blind else 0) + (1 if self.shared_data.lidar_lblind else 0))
     msg.amapNavi.rightBlind = ((8 if self.shared_data.right_lane > 0 else 0) + (4 if self.shared_data.lidar_car_rblind else 0) +
                                (2 if self.shared_data.right_blind else 0) + (1 if self.shared_data.lidar_rblind else 0))
+    msg.amapNavi.extState = self.shared_data.ext_state
+    msg.amapNavi.extBlinker = self.shared_data.ext_blinker
+    msg.amapNavi.cmdIndex = self.shared_data.cmd_index
+    msg.amapNavi.cmd = self.shared_data.remote_cmd
+    msg.amapNavi.arg = self.shared_data.remote_arg
     self.pm.send('amapNavi', msg)
 
   def left_blindspot(self):
@@ -461,7 +473,7 @@ class AmapNaviServ:
   def start_navi_comm(self):
     threading.Thread(target=self._lane_recv_thread, daemon=True).start()
     """启动导航UDP通信线程"""
-    threading.Thread(target=self._udp_recv_thread, daemon=True).start()
+    #threading.Thread(target=self.udp_recv_thread, daemon=True).start()
     # 启动清理客户端线程
     threading.Thread(target=self._clean_clients_thread, daemon=True).start()
     #数据处理线程
@@ -476,6 +488,7 @@ class AmapNaviServ:
     while True:
       try:
         self.sm.update(0)
+        self.update_navi_carstate(self.sm)
         self.update_param()  # 更新参数
         self.lidar_object_blind()
 
@@ -671,7 +684,7 @@ class AmapNaviServ:
   # ----------------------
   # UDP 接收线程（修改：初始化 client_active）
   # ----------------------
-  def _udp_recv_thread(self):
+  def udp_recv_thread(self):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
       sock.settimeout(10)
       sock.bind(('0.0.0.0', self.listen_port))
@@ -1304,7 +1317,7 @@ class AmapNaviServ:
                         #  sock.sendto(navi_dat, self.app_addr)
                         if (self.shared_data.showDebugLog & 32) > 0:
                           print(f"sendto {ip} (overtake): {navi_dat}")
-                    elif (device_type == "lidar" or device_type == "camera") and ((frame % 3) == 0):  # 雷达模块
+                    elif (device_type == "lidar" or device_type == "camera") and ((frame % 10) == 0):  # 雷达模块
                       if lidar_msg is None:
                         lidar_msg = self.make_lidar_message()
                         lidar_dat = lidar_msg.encode('utf-8')
@@ -1312,7 +1325,7 @@ class AmapNaviServ:
                         sock.sendto(lidar_dat, (ip, port))
                         if (self.shared_data.showDebugLog & 32) > 0:
                           print(f"sendto {ip} (lidar): {lidar_dat}")
-                    elif ((frame + 3) % 2) == 0:  # 其他
+                    elif ((frame + 3) % 5) == 0:  # 其他
                       if blinker_msg is None:
                         blinker_msg = self.make_blinker_message()
                         blinker_dat = blinker_msg.encode('utf-8')
@@ -1545,6 +1558,8 @@ class AmapNaviServ:
         msg['l_edge_dist'] = round(meta.distanceToRoadEdgeLeft, 1)
         msg['r_edge_dist'] = round(meta.distanceToRoadEdgeRight, 1)
         msg['atc_state'] = meta.laneChangeState.raw
+        if hasattr(meta, 'laneWidth'):
+          msg['lane_width'] = round(meta.laneWidth, 1)
 
         if self.shared_data.max_curve is None and hasattr(modelV2, 'orientationRate') and len(modelV2.orientationRate.z) > 0:
           orientation_rate_z = self._capnp_list_to_list(modelV2.orientationRate.z)
@@ -1740,7 +1755,8 @@ class AmapNaviServ:
 
 def main():
   amap_navi = AmapNaviServ()
-  #amap_navi.navi_comm_thread()
+  amap_navi.udp_recv_thread()
+  amap_navi.web_interface.stop_web_server()
 
 if __name__ == "__main__":
   main()
