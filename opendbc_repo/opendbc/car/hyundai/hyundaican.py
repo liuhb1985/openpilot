@@ -27,9 +27,10 @@ def create_lkas11(packer, frame, CP, apply_torque, steer_req,
   ]}
 
   # print("ToiActive:", cp.vl["MDPS12"]["CF_Mdps_ToiActive"])
-  # print("Torque:", apply_torque)
-  # print("ActToi:", steer_req)
-  # print("Fault:", torque_fault)
+  print(f"create_lkas11 检查设备")
+  print("Torque:", apply_torque)
+  print("ActToi:", steer_req)
+  print("Fault:", torque_fault)
 
   values["CF_Lkas_LdwsSysState"] = sys_state
   values["CF_Lkas_SysWarning"] = 0 # 3 if sys_warning else 0
