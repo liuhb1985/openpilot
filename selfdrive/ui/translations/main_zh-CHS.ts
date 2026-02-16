@@ -433,15 +433,7 @@
         <translation>你确定要重置 %1 吗？</translation>
     </message>
     <message>
-        <source>Auto Shutdown on Disconnect</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Auto poweroff when Panda disconnects</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Disconnect Delay (sec)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

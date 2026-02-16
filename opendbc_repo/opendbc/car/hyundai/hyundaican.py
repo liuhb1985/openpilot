@@ -26,8 +26,7 @@ def create_lkas11(packer, frame, CP, apply_torque, steer_req,
     "CF_Lkas_LdwsOpt_USM",
   ]}
 
-  # print("ToiActive:", cp.vl["MDPS12"]["CF_Mdps_ToiActive"])
-  print(f"create_lkas11 检查设备")
+  #print("ToiActive:", cp.vl["MDPS12"]["CF_Mdps_ToiActive"])
   print("Torque:", apply_torque)
   print("ActToi:", steer_req)
   print("Fault:", torque_fault)
