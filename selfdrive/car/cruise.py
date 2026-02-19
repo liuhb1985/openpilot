@@ -697,7 +697,7 @@ class VCruiseCarrot:
     else:
       return False, d_final
 
-  def _update_cruise_state(self, CS, CC, v_cruise_kph):
+  def _update_cruise_state_new(self, CS, CC, v_cruise_kph):
     if not CC.enabled:
       self._pause_auto_speed_up = False
       if self._brake_pressed_count == -1 and self._soft_hold_active > 0:
@@ -790,6 +790,90 @@ class VCruiseCarrot:
       self._pause_auto_speed_up = False
       if self._gas_pressed_count == 1 and CS.vEgo < 0.1:
         self._cruise_control(-1, -1, "Cruise off (gasPressed)")
+    elif self._brake_pressed_count == 1:
+      self._pause_auto_speed_up = True
+
+    return self._auto_speed_up(v_cruise_kph)
+
+  def _update_cruise_state(self, CS, CC, v_cruise_kph):
+    if not CC.enabled:
+      self._pause_auto_speed_up = False
+
+      if self.params.get_bool("ActivateCruiseAfterBrake"):
+        self.params.put_bool_nonblocking("ActivateCruiseAfterBrake", False)
+        self._cruise_control(1, -1, "Cruise on (brake)")
+
+      elif self.v_cruise_kph < self.v_ego_kph_set:
+        self.v_cruise_kph = self.v_ego_kph_set
+
+    if self._soft_hold_active > 0:
+      pass
+
+    if self._gas_tok and self.v_ego_kph_set >= self.autoGasTokSpeed:
+      if not CC.enabled:
+        self._cruise_control(1, -1, "Cruise on (gas tok)")
+        if self.v_ego_kph_set > v_cruise_kph:
+          v_cruise_kph = self.v_ego_kph_set
+      else:
+        v_cruise_kph = self._v_cruise_desired(CS, v_cruise_kph)
+
+    elif self._gas_pressed_count == -1:
+      if 0 < self.d_rel < CS.vEgo * 0.8:
+        if CS.vEgo < 1.0:
+          self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (safe speed)")
+        #else:
+        #  self._cruise_control(-1, 0, "Cruise off (lead car too close)")
+      #elif self.v_ego_kph_set < 30:
+      #  self._cruise_control(-1, 0, "Cruise off (gas speed)")
+      elif self.xState == 3:
+        v_cruise_kph = self.v_ego_kph_set
+        self._cruise_control(-1, 3, "Cruise off (traffic sign)")
+
+    elif self._brake_pressed_count == -1 and self._soft_hold_active == 0:
+      pass
+
+    elif self._brake_pressed_count < 0 and self._gas_pressed_count < 0:
+      if not CC.enabled:
+        if self.d_rel > 0 and CS.vEgo > 0.02:
+          safe_state, safe_dist = self._check_safe_stop(CS, 4)
+          if abs(CS.steeringAngleDeg) > 70:
+            pass
+          elif not safe_state:
+            v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
+            self._cruise_control(1, -1, "Cruise on (fcw)")
+          elif self.d_rel < self.cruiseOnDist:
+            v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
+            self._cruise_control(1, 0, "Cruise on (fcw dist)")
+          else:
+            self._add_log(f"leadCar d={self.d_rel:.1f},v={self.v_rel:.1f},{CS.vEgo:.1f}, {safe_dist:.1f}")
+            # self.events.append(EventName.stopStop)
+        #if CS.vEgo > 0.02 and 0 < self.d_rel < self.cruiseOnDist:
+        #  v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
+        #  self._cruise_control(1, -1, "Cruise on (fcw dist)")
+
+        #if self._cruise_ready and 0 < self.d_rel < self.cruiseOnDist:
+        #  v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
+        #  self._cruise_control(1, 0, "Cruise on (lead car)")
+
+      elif self._paddle_decel_active:
+        if self.xState in [3]:
+          self._paddle_decel_active = False
+          v_cruise_kph = self.v_ego_kph_set
+        elif 0 < self.d_rel < self.cruiseOnDist:
+          self._paddle_decel_active = False
+          v_cruise_kph = self.v_ego_kph_set
+
+
+    if self._gas_pressed_count > self._gas_tok_timer:
+      #if CS.aEgo < -0.5:
+      #  self._cruise_control(-1, 5.0, "Cruise off (gas pressed while braking)")
+      if self.v_ego_kph_set > v_cruise_kph and self.autoGasSyncSpeed:
+        v_cruise_kph = self.v_ego_kph_set
+
+    if self._gas_pressed_count == 1 or CS.vEgo < 0.1:
+      self._pause_auto_speed_up = False
+      #if self._gas_pressed_count == 1 and CS.vEgo < 0.1:
+      #  self._cruise_control(-1, -1, "Cruise off (gasPressed)")
     elif self._brake_pressed_count == 1:
       self._pause_auto_speed_up = True
 

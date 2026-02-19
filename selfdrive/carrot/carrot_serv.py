@@ -1220,13 +1220,13 @@ class CarrotServ:
         if nRoadLimitSpeed > 200:
           nRoadLimitSpeed = (nRoadLimitSpeed - 20) / 10
         elif nRoadLimitSpeed == 120:
-          nRoadLimitSpeed = 115 # 120 -> 115 fix bug
+          nRoadLimitSpeed = 120 # 120 -> 115 fix bug
       else:
         nRoadLimitSpeed = 30
       #self.nRoadLimitSpeed = nRoadLimitSpeed
       if self.nRoadLimitSpeed != nRoadLimitSpeed:
         self.nRoadLimitSpeed_counter += 1
-        if self.nRoadLimitSpeed_counter > 5:
+        if self.nRoadLimitSpeed_counter > 1:
           self.nRoadLimitSpeed = nRoadLimitSpeed
       else:
         self.nRoadLimitSpeed_counter = 0
