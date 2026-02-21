@@ -1383,7 +1383,7 @@ int main() {
         return 1;
     }
 
-    if (!load_camera_config("camera.json")) {
+    if (!load_camera_config("camera_blindspot.json")) {
         return -1;
     }
 
