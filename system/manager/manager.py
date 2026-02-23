@@ -131,7 +131,7 @@ def manager_thread() -> None:
     ignore.append("pandad")
   ignore += [x for x in os.getenv("BLOCK", "").split(",") if len(x) > 0]
 
-  if params.get_bool("HardwareC3xLite"):
+  if True #params.get_bool("HardwareC3xLite"):
     ignore += ["micd", "soundd", "loggerd"]
     params.put_bool("RecordAudio", False)
 

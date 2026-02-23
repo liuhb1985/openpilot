@@ -318,10 +318,10 @@ class CarrotMan:
           body = ""
         return False, f"HTTPError {e.code}: {body}"
       except Exception as e:
-        return False, f"Exception: {e}"     
+        return False, f"Exception: {e}"
     except Exception as e:
       print(f"register_my_ip error: {e}")
-      
+
   # 브로드캐스트 메시지 전송
   def broadcast_version_info(self):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -368,9 +368,9 @@ class CarrotMan:
         if carrot_speed_active_count > 0:
           self.carrot_speed_serv(carrot_speed, frame)
 
-        if frame % (20 * 30) == 0:
-          ok, msg = self.register_my_ip()
-          print(f"[heartbeat] ok: {ok}, msg: {msg}")
+        # if frame % (20 * 30) == 0:
+        #   ok, msg = self.register_my_ip()
+        #   print(f"[heartbeat] ok: {ok}, msg: {msg}")
         if frame % 20 == 0 or remote_addr is not None:
           try:
             self.broadcast_ip = self.get_broadcast_address() if remote_addr is None else remote_addr[0]
@@ -691,7 +691,7 @@ class CarrotMan:
                 #  print(f"carrot_man_thread: send error...: {e}")
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                # print("Waiting for data (timeout)...")
                 self.remote_addr = None
                 time.sleep(1)
 
@@ -766,7 +766,7 @@ class CarrotMan:
                   print(data)
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                # print("Waiting for data (timeout)...")
                 #self.remote_addr = None
                 time.sleep(1)
 

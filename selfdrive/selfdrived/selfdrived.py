@@ -29,6 +29,8 @@ REPLAY = "REPLAY" in os.environ
 SIMULATION = "SIMULATION" in os.environ
 TESTING_CLOSET = "TESTING_CLOSET" in os.environ
 LONGITUDINAL_PERSONALITY_MAP = {v: k for k, v in log.LongitudinalPersonality.schema.enumerants.items()}
+DRIVER_CAM = os.getenv("DRIVER_CAM") is not None
+JY62 = os.getenv("JY62") is not None
 
 ThermalStatus = log.DeviceState.ThermalStatus
 State = log.SelfdriveState.OpenpilotState
@@ -66,7 +68,10 @@ class SelfdriveD:
 
     self.gps_location_service = get_gps_location_service(self.params)
     self.gps_packets = [self.gps_location_service]
-    self.sensor_packets = ["accelerometer", "gyroscope"]
+    if JY62:
+      self.sensor_packets = ["accelerometer", "gyroscope"]
+    else:
+      self.sensor_packets = []
     self.camera_packets = ["roadCameraState"]
 
     self.disable_dm = self.params.get_int("DisableDM")
@@ -74,11 +79,13 @@ class SelfdriveD:
     # TODO: de-couple selfdrived with card/conflate on carState without introducing controls mismatches
     self.car_state_sock = messaging.sub_sock('carState', timeout=20)
 
-    ignore = self.sensor_packets + self.gps_packets + ['alertDebug']
-    if True:
+    # ignore = self.sensor_packets + self.gps_packets + ['alertDebug', "accelerometer", "gyroscope", "driverMonitoringState"]
+    ignore = self.sensor_packets + self.gps_packets + ["alertDebug", "dmonitoringmodeld", "dmonitoringd", 'driverMonitoringState','liveLocationKalman','liveParameters','liveTorqueParameters','driverAssistance']
+    if SIMULATION:
       ignore += ['driverCameraState', 'managerState']
     elif self.disable_dm > 0:
-      self.camera_packets.remove("driverCameraState")
+      if "driverCameraState" in self.camera_packets:
+        self.camera_packets.remove("driverCameraState")
     ignore += ['driverMonitoringState']
 
     if REPLAY:
@@ -192,7 +199,7 @@ class SelfdriveD:
       car_events = self.car_events.update(CS, self.CS_prev, self.sm['carControl']).to_msg()
       self.events.add_from_msg(car_events)
 
-      if self.CP.notCar:
+      if self.CP.notCar and DRIVER_CAM:
         # wait for everything to init first
         if self.sm.frame > int(5. / DT_CTRL) and self.initialized:
           # body always wants to enable
