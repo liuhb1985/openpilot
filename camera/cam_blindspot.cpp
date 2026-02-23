@@ -786,8 +786,12 @@ void display_loop() {
                 }
             }
         }
-
+        static int last_key = -1;
         key = cv::waitKey(1);
+        // 防止按键连发
+        if (key == last_key)
+            key = -1;
+        last_key = key;
         if (key == 27) { // ESC
             dcout << "display_loop end" << std::endl;
             running = false;
