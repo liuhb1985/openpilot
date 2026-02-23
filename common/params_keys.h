@@ -221,7 +221,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"MyDrivingModeAuto", {PERSISTENT, INT, "0"}},
     {"TrafficLightDetectMode", {PERSISTENT, INT, "2"}},
 
-    {"SteerActuatorDelay", {PERSISTENT, INT, "0"}},
+    {"SteerActuatorDelay", {PERSISTENT, INT, "20"}},
     {"LatSmoothSec", {PERSISTENT, INT, "13"}},
     {"CruiseOnDist", {PERSISTENT, INT, "400"}},
 
@@ -284,21 +284,21 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"SoftHoldMode", {PERSISTENT, INT, "0"}},
 
     {"LatMpcPathCost", {PERSISTENT, INT, "200"}},
-    {"LatMpcMotionCost", {PERSISTENT, INT, "7"}},
+    {"LatMpcMotionCost", {PERSISTENT, INT, "10"}},
     {"LatMpcAccelCost", {PERSISTENT, INT, "120"}},
-    {"LatMpcJerkCost", {PERSISTENT, INT, "4"}},
-    {"LatMpcSteeringRateCost", {PERSISTENT, INT, "7"}},
+    {"LatMpcJerkCost", {PERSISTENT, INT, "6"}},
+    {"LatMpcSteeringRateCost", {PERSISTENT, INT, "12"}},
     {"LatMpcInputOffset", {PERSISTENT, INT, "4"}},
 
     {"PathOffset", {PERSISTENT, INT, "0"}},
 
-    {"LateralTorqueCustom", {PERSISTENT, INT, "0"}},
-    {"LateralTorqueAccelFactor", {PERSISTENT, INT, "2500"}},
-    {"LateralTorqueFriction", {PERSISTENT, INT, "100"}},
-    {"LateralTorqueKpV", {PERSISTENT, INT, "100"}},
+    {"LateralTorqueCustom", {PERSISTENT, INT, "1"}},
+    {"LateralTorqueAccelFactor", {PERSISTENT, INT, "3400"}},
+    {"LateralTorqueFriction", {PERSISTENT, INT, "130"}},
+    {"LateralTorqueKpV", {PERSISTENT, INT, "80"}},
     {"LateralTorqueKiV", {PERSISTENT, INT, "10"}},
     {"LateralTorqueKf", {PERSISTENT, INT, "100"}},
-    {"LateralTorqueKd", {PERSISTENT, INT, "0"}},
+    {"LateralTorqueKd", {PERSISTENT, INT, "10"}},
 
     {"CustomSteerMax", {PERSISTENT, INT, "0"}},
     {"CustomSteerDeltaUp", {PERSISTENT, INT, "0"}},
@@ -309,7 +309,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"SpeedFromPCM", {PERSISTENT, INT, "3"}},
     {"MaxTimeOffroadMin", {PERSISTENT, INT, "60"}},
 
-    {"DisableDM", {PERSISTENT, INT, "0"}},
+    {"DisableDM", {PERSISTENT, INT, "1"}},
     {"EnableConnect", {PERSISTENT, INT, "0"}},
     {"MuteDoor", {PERSISTENT, INT, "0"}},
     {"MuteSeatbelt", {PERSISTENT, INT, "0"}},
