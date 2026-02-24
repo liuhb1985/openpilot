@@ -325,7 +325,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
 
     {"ActivateCruiseAfterBrake", {CLEAR_ON_MANAGER_START, INT, "0"}},
 
-    {"CustomSR", {PERSISTENT, INT, "0"}},
+    {"CustomSR", {PERSISTENT, INT, "150"}},
     {"SteerRatioRate", {PERSISTENT, INT, "100"}},
 
     {"SoftRestartTriggered", {CLEAR_ON_MANAGER_START, INT}},
