@@ -270,7 +270,8 @@ class CarController(CarControllerBase):
     set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
 
     # HUD messages
-    sys_warning, sys_state, left_lane_warning, right_lane_warning = process_hud_alert(CC.enabled, self.car_fingerprint,
+    lat_or_enabled = CC.latActive or CC.enabled
+    sys_warning, sys_state, left_lane_warning, right_lane_warning = process_hud_alert(lat_or_enabled, self.car_fingerprint,
                                                                                       hud_control)
 
     active_speed_decel = hud_control.activeCarrot == 3 and self.activeCarrot != 3 # 3: Speed Decel
@@ -369,7 +370,7 @@ class CarController(CarControllerBase):
 
     else:
       can_sends.append(hyundaican.create_lkas11(self.packer, self.frame, self.CP, apply_torque, apply_steer_req,
-                                                torque_fault, CS.lkas11, sys_warning, sys_state, CC.enabled,
+                                                torque_fault, CS.lkas11, sys_warning, sys_state, lat_or_enabled,
                                                 hud_control.leftLaneVisible, hud_control.rightLaneVisible,
                                                 left_lane_warning, right_lane_warning, self.is_ldws_car))
 
