@@ -157,6 +157,7 @@ class CarController(CarControllerBase):
 
   def update(self, CC, CS, now_nanos):
 
+    print(CC.__dict__)
     if self.frame % 50 == 0:
       params = Params()
       self.max_angle_frames = params.get_int("MaxAngleFrames")
