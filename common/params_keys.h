@@ -301,10 +301,10 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"LateralTorqueKd", {PERSISTENT, INT, "10"}},
 
     {"CustomSteerMax", {PERSISTENT, INT, "0"}},
-    {"CustomSteerDeltaUp", {PERSISTENT, INT, "0"}},
-    {"CustomSteerDeltaDown", {PERSISTENT, INT, "0"}},
-    {"CustomSteerDeltaUpLC", {PERSISTENT, INT, "0"}},
-    {"CustomSteerDeltaDownLC", {PERSISTENT, INT, "0"}},
+    {"CustomSteerDeltaUp", {PERSISTENT, INT, "1"}},
+    {"CustomSteerDeltaDown", {PERSISTENT, INT, "3"}},
+    {"CustomSteerDeltaUpLC", {PERSISTENT, INT, "1"}},
+    {"CustomSteerDeltaDownLC", {PERSISTENT, INT, "3"}},
 
     {"SpeedFromPCM", {PERSISTENT, INT, "2"}},
     {"MaxTimeOffroadMin", {PERSISTENT, INT, "60"}},
