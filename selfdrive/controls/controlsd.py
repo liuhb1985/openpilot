@@ -120,8 +120,8 @@ class Controls:
     CC.latActive = ((self.sm['selfdriveState'].active or lateral_enabled) and CS.latEnabled and
                     not CS.steerFaultTemporary and not CS.steerFaultPermanent and not standstill)
 
-    if self.sm.frame % 50 == 0:
-      print(f"DEBUG latActive={CC.latActive}: OP.active={self.sm['selfdriveState'].active}, lateral_enabled={lateral_enabled}, CS.latEnabled={CS.latEnabled}, CS.steerFaultTemporary={CS.steerFaultTemporary}, CS.steerFaultPermanent={CS.steerFaultPermanent}, standstill={standstill}")
+    # if self.sm.frame % 50 == 0:
+    #   print(f"DEBUG latActive={CC.latActive}: OP.active={self.sm['selfdriveState'].active}, lateral_enabled={lateral_enabled}, CS.latEnabled={CS.latEnabled}, CS.steerFaultTemporary={CS.steerFaultTemporary}, CS.steerFaultPermanent={CS.steerFaultPermanent}, standstill={standstill}")
     CC.longActive = CC.enabled and not any(e.overrideLongitudinal for e in self.sm['onroadEvents']) and self.CP.openpilotLongitudinalControl
 
     actuators = CC.actuators
