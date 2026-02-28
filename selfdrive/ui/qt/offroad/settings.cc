@@ -799,7 +799,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
 
   startToggles = new ListWidget(this);
   QString selected = QString::fromStdString(Params().get("CarSelected3"));
-  QPushButton* selectCarBtn = new QPushButton(selected.length() > 1 ? selected : tr("SELECT YOUR CAR"));
+  QPushButton* selectCarBtn = new QPushButton(selected.length() > 1 ? selected : tr("选择您的车辆"));
   selectCarBtn->setObjectName("selectCarBtn");
   selectCarBtn->setStyleSheet(R"(
     QPushButton {
