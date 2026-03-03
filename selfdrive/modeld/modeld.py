@@ -426,8 +426,8 @@ def main(demo=False):
       modelv2_send.modelV2.meta.desire = DH.desire
       modelv2_send.modelV2.meta.laneChangeProb = DH.lane_change_ll_prob
       modelv2_send.modelV2.meta.modelTurnSpeed = float(DH.model_turn_speed)
-      modelv2_send.modelV2.meta.leftFrontBlind = bool(DH.left_front_blind)
-      modelv2_send.modelV2.meta.rightFrontBlind = bool(DH.right_front_blind)
+      modelv2_send.modelV2.meta.leftFrontBlind = int(bool(DH.left_front_blind))
+      modelv2_send.modelV2.meta.rightFrontBlind = int(bool(DH.right_front_blind))
 
       fill_pose_msg(posenet_send, model_output, meta_main.frame_id, vipc_dropped_frames, meta_main.timestamp_eof, live_calib_seen)
       pm.send('modelV2', modelv2_send)
