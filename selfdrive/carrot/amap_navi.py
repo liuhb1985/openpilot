@@ -483,7 +483,7 @@ class AmapNaviServ:
   def _data_deal_thread(self):
     _clients = {}
     _active_clients = {}
-    rk = Ratekeeper(10, print_delay_threshold=0.02) #10Hz
+    rk = Ratekeeper(20, print_delay_threshold=0.02) #20Hz
 
     while True:
       try:

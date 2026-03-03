@@ -23,7 +23,7 @@ def main():
   lateral_planner = LateralPlanner(CP, debug=False)
 
   pm = messaging.PubMaster(['longitudinalPlan', 'driverAssistance', 'lateralPlan'])
-  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState', 'modelV2', 'selfdriveState', 'carrotMan'],
+  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState', 'modelV2', 'selfdriveState', 'carrotMan', 'amapNavi'],
                            poll='modelV2', ignore_avg_freq=['radarState'])
   carrot = CarrotPlanner()
 

@@ -432,6 +432,14 @@ class CarrotPlanner:
     v_cruise_kph = self.cruise_eco_control(v_ego_cluster_kph, v_cruise_kph)
     v_cruise_kph, atc_active = self._update_carrot_man(sm, v_ego_kph, v_cruise_kph)
 
+    # Proactive Cut-in Deceleration
+    if sm.alive['amapNavi']:
+      amap_navi = sm['amapNavi']
+      if (amap_navi.leftBlind & 0x02) or (amap_navi.rightBlind & 0x02):
+        # If speed is high, decelerate more proactively
+        decel_kph = 5.0 if v_ego_kph > 80 else 3.0
+        v_cruise_kph = max(v_ego_kph - decel_kph, v_cruise_kph - decel_kph)
+
     #if atc_active and not self.atc_active and self.xState not in [XState.e2eStop, XState.e2eStopped, XState.lead]:
     #  if self.atcType in ["turn left", "turn right", "atc left", "atc right"]:
     #    self.xState = XState.e2ePrepare
