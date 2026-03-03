@@ -1275,11 +1275,12 @@ class CarrotServ:
       self.nPosSpeed = float(json.get("nPosSpeed", self.nPosSpeed))
       self._update_tbt()
       self._update_sdi()
-      print(
-        f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
-        f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
-        f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
-      )
+      if self.frame % 100 == 0:
+        print(
+          f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
+          f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
+          f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
+        )
       #print(json)
     else:
       #print(json)
@@ -1299,7 +1300,7 @@ class CarrotServ:
 
         self.nPosAngle = self.nPosAnglePhone
         # self.nPosSpeed = self.ve # TODO speed from v_ego
-        self.last_update_gps_time_phone = self.last_calculate_gps_time = now        
+        self.last_update_gps_time_phone = self.last_calculate_gps_time = now
         self.nPosSpeed = float(json.get("gps_speed", 0))
         print(f"phone gps: {self.vpPosPointLatNavi}, {self.vpPosPointLonNavi}, {self.phone_gps_accuracy}, {self.nPosSpeed}")
 

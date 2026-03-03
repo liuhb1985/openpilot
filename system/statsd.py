@@ -164,14 +164,20 @@ def main() -> NoReturn:
         last_flush_time = time.monotonic()
 
         # check that we aren't filling up the drive
-        if len(os.listdir(STATS_DIR)) < STATS_DIR_FILE_LIMIT:
-          if len(result) > 0:
-            stats_path = os.path.join(STATS_DIR, f"{boot_uid}_{idx}")
-            with atomic_write_in_dir(stats_path) as f:
-              f.write(result)
-            idx += 1
-        else:
-          cloudlog.error("stats dir full")
+        if len(os.listdir(STATS_DIR)) >= STATS_DIR_FILE_LIMIT:
+          try:
+            # delete oldest 10% of files
+            files = sorted([os.path.join(STATS_DIR, f) for f in os.listdir(STATS_DIR)], key=os.path.getmtime)
+            for f in files[:max(1, STATS_DIR_FILE_LIMIT // 10)]:
+              os.remove(f)
+          except Exception:
+            cloudlog.exception("statsd.cleanup_exception")
+
+        if len(result) > 0:
+          stats_path = os.path.join(STATS_DIR, f"{boot_uid}_{idx}")
+          with atomic_write_in_dir(stats_path) as f:
+            f.write(result)
+          idx += 1
   finally:
     sock.close()
     ctx.term()
