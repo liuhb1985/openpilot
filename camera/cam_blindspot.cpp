@@ -358,7 +358,7 @@ void capture_from_camera(const std::string& device, int cam_id) {
 
     // ================== 新增：跳帧控制 ==================
     auto last_time = std::chrono::steady_clock::now();
-    const double target_fps = 10.0;
+    const double target_fps = 20.0;
     const double frame_interval_ms = 1000.0 / target_fps;
 
     while (running) {

@@ -483,7 +483,7 @@ class AmapNaviServ:
   def _data_deal_thread(self):
     _clients = {}
     _active_clients = {}
-    rk = Ratekeeper(20, print_delay_threshold=0.02) #50Hz
+    rk = Ratekeeper(50, print_delay_threshold=0.02) #50Hz
 
     while True:
       try:
@@ -1089,18 +1089,16 @@ class AmapNaviServ:
     if drel_mm > 0:
       # 前方目标：风险来自我追它，所以 closing = max(v_ego - v_other, 0)
       closing_speed = max(v_ego_mps - v_other, 0.0)
-      danger_dist = max(v_ego_mps * min_drel_scale, 10)
+      danger_dist = max(v_ego_mps * min_drel_scale, 8)
     else:
       # 后方目标：风险来自它追我，所以 closing = max(v_other - v_ego, 0)
       closing_speed = max(v_other - v_ego_mps, 0.0)
-      danger_dist = max(v_ego_mps * min_drel_scale, 15)
+      danger_dist = max(v_ego_mps * min_drel_scale, 12)
 
-    # 未来距离预测
-    future_dist = drel - closing_speed * time_horizon * 3
+    # 未来距离预测 (将 3 倍预测改为更激进的 4 倍，以更早触发报警)
+    future_dist = drel - closing_speed * time_horizon * 4
 
-    # 判定规则：
-    # 1) 未来距离过小（可调阈值 3~5m，我设成 4m)
-    # 2) 当前距离小于速度比例阈值（如：d < v * 1.0）
+    # 判定规则
     risk = (
       future_dist < danger_dist or
       drel < danger_dist
