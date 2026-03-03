@@ -434,14 +434,14 @@ class CarrotMan:
       elif self.long_active and CC.longActive: # and self.gas_pressed_count == 0:
         if self.v_cruise_last < CS.vCruise:  # 속도가 증가하면
           if v_ego_kph < CS.vCruise:
-            self.v_cruise_change = 100
+            self.v_cruise_change = 20
           else:
             self.v_cruise_change = 0
         elif self.v_cruise_last > CS.vCruise: # 속도가 감소하면
           if v_ego_kph < CS.vCruise: # 주행속도가 느리면
-            self.v_cruise_change = -100 #100
+            self.v_cruise_change = -20 #100
           else:                       # 주행속도가 빠르면
-            self.v_cruise_change = -100
+            self.v_cruise_change = -20
 
         if self.v_cruise_change != 0:
           self.gas_pressed_count = 0

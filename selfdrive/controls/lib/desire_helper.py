@@ -191,6 +191,8 @@ class DesireHelper:
     self.cur_left_prob = 1.0   # laneLineProbs[1]
     self.cur_right_prob = 1.0  # laneLineProbs[2]
     self.current_lane_missing = False
+    self.left_front_blind = False
+    self.right_front_blind = False
 
     #new
     self._user_class_init()
@@ -584,6 +586,9 @@ class DesireHelper:
       self.object_detected_count = 0
       lane_line_info_edge_detect = False
       self.lane_line_info = lane_line_info % 10
+
+    self.left_front_blind = radarState.leadLeft.status and radarState.leadLeft.dRel < v_ego * 2.5
+    self.right_front_blind = radarState.leadRight.status and radarState.leadRight.dRel < v_ego * 2.5
 
     # 차선/엣지 기반 lane change 가능 여부
     lane_change_available = (lane_available or edge_available) and lane_line_info < 20  # 20 미만이면 흰색 라인
