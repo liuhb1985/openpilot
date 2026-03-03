@@ -1182,8 +1182,8 @@ struct ModelDataV2 {
     modelTurnSpeed @17 :Float32;
 
     blinker @18 :Text;
-    leftFrontBlind @19 :Int32;
-    rightFrontBlind @20 :Int32;
+    leftFrontBlind @19 :Bool;
+    rightFrontBlind @20 :Bool;
 
     # deprecated
     brakeDisengageProbDEPRECATED @2 :Float32;

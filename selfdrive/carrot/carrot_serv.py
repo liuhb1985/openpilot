@@ -1275,12 +1275,12 @@ class CarrotServ:
       self.nPosSpeed = float(json.get("nPosSpeed", self.nPosSpeed))
       self._update_tbt()
       self._update_sdi()
-      if self.frame % 100 == 0:
-        print(
-          f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
-          f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
-          f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
-        )
+      # if self.frame % 100 == 0:
+      #   print(
+      #     f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
+      #     f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
+      #     f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
+      #   )
       #print(json)
     else:
       #print(json)
