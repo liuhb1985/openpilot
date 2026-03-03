@@ -49,8 +49,10 @@ system_libs = ['pthread', 'm', 'dl', 'stdc++', 'jpeg']  # 添加 jpeg
 
 # ---------------- 合并所有配置 ----------------
 all_includes = [f'-I{Dir(p).abspath}' for p in openpilot_includes] + opencv_cflags
-all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + ['onnxruntime'] + system_libs
+all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + system_libs
 all_libpath = [Dir(p).abspath for p in openpilot_libpath] + [onnx_lib]
+
+onnx_so = os.path.join(onnx_lib, 'libonnxruntime.so')
 
 # ---------------- Program: cam_blindspot ----------------
 env.Program(
@@ -59,6 +61,6 @@ env.Program(
    CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
    LIBS=all_libs,
    LIBPATH=all_libpath,
-   LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
+   LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}', onnx_so]
 )
 
