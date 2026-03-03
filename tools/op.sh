@@ -240,6 +240,16 @@ function op_setup() {
   et="$(date +%s)"
   echo -e " ↳ [${GREEN}✔${NC}] Files pulled successfully in $((et - st)) seconds."
 
+  # PC 环境初始化：创建 /data/ 目录结构
+  if [[ -f "$OPENPILOT_ROOT/init_openpilot_pc_env.sh" ]]; then
+    echo "Initializing PC environment (/data directories)..."
+    if bash "$OPENPILOT_ROOT/init_openpilot_pc_env.sh"; then
+      echo -e " ↳ [${GREEN}✔${NC}] PC environment initialized."
+    else
+      echo -e " ↳ [${RED}✗${NC}] PC environment initialization failed!"
+    fi
+  fi
+
   op_check
 }
 
