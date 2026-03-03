@@ -98,6 +98,7 @@ class CarrotServ:
     self.nSdiSpeedLimit = 0
     self.nSdiSection = 0
     self.nSdiDist = 0
+    self.frame = 0
     self.nSdiBlockType = -1
     self.nSdiBlockSpeed = 0
     self.nSdiBlockDist = 0
@@ -1181,6 +1182,7 @@ class CarrotServ:
       print("timed.failed_setting_time")
 
   def update(self, json):
+    self.frame += 1
     if json is None:
       return
     if "carrotIndex" in json:
@@ -1275,12 +1277,12 @@ class CarrotServ:
       self.nPosSpeed = float(json.get("nPosSpeed", self.nPosSpeed))
       self._update_tbt()
       self._update_sdi()
-      # if self.frame % 100 == 0:
-      #   print(
-      #     f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
-      #     f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
-      #     f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
-      #   )
+      if self.frame % 100 == 0:
+        print(
+          f"sdi = {self.nSdiType}, {self.nSdiSpeedLimit}, {self.nSdiPlusType}, " +
+          f"tbt = {self.nTBTTurnType}, {self.nTBTDist}, " +
+          f"next = {self.nTBTTurnTypeNext}, {self.nTBTDistNext}"
+        )
       #print(json)
     else:
       #print(json)

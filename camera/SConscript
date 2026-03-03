@@ -58,9 +58,13 @@ onnx_so = os.path.join(onnx_lib, 'libonnxruntime.so')
 env.Program(
    target='cam_blindspot',
    source=['cam_blindspot.cpp', 'json11.cpp'],
-   CPPFLAGS=['-std=c++17', f'-I{onnx_include}'] + all_includes,
-   LIBS=all_libs,
+
+   CPPPATH=[onnx_include] + openpilot_includes,
+   CPPFLAGS=['-std=c++17'] + opencv_cflags,
+
+   LIBS=all_libs + ['onnxruntime'],   # ✅ 关键：放在最后
    LIBPATH=all_libpath,
-   LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}', onnx_so]
+
+   LINKFLAGS=[f'-Wl,-rpath,{onnx_lib}']
 )
 
