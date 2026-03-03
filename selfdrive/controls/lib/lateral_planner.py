@@ -15,7 +15,7 @@ from openpilot.selfdrive.controls.lib.lane_planner_2 import LanePlanner
 from collections import deque
 
 TRAJECTORY_SIZE = 33
-CAMERA_OFFSET = 0.04
+CAMERA_OFFSET = 0.0
 
 
 PATH_COST = 1.0
@@ -136,7 +136,7 @@ class LateralPlanner:
 
     # Turn off lanes during lane change
     #if self.DH.desire == log.Desire.laneChangeRight or self.DH.desire == log.Desire.laneChangeLeft:
-      
+
     if md.meta.desire != log.Desire.none or carrot.atc_active:
       self.LP.lane_change_multiplier = 0.0 #md.meta.laneChangeProb
     else:
@@ -156,7 +156,7 @@ class LateralPlanner:
         clip_rate=2.0,
         align_first_yaw=None #md.orientation.z[0]  # 초기 정렬
       )
-      
+
     self.latDebugText = self.LP.debugText
     #self.lanelines_active = True if self.LP.d_prob > 0.3 and self.LP.lanefull_mode else False
 
@@ -201,7 +201,7 @@ class LateralPlanner:
       self.solution_invalid_cnt += 1
     else:
       self.solution_invalid_cnt = 0
-  
+
     self.x_sol = self.lat_mpc.x_sol
 
   def publish(self, sm, pm, carrot):
@@ -291,7 +291,7 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   # 저속(≤6 m/s)에서는 창을 크게
   if v0 <= 6.0:
     smooth_window = max(smooth_window, 9)   # 9~11 권장
-    
+
   N = path_xyz.shape[0]
   x = path_xyz[:, 0].astype(float)
   y = path_xyz[:, 1].astype(float)

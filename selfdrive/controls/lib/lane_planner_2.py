@@ -9,7 +9,7 @@ from openpilot.common.params import Params
 
 TRAJECTORY_SIZE = 33
 # positive numbers go right
-CAMERA_OFFSET = 0 #0.08
+CAMERA_OFFSET = -0.06
 MIN_LANE_DISTANCE = 2.6
 MAX_LANE_DISTANCE = 3.7
 MAX_LANE_CENTERING_AWAY = 1.85
@@ -171,9 +171,9 @@ class LanePlanner:
     elif self.lane_width_left_filtered.x < 2.0 and self.lane_width_right_filtered.x < 2.0: #양쪽에 차로가 여유 없는경우
       offset_lane = 0.0
     elif self.lane_width_left_filtered.x > self.lane_width_right_filtered.x:
-      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, self.adjustLaneOffset]) # 차선이 좁으면 안함..
-    else:
       offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, -self.adjustLaneOffset]) # 차선이 좁으면 안함..
+    else:
+      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, self.adjustLaneOffset]) # 차선이 좁으면 안함..
 
     #select lane path
     # 차선이 좁아지면, 도로경계쪽에 있는 차선 위주로 따라가도록함.
