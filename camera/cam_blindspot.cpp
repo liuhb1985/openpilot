@@ -731,7 +731,11 @@ void display_loop() {
                 int height = shared_images[valid_index].rows;
                 int type = shared_images[valid_index].type();
 
-                int cols = (cam_count > 4) ? 3 : 2;
+                int cols;
+                if (cam_count == 1) cols = 1;
+                else if (cam_count <= 4) cols = 2;
+                else cols = 3;
+
                 int rows = (cam_count + cols - 1) / cols;
 
                 cv::Mat combined = cv::Mat::zeros(rows * height, cols * width, type);
@@ -750,12 +754,13 @@ void display_loop() {
                         cv::resize(img, img, cv::Size(width, height));
                     }
 
-                    int c = i / cols;
-                    int r = i % cols;
+                    int r = i / cols;
+                    int c = i % cols;
                     cv::Rect roi(c * width, r * height, width, height);
-                    img.copyTo(combined(roi));
-
-                    has_any_frame = true;
+                    if ((roi.x + roi.width) <= combined.cols && (roi.y + roi.height) <= combined.rows) {
+                        img.copyTo(combined(roi));
+                        has_any_frame = true;
+                    }
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
