@@ -450,7 +450,7 @@ class SelfdriveD:
           invalid=[s for s, valid in self.sm.valid.items() if not valid],
           not_alive=[s for s, alive in self.sm.alive.items() if not alive],
           not_freq_ok=[s for s, freq_ok in self.sm.freq_ok.items() if not freq_ok],
-          error=True,
+          error=timed_out,
         )
 
     # When the panda and selfdrived do not agree on controls_allowed

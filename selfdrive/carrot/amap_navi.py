@@ -202,10 +202,10 @@ class AmapNaviServ:
     self.blinker_time = now
     self.lead_left_right = False
 
-    self.leftFrontTarget = RadarSpeedEstimator()
-    self.leftBehindTarget = RadarSpeedEstimator()
-    self.rightFrontTarget = RadarSpeedEstimator()
-    self.rightBehindTarget = RadarSpeedEstimator()
+    self.leftFrontTarget = RadarSpeedEstimator(smooth_n=2) # 甚至更激进一些，只有 2 个点的平滑
+    self.leftBehindTarget = RadarSpeedEstimator(smooth_n=2)
+    self.rightFrontTarget = RadarSpeedEstimator(smooth_n=2)
+    self.rightBehindTarget = RadarSpeedEstimator(smooth_n=2)
 
     self.min_drel_vego_time = 1.0
     self.min_vrel_vego_time = 1.0
@@ -483,7 +483,7 @@ class AmapNaviServ:
   def _data_deal_thread(self):
     _clients = {}
     _active_clients = {}
-    rk = Ratekeeper(50, print_delay_threshold=0.02) #50Hz
+    rk = Ratekeeper(10, print_delay_threshold=0.02) #10Hz
 
     while True:
       try:
@@ -836,6 +836,10 @@ class AmapNaviServ:
 
         # 摄像头盲区信号
         if resp == "cam_blind":
+          # 通讯时间检查
+          last_seen = old_info.get("last_seen", None)
+          if last_seen is not None and (now - last_seen) > 0.15:
+            print(f"!!!!!!!!cam_blind interval > {now - last_seen}")
           camera_data = True
           detect_side = json_obj.get("detect_side", 0)
           if "left_blind" in json_obj:
@@ -1089,11 +1093,11 @@ class AmapNaviServ:
     if drel_mm > 0:
       # 前方目标：风险来自我追它，所以 closing = max(v_ego - v_other, 0)
       closing_speed = max(v_ego_mps - v_other, 0.0)
-      danger_dist = max(v_ego_mps * min_drel_scale, 8)
+      danger_dist = max(v_ego_mps * min_drel_scale, 10.0)
     else:
       # 后方目标：风险来自它追我，所以 closing = max(v_other - v_ego, 0)
       closing_speed = max(v_other - v_ego_mps, 0.0)
-      danger_dist = max(v_ego_mps * min_drel_scale, 12)
+      danger_dist = max(v_ego_mps * min_drel_scale, 18.0)
 
     # 未来距离预测 (将 3 倍预测改为更激进的 4 倍，以更早触发报警)
     future_dist = drel - closing_speed * time_horizon * 4

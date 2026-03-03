@@ -894,7 +894,7 @@ void lane_check_thread() {
             }
         }
 
-        // 控制线程循环频率，例如 100ms 一次
+        // 控制线程循环频率，例如 100ms 一次 (10Hz)
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
@@ -1107,7 +1107,7 @@ void udp_comm_thread(UDPComm &comm) {
 
         auto now = chrono::steady_clock::now();
 
-        /* ================= 周期性 0.1s 主动发送 ================= */
+        /* ================= 周期性 0.1s 主动发送 (10Hz) ================= */
         if (!comm.last_ip.empty() &&
             chrono::duration_cast<chrono::milliseconds>(
                 now - comm.last_send_time).count() >= 100) {
