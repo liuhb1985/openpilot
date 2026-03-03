@@ -39,7 +39,7 @@ except ImportError:
 NetworkType = log.DeviceState.NetworkType
 
 ################ CarrotNavi
-## 국가법령정보센터: 도로설계기준
+## 国家法律信息中心：道路设计标准
 #V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./15.]
 #V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 45, 35, 30]
 V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./25.]
@@ -95,7 +95,7 @@ def get_path_after_distance(start_index, coordinates, current_position, distance
 
     start_index = max(0, start_index - 2)
 
-    # 가까운 점만 탐색하도록 수정
+    # 修改为仅搜索附近的点
     for i in range(start_index, len(coordinates) - 1):
         p1 = coordinates[i]
         p2 = coordinates[i + 1]
@@ -266,9 +266,9 @@ class CarrotMan:
 
   def get_local_ip(self):
       try:
-          # 외부 서버와의 연결을 통해 로컬 IP 확인
+          # 通过连接外部服务器确认本地 IP
           with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-              s.connect(("8.8.8.8", 80))  # Google DNS로 연결 시도
+              s.connect(("8.8.8.8", 80))  # 尝试连接 Google DNS
               return s.getsockname()[0]
       except Exception as e:
           return f"Error: {e}"
@@ -309,7 +309,7 @@ class CarrotMan:
         ctx = ssl._create_unverified_context()
         with urllib.request.urlopen(req, timeout=timeout_s, context=ctx) as resp:
           body = resp.read().decode("utf-8", errors="replace")
-          # 서버가 {"ok":true} 같은 JSON을 주는 경우가 많음
+          # 服务器通常会返回 {"ok":true} 之类的 JSON
           return (200 <= resp.status < 300), body
       except urllib.error.HTTPError as e:
         try:
@@ -322,7 +322,7 @@ class CarrotMan:
     except Exception as e:
       print(f"register_my_ip error: {e}")
 
-  # 브로드캐스트 메시지 전송
+  # 发送广播消息
   def broadcast_version_info(self):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -432,15 +432,15 @@ class CarrotMan:
       elif self._last_vt == CS.vCruise:
         self.v_cruise_last = CS.vCruise
       elif self.long_active and CC.longActive: # and self.gas_pressed_count == 0:
-        if self.v_cruise_last < CS.vCruise:  # 속도가 증가하면
+        if self.v_cruise_last < CS.vCruise:  # 如果速度增加
           if v_ego_kph < CS.vCruise:
             self.v_cruise_change = 20
           else:
             self.v_cruise_change = 0
-        elif self.v_cruise_last > CS.vCruise: # 속도가 감소하면
-          if v_ego_kph < CS.vCruise: # 주행속도가 느리면
+        elif self.v_cruise_last > CS.vCruise: # 如果速度减小
+          if v_ego_kph < CS.vCruise: # 如果行驶速度慢
             self.v_cruise_change = -20 #100
-          else:                       # 주행속도가 빠르면
+          else:                       # 如果行驶速度快
             self.v_cruise_change = -20
 
         if self.v_cruise_change != 0:
@@ -487,7 +487,7 @@ class CarrotMan:
 
     if now - self._last_viz_t > 0.5: # 2Hz
         self._last_viz_t = now
-        # 메모리 Params에 쓰는 게 좋음 (디스크 말고)
+        # 最好写在 memory Params 中（而不是磁盘）
         self.params_memory.put_nonblocking("CarrotSpeedViz", viz_json)
 
     carrot_speed.maybe_save()
@@ -658,8 +658,8 @@ class CarrotMan:
     while True:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('0.0.0.0', self.carrot_man_port))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时（10秒）
+          sock.bind(('0.0.0.0', self.carrot_man_port))  # 绑定 UDP 端口
           print("#########carrot_man_thread: UDP thread started...")
 
           while True:
@@ -736,8 +736,8 @@ class CarrotMan:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
           sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('', 12345))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时（10秒）
+          sock.bind(('', 12345))  # 绑定 UDP 端口
           print("#########kisa_app_thread: UDP thread started...")
 
           while True:
@@ -939,7 +939,7 @@ class CarrotMan:
         socket, poller = setup_socket()
 
   def recvall(self, sock, n):
-    """n바이트를 수신할 때까지 반복적으로 데이터를 받는 함수"""
+    """循环接收数据直至收到 n 个字节的函数"""
     data = bytearray()
     while len(data) < n:
       packet = sock.recv(n - len(data))
@@ -966,7 +966,7 @@ class CarrotMan:
         print("Received points from navd:", len(self.navi_points))
         self.navd_active = True
 
-        # 경로수신 -> carrotman active되고 약간의 시간지연이 발생함..
+        # 接收路径 -> carrotman 激活，会出现轻微的时间延迟...
         if not from_navd:
           self.carrot_serv.active_count = 80
           self.carrot_serv.active_sdi_count = self.carrot_serv.active_sdi_count_max
@@ -1005,7 +1005,7 @@ class CarrotMan:
               continue
             try:
               total_size = struct.unpack('!I', total_size_bytes)[0]
-              # 전체 데이터를 한 번에 수신
+              # 一次性接收全部数据
               all_data = self.recvall(conn, total_size)
               if all_data is None:
                   print("Connection closed or incomplete data received")

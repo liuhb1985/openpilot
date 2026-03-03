@@ -623,19 +623,17 @@ class CarrotServ:
     return sdi_map.get(nSdiType, "")
 
   def _update_sdi(self):
-    #sdiBlockType
-    # 1: startOSEPS: 구간단속시작
-    # 2: inOSEPS: 구간단속중
-    # 3: endOSEPS: 구간단속종료
-    # 0:감속안함,1:과속카메라,2:+사고방지턱,3:+이동식카메라
+    # 1: startOSEPS: 区间测速开始
+    # 2: inOSEPS: 区间测速中
+    # 3: endOSEPS: 区间测速结束
+    # 0:不减速,1:测速摄像头,2:+减速带,3:+流动测速
     if self.nSdiType in [0,1,2,3,4,7,8, 75, 76] and self.nSdiSpeedLimit > 0 and self.autoNaviSpeedCtrlMode > 0:
       self.xSpdLimit = self.nSdiSpeedLimit * self.autoNaviSpeedSafetyFactor
       self.xSpdDist = self.nSdiDist
       self.xSpdType = self.nSdiType
       if self.nSdiBlockType in [2,3]:
-        self.xSpdDist = self.nSdiBlockDist
         self.xSpdType = 4
-      elif self.nSdiType == 7 and self.autoNaviSpeedCtrlMode < 3: #이동식카메라
+      elif self.nSdiType == 7 and self.autoNaviSpeedCtrlMode < 3: #流动测速
         self.xSpdLimit = self.xSpdDist = 0
     elif (self.nSdiPlusType == 22 or self.nSdiType == 22) and self.roadcate > 1 and self.autoNaviSpeedCtrlMode >= 2: # speed bump, roadcate:0,1: highway
       self.xSpdLimit = self.autoNaviSpeedBumpSpeed
@@ -668,7 +666,7 @@ class CarrotServ:
       bearing = self.nPosAngle = gps.bearingDeg
 
     self.bearing_offset = 0.0
-    # TODO:  여기서 bearing 보정로직 추가 필요함. CC.orientationNED[2]를 이용하여.
+    # TODO: 此处需要添加方位角校正逻辑。使用 CC.orientationNED[2]。
 
     #print(f"bearing = {bearing:.1f}, posA=={self.nPosAngle:.1f}, posP=={self.nPosAnglePhone:.1f}, offset={self.bearing_offset:.1f}, {gps_updated_phone}, {gps_updated_navi}")
     gpsDelayTimeAdjust = 0.0
@@ -677,18 +675,18 @@ class CarrotServ:
 
     external_gps_update_timedout = not (gps_updated_phone or gps_updated_navi)
     #print(f"gps_valid = {self.gps_valid}, bearing = {bearing:.1f}, pos = {location.positionGeodetic.value[0]:.6f}, {location.positionGeodetic.value[1]:.6f}")
-    if self.gps_valid and external_gps_update_timedout:    # 내부GPS가 작동하고 carrotman으로부터 gps신호가 없는경우
+    if self.gps_valid and external_gps_update_timedout:    # 内部 GPS 工作且没有来自 carrotman 的 GPS 信号的情况
       self.vpPosPointLatNavi = gps.latitude
       self.vpPosPointLonNavi = gps.longitude
       self.last_calculate_gps_time = now #sm.recv_time[llk]
-    elif gps_updated_navi:  # carrot navi로부터 gps신호가 수신되는 경우..
+    elif gps_updated_navi:  # 从 carrot navi 接收到 GPS 信号的情况...
       if abs(self.bearing_measured - bearing) < 0.1:
           self.diff_angle_count += 1
       else:
           self.diff_angle_count = 0
       self.bearing_measured = bearing
 
-      if self.diff_angle_count > 5: # 조향각도변화가 거의 없을때만 업데이트
+      if self.diff_angle_count > 5: # 仅当转向角度几乎没有变化时才更新
         diff_angle = (self.nPosAngle - bearing) % 360
         if diff_angle > 180:
           diff_angle -= 360

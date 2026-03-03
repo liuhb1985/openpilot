@@ -363,7 +363,7 @@ class VisionTrack:
       #"dPath": self.dPath,
       "vRel": self.vRel,
       "vLead": self.vLead,
-      "vLeadK": self.vLeadK,    ## TODO: 아직 vLeadK는 엉망인듯...
+      "vLeadK": self.vLeadK,    ## TODO: vLeadK 似乎还不稳定...
       "aLead": self.aLead,
       "aLeadK": self.aLeadK,
       "aLeadTau": self.aLeadTau,
@@ -401,7 +401,7 @@ class VisionTrack:
       self.yRel = float(-lead_msg.y[0])
       dPath = self.yRel + np.interp(self.dRel, md.position.x, md.position.y)
       a_lead_vision = lead_msg.a[0]
-      if self.cnt < 20 or self.prob < 0.97: # 레이더측정시 cnt는 0, 레이더사라지고 1초간 비젼데이터 그대로 사용
+      if self.cnt < 20 or self.prob < 0.97: # 测距时 cnt 为 0，雷达消失后 1 秒内直接使用视觉数据
         self.vRel = lead_v_rel_pred
         self.vLead = float(v_ego + lead_v_rel_pred)
         self.aLead = a_lead_vision
@@ -411,12 +411,12 @@ class VisionTrack:
         v_rel = self.vRel * (1. - self.alpha) + v_rel * self.alpha
 
         #self.vRel = lead_v_rel_pred if self.mixRadarInfo == 3 else (lead_v_rel_pred + self.vRel) / 2
-        model_weight = np.interp(self.prob, [0.97, 1.0], [0.4, 0.0])  # prob가 높으면 v_rel(dRel미분값)에 가중치를 줌.
+        model_weight = np.interp(self.prob, [0.97, 1.0], [0.4, 0.0])  # 如果概率很高，则为 v_rel (dRel 微分值) 分配权重。
         self.vRel = float(lead_v_rel_pred * model_weight + v_rel * (1. - model_weight))
         #self.vRel = (lead_v_rel_pred + v_rel) / 2
         self.vLead = float(v_ego + self.vRel)
 
-        a_lead = (self.vLead - self.vLead_last) / self.radar_ts * 0.2 #0.5 -> 0.2 vel 미분적용을 줄임.
+        a_lead = (self.vLead - self.vLead_last) / self.radar_ts * 0.2 # 0.5 -> 0.2 减少速度微分的应用。
         self.aLead = self.aLead * (1. - self.alpha_a) + a_lead * self.alpha_a
         if abs(a_lead_vision) > abs(self.aLead): # or self.mixRadarInfo == 3:
           self.aLead = a_lead_vision
@@ -498,7 +498,7 @@ class RadarD:
     valid_ids = set()
     for pt in rr.points:
       track_id = pt.trackId
-      valid_ids.add(track_id)      
+      valid_ids.add(track_id)
 
       if track_id not in self.tracks:
         self.tracks[track_id] = Track(track_id)
@@ -559,7 +559,7 @@ class RadarD:
     v_ego = self.v_ego
     ready = self.ready
 
-    ## backup SCC radar(0, 1 trackid)
+    ## 备份 SCC 雷达 (0, 1 trackid)
     if self.enable_radar_tracks <= 0:
       track_scc = tracks.get(0)
     else:
@@ -574,7 +574,7 @@ class RadarD:
     if (track is None or lead_msg.prob < .6) and track_scc is not None and track_scc.cnt > 2:
       #if self.enable_radar_tracks in [-1, 2] or model_v_ego < 5 or track_scc.vLead < 5.0:
       if self.enable_radar_tracks == -1 or (self.enable_radar_tracks >= 2 and track_scc.vLead < 5.0):
-        track = track_scc      
+        track = track_scc
 
     lead_dict = {'status': False}
     radar = False
@@ -610,7 +610,7 @@ class RadarD:
       self.radar_state.leadLeft = {'status': False}
       self.radar_state.leadRight = {'status': False}
       return
-    
+
     left_list, right_list, center_list, cutin_list = [], [], [], []
     for c in tracks.values():
       y_rel_neg = - c.yRel
@@ -661,7 +661,7 @@ class RadarD:
         key=lambda d: d['dRel'],
         default={'status': False}
     )
-   
+
     self.leadTwo = None
     if self.lane_line_available:
       self.leadCenter = min(
@@ -680,7 +680,7 @@ class RadarD:
           #gap = self.leadTwo['dRel'] - self.radar_state.leadOne.dRel
           #offset = 3.0 + min(gap * 0.2, 10)
           #self.leadTwo['dRel'] = self.radar_state.leadOne.dRel + offset
-          self.leadTwo['dRel'] = max(self.radar_state.leadOne.dRel + 3.0, self.leadTwo['dRel'] - 8.0) # lead+1 차를 뒤로 8M후퇴하여, mpc에서  감자하도록함.. 최소 lead보다 3M앞에 위치하도록
+          self.leadTwo['dRel'] = max(self.radar_state.leadOne.dRel + 3.0, self.leadTwo['dRel'] - 8.0) # 将 lead+1 车向后移动 8M，以便在 MPC 中进行检测。至少位于 lead 之前 3M。
     else:
       self.leadCenter = None
 
@@ -735,7 +735,7 @@ class RadarD:
         self.radar_detected = detected
 
   def _corner_update_state(self, side: str, cur_lat: float, enter_lat: float = 2.8) -> int:
-    # 유효 범위 밖이면 리셋
+    # 如果超出有效范围，则重置
     if not (0.0 < cur_lat < enter_lat):
       self._corner_lat_hist[side].clear()
       self._corner_state[side] = 0
@@ -746,7 +746,7 @@ class RadarD:
 
     n = len(h)
     if n < 3:
-      # 데이터 너무 적으면 이전 상태 유지
+      # 如果数据过少，保持之前状态
       return self._corner_state[side]
 
     delta = h[-1] - h[0]
@@ -760,7 +760,7 @@ class RadarD:
       self._corner_state[side] = 0    # maintain
 
     return self._corner_state[side]
- 
+
   def corner_radar(self, CS, lead_dict):
     ENTER_LAT = 2.2
     KEEP_LAT  = 2.0
@@ -802,7 +802,7 @@ class RadarD:
       lat_dist, long_dist = +left_lat, CS.leftLongDist
     else:
       lat_dist, long_dist = -right_lat, CS.rightLongDist
-    
+
     if lead_dict['status']:
       if lead_dict['dRel'] > long_dist:
         lead_dict['dRel'] = long_dist

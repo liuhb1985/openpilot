@@ -114,7 +114,7 @@ class LateralPlanner:
       self.v_plan = np.clip(car_speed, MIN_SPEED, np.inf)
       self.v_ego = self.v_plan[0]
       self.plan_a = np.array(md.acceleration.x)
-      if md.velocity.x[-1] < md.velocity.x[0] * 0.7:  # TODO: 모델이 감속을 요청하는 경우 속도테이블이 레인모드를 할수 없음. 속도테이블을 새로 만들어야함..
+      if md.velocity.x[-1] < md.velocity.x[0] * 0.7:  # TODO: 当模型请求减速时，由于速度表的限制，无法开启车道线模式。需要创建新的速度表。
         self.lanemode_possible_count = 0
         self.laneless_only = True
       else:
@@ -154,7 +154,7 @@ class LateralPlanner:
         self.path_xyz, self.v_plan,
         smooth_window=5,
         clip_rate=2.0,
-        align_first_yaw=None #md.orientation.z[0]  # 초기 정렬
+        align_first_yaw=None #md.orientation.z[0]  # 初始对齐
       )
 
     self.latDebugText = self.LP.debugText
@@ -288,9 +288,9 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
                            clip_rate=2.0, align_first_yaw=None):
 
   v0 = float(np.asarray(v_plan)[0]) if len(v_plan) else 0.0
-  # 저속(≤6 m/s)에서는 창을 크게
+  # 在低速（≤6 m/s）下增大窗口
   if v0 <= 6.0:
-    smooth_window = max(smooth_window, 9)   # 9~11 권장
+    smooth_window = max(smooth_window, 9)   # 建议 9~11
 
   N = path_xyz.shape[0]
   x = path_xyz[:, 0].astype(float)
@@ -299,21 +299,21 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   if N < 5:
     return np.zeros(N, np.float32), np.zeros(N, np.float32)
 
-  # 1) s(호길이) 계산
+  # 1) 计算 s（弧长）
   dx = np.diff(x)
   dy = np.diff(y)
   ds_seg = np.sqrt(dx*dx + dy*dy)
   ds_seg[ds_seg < 0.05] = 0.05
   s = np.zeros(N, float)
   s[1:] = np.cumsum(ds_seg)
-  if s[-1] < 0.5:  # 총 호길이 < 0.5m면 미분 결과 의미가 약함
+  if s[-1] < 0.5:  # 如果总弧长 < 0.5m，则微分结果意义不大
     return np.zeros(N, np.float32), np.zeros(N, np.float32)
 
-  # 2) smoothing (이동평균)
+  # 2) 平滑（移动平均）
   x_smooth = smooth_moving_avg(x, smooth_window)
   y_smooth = smooth_moving_avg(y, smooth_window)
 
-  # 3) 1·2차 도함수(s축 미분)
+  # 3) 1、2阶导数（s轴微分）
   dx_ds  = np.gradient(x_smooth, s)
   dy_ds  = np.gradient(y_smooth, s)
   d2x_ds2 = np.gradient(dx_ds, s)
@@ -322,7 +322,7 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   # 4) yaw = atan2(dy/ds, dx/ds)
   yaw = np.unwrap(np.arctan2(dy_ds, dx_ds))
 
-  # 5) 곡률 kappa = ...
+  # 5) 曲率 kappa = ...
   denom = (dx_ds*dx_ds + dy_ds*dy_ds)**1.5
   denom[denom < 1e-9] = 1e-9
   kappa = (dx_ds * d2y_ds2 - dy_ds * d2x_ds2) / denom
@@ -331,15 +331,15 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   v = np.asarray(v_plan, float)
   yaw_rate = kappa * v
   if v0 <= 6.0:
-    # 이동평균으로 미세 요동 감쇄(창 5~7)
+    # 通过移动平均减小微小波动（窗口 5~7）
     yaw_rate = smooth_moving_avg(yaw_rate, window=7)
 
-  # 7) 초기 yaw 정렬 (선택)
+  # 7) 初始 yaw 对齐（可选）
   if align_first_yaw is not None:
     bias = yaw[0] - float(align_first_yaw)
     yaw = yaw - bias
 
-  # 8) 안정화
+  # 8) 稳定化
   yaw     = np.where(np.isfinite(yaw), yaw, 0.0)
   yaw_rate = np.where(np.isfinite(yaw_rate), yaw_rate, 0.0)
   yaw_rate = np.clip(yaw_rate, -abs(clip_rate), abs(clip_rate))

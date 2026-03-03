@@ -383,7 +383,7 @@ def car_parser_result(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMast
     results,
     AlertStatus.normal, AlertSize.small,
     Priority.LOW, VisualAlert.none, AudibleAlert.none, 1., creation_delay=1.)
-  
+
 
 EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # ********** events with no alerts **********
@@ -1015,7 +1015,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   EventName.trafficStopping: {
     ET.WARNING: EngagementAlert(AudibleAlert.stopping),
     #ET.WARNING: Alert(
-    #  "신호 감속정지중입니다.",
+    #  "信号减速停止中。",
     #  "",
     #  AlertStatus.normal, AlertSize.small,
     #  Priority.LOW, VisualAlert.none, AudibleAlert.stopping, 3.),
@@ -1038,7 +1038,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   EventName.trafficSignGreen: {
     ET.WARNING: EngagementAlert(AudibleAlert.trafficSignGreen),
     #ET.WARNING: Alert(
-    #  "출발합니다.",
+    #  "起步。",
     #  "",
     #  AlertStatus.normal, AlertSize.small,
     #  Priority.LOW, VisualAlert.none, AudibleAlert.trafficSignGreen, 3.),

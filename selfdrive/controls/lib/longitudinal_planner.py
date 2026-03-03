@@ -55,17 +55,17 @@ def limit_accel_in_turns_org(v_ego, angle_steers, a_target, CP):
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 def limit_accel_in_turns(v_ego, curvature, a_target, a_lat_max,
-                         safety_ratio=0.70,   # 0.60~0.85 (작을수록 더 얌전)
+                         safety_ratio=0.70,   # 0.60~0.85 (越小越保守)
                          min_v=0.1):
   """
   v_ego    : m/s
   curvature: 1/m  (sign 포함)
   a_target : [a_min, a_max] (m/s^2)
-  a_lat_max: 허용 최대 횡가속 (m/s^2)
+  a_lat_max: 允许的最大横向加速度 (m/s^2)
 
   safety_ratio:
     a_lat_max에 소프트 마진을 주는 비율.
-    예) a_lat_max=4, safety_ratio=0.7 -> 실사용 한계 2.8로 계산.
+    例) a_lat_max=4, safety_ratio=0.7 -> 实际使用的限制计算为 2.8。
 
   return   : [a_min, 제한된 a_max]
   """
@@ -181,7 +181,7 @@ class LongitudinalPlanner:
       self.v_desired_filter.x = v_ego
       # Clip aEgo to cruise limits to prevent large accelerations when becoming active
       self.a_desired = np.clip(sm['carState'].aEgo, accel_limits[0], accel_limits[1])
-      
+
       self.mpc.prev_a = np.full(N+1, self.a_desired) ## carrot
       accel_limits_turns[0] = accel_limits_turns[0] = 0.0 ## carrot
 

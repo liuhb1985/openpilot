@@ -120,7 +120,7 @@ class CarrotPlanner:
 
     self.eco_over_speed = 2
     self.eco_target_speed = 0
-    
+
     self.autoNaviSpeedDecelRate = 1.5
 
     self.desireState = 0.0
@@ -146,7 +146,7 @@ class CarrotPlanner:
       if myDrivingMode != self.myDrivingMode_last:
         self.myDrivingMode_disable_auto = True
       self.myDrivingMode_last = myDrivingMode
-      
+
       self.myDrivingModeAuto = self.params.get_int("MyDrivingModeAuto")
       if self.myDrivingModeAuto > 0 and not self.myDrivingMode_disable_auto:
         self.myDrivingMode = self.drivingModeDetector.get_mode()
@@ -280,16 +280,16 @@ class CarrotPlanner:
   def dynamic_t_follow(self, t_follow, lead, desired_follow_distance, prev_a):
 
     self.jerk_factor_apply = self.jerk_factor
-    if self.desireState > 0.9 and self.desireStateCount < int(1.5 / DT_MDL):  # lane change state, 1.5초동안만.
-      t_follow *= self.dynamicTFollowLC   # 차선변경시 t_follow를 줄임.
-      self.jerk_factor_apply = self.jerk_factor * self.dynamicTFollowLC   # 차선변경시 jerk factor를 줄여 aggresive하게
+    if self.desireState > 0.9 and self.desireStateCount < int(1.5 / DT_MDL):  # 变道状态，仅持续 1.5 秒。
+      t_follow *= self.dynamicTFollowLC   # 变道时减小 t_follow。
+      self.jerk_factor_apply = self.jerk_factor * self.dynamicTFollowLC   # 变道时减小 jerk factor 以变得更激进。
     elif lead.status:
       t_follow += np.interp(prev_a[0], [-2.0, -0.5], [0.1, 0.0])
       if self.dynamicTFollow > 0.0:
         gap_dist_adjust = np.clip((desired_follow_distance - lead.dRel) * self.dynamicTFollow, - 0.1, 1.0) * 0.1
         t_follow += gap_dist_adjust
         if gap_dist_adjust < 0:
-          self.jerk_factor_apply = self.jerk_factor * 0.5 # 전방차량을 따라갈때는 aggressive하게.
+          self.jerk_factor_apply = self.jerk_factor * 0.5 # 跟随前方车辆时保持激进。
         #self.jerk_factor_apply = np.interp(abs(lead.jLead), [0, 2], [self.jerk_factor, self.jerk_factor * self.j_lead_factor])
 
     return t_follow
@@ -311,8 +311,8 @@ class CarrotPlanner:
                   model_x < np.interp(v[0] * 3.6, [60, 80], [120.0, 150]) and
                   ((model_v < 3.0) or (model_v < v[0] * 0.7)) and
                   abs(y[-1]) < 5.0)
-      # 정상주행중 감속하는 경우(카메라 감속등), 오감지가 많음. 
-      # 회생감속시:v_cruise=0에는 신호호감지하도록함.
+      # 正常行驶中减速（摄像头减速等）时，误检较多。
+      # 动能回收减速时：v_cruise=0 时允许信号检测。
       if v_cruise != 0 and (self.xState == XState.e2eCruise and a_ego < -1.0):
         stopSign = False
     else:
@@ -384,14 +384,14 @@ class CarrotPlanner:
           self.eco_target_speed = v_cruise_kph
         elif self.eco_target_speed > v_cruise_kph:
           self.eco_target_speed = 0
-      elif self.eco_target_speed == 0 and v_ego_kph + 3 < v_cruise_kph and v_cruise_kph > 20.0:  # 주행중 속도가 떨어지면 다시 크루즈연비제어 시작.
+      elif self.eco_target_speed == 0 and v_ego_kph + 3 < v_cruise_kph and v_cruise_kph > 20.0:  # 行驶中速度下降时重新开始巡航油耗控制。
         self.eco_target_speed = v_cruise_kph
 
-      if self.eco_target_speed != 0:  ## 크루즈 연비 제어모드 작동중일때: 연비제어 종료지점
-        if v_ego_kph > self.eco_target_speed: # 설정속도를 초과하면..
+      if self.eco_target_speed != 0:  ## 巡航油耗控制模式运行中：油耗控制结束点
+        if v_ego_kph > self.eco_target_speed: # 如果超过设定速度...
           self.eco_target_speed = 0
         else:
-          v_cruise_kph_apply = self.eco_target_speed + self.eco_over_speed  # + 설정 속도로 설정함.
+          v_cruise_kph_apply = self.eco_target_speed + self.eco_over_speed  # 设置为设定速度。
     else:
       self.eco_target_speed = 0
 
@@ -431,7 +431,7 @@ class CarrotPlanner:
 
     v_cruise_kph = self.cruise_eco_control(v_ego_cluster_kph, v_cruise_kph)
     v_cruise_kph, atc_active = self._update_carrot_man(sm, v_ego_kph, v_cruise_kph)
-    
+
     #if atc_active and not self.atc_active and self.xState not in [XState.e2eStop, XState.e2eStopped, XState.lead]:
     #  if self.atcType in ["turn left", "turn right", "atc left", "atc right"]:
     #    self.xState = XState.e2ePrepare
@@ -487,7 +487,7 @@ class CarrotPlanner:
       elif self.stopping_count == 0:
         if self.trafficState == TrafficState.green and not self.carrot_stay_stop and not carstate.leftBlinker and self.trafficLightDetectMode != 1:
           #self.xState = XState.e2ePrepare
-          self.xState = XState.e2eCruise  # 실험모드를 거치지 않고 바로 출발.
+          self.xState = XState.e2eCruise  # 不经过实验模式直接启动。
           self.events.add(EventName.trafficSignGreen)
       self.stopping_count = max(0, self.stopping_count - 1)
       v_cruise = 0
@@ -507,8 +507,8 @@ class CarrotPlanner:
           self.comfort_brake = self.comfortBrake * 0.9
           #self.comfort_brake = COMFORT_BRAKE
           self.trafficStopAdjustRatio = np.interp(v_ego_kph, [0, 100], [1.0, 0.7])
-          stop_dist = stop_model_x_rl * np.interp(stop_model_x_rl, [0, 50], [1.0, self.trafficStopAdjustRatio])  ##�����Ÿ��� ���� �����Ÿ� ��������
-          if stop_dist > 10.0: ### 10M�̻��϶���, self.actual_stop_distance�� ������Ʈ��.
+          stop_dist = stop_model_x_rl * np.interp(stop_model_x_rl, [0, 50], [1.0, self.trafficStopAdjustRatio])  ## 如果停止距离较远，则需要校正停止距离
+          if stop_dist > 10.0: ### 只有当距离超过10米时，才更新self.actual_stop_distance。
             self.actual_stop_distance = stop_dist
           stop_model_x = 0
           self.fakeCruiseDistance = 0 if self.actual_stop_distance > 10.0 else 10.0
@@ -551,9 +551,9 @@ class CarrotPlanner:
     self.comfort_brake *= self.mySafeFactor
     self.actual_stop_distance = max(0, self.actual_stop_distance - (v_ego * DT_MDL))
 
-    if stop_model_x == 1000.0: ##  e2eCruise, lead�ΰ��
+    if stop_model_x == 1000.0: ##  e2eCruise, lead인경우
       self.actual_stop_distance = 0.0
-    elif self.actual_stop_distance > 0: ## e2eStop, e2eStopped�ΰ��..
+    elif self.actual_stop_distance > 0: ## e2eStop, e2eStopped인경우..
       stop_model_x = 0.0
 
     stopping_active = self.xState not in [XState.e2eStop, XState.e2eStopped]
@@ -566,7 +566,7 @@ class CarrotPlanner:
     #   f"stopDist={self.actual_stop_distance:.1f}," +
     #   f"Traffic={str(self.trafficState)}"
     # )
-    #��ȣ�� �������� self.xState.value
+    # 红绿灯停止状态 self.xState.value
 
     stop_dist =  stop_model_x + self.actual_stop_distance
     stop_dist = max(stop_dist, 0.0)
@@ -623,7 +623,7 @@ class DrivingModeDetector:
 
       # ---- 디바운스 로직 ----
       if enter:
-        self.counter += 1  
+        self.counter += 1
       elif exit_:
         self.counter -= 1
 
