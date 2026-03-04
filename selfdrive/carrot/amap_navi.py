@@ -202,10 +202,10 @@ class AmapNaviServ:
     self.blinker_time = now
     self.lead_left_right = False
 
-    self.leftFrontTarget = RadarSpeedEstimator(smooth_n=2) # 甚至更激进一些，只有 2 个点的平滑
-    self.leftBehindTarget = RadarSpeedEstimator(smooth_n=2)
-    self.rightFrontTarget = RadarSpeedEstimator(smooth_n=2)
-    self.rightBehindTarget = RadarSpeedEstimator(smooth_n=2)
+    self.leftFrontTarget = RadarSpeedEstimator(smooth_n=5)
+    self.leftBehindTarget = RadarSpeedEstimator(smooth_n=5)
+    self.rightFrontTarget = RadarSpeedEstimator(smooth_n=5)
+    self.rightBehindTarget = RadarSpeedEstimator(smooth_n=5)
 
     self.min_drel_vego_time = 1.0
     self.min_vrel_vego_time = 1.0
@@ -1100,7 +1100,7 @@ class AmapNaviServ:
       danger_dist = max(v_ego_mps * min_drel_scale, 18.0)
 
     # 未来距离预测 (将 3 倍预测改为更激进的 4 倍，以更早触发报警)
-    future_dist = drel - closing_speed * time_horizon * 4
+    future_dist = drel - closing_speed * time_horizon
 
     # 判定规则
     risk = (

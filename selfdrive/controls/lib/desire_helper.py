@@ -397,13 +397,13 @@ class DesireHelper:
       atc_blinker_state = self.carrot_blinker_state
     elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and carrotMan.carrotCmd == "LANECHANGE":
       self.carrot_cmd_index_last = carrotMan.carrotCmdIndex
-      self.carrot_lane_change_count = int(0.2 / DT_MDL)
+      self.carrot_lane_change_count = int(1.0 / DT_MDL)
       self.carrot_blinker_state = BLINKER_LEFT if carrotMan.carrotArg == "LEFT" else BLINKER_RIGHT
       atc_blinker_state = self.carrot_blinker_state
     #new amap_navi的变道命令
     elif amapNavi.cmdIndex != self.amap_cmd_index_last and (amapNavi.cmd == "LANECHANGE" or amapNavi.cmd == "OVERTAKE"):
       self.amap_cmd_index_last = amapNavi.cmdIndex
-      self.carrot_lane_change_count = int(0.2 / DT_MDL)
+      self.carrot_lane_change_count = int(1.0 / DT_MDL)
       self.carrot_blinker_state = BLINKER_LEFT if amapNavi.arg == "LEFT" else BLINKER_RIGHT
       atc_blinker_state = self.carrot_blinker_state
       print(f"AmapNavi cmdIndex={amapNavi.cmdIndex}, cmd={amapNavi.cmd}, arg={amapNavi.arg}")

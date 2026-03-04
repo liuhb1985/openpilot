@@ -80,7 +80,7 @@ class SelfdriveD:
     self.car_state_sock = messaging.sub_sock('carState', timeout=20)
 
     # ignore = self.sensor_packets + self.gps_packets + ['alertDebug', "accelerometer", "gyroscope", "driverMonitoringState"]
-    ignore = self.sensor_packets + self.gps_packets + ["alertDebug", "dmonitoringmodeld", "dmonitoringd", 'driverMonitoringState','liveLocationKalman','liveParameters','liveTorqueParameters','driverAssistance']
+    ignore = self.sensor_packets + self.gps_packets + ["alertDebug", "dmonitoringmodeld", "dmonitoringd", 'driverMonitoringState','liveLocationKalman','liveParameters','liveTorqueParameters','driverAssistance', 'carrotMan']
     if SIMULATION:
       ignore += ['driverCameraState', 'managerState']
     elif self.disable_dm > 0:
