@@ -53,6 +53,17 @@ all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + system_libs
 all_libpath = [Dir(p).abspath for p in openpilot_libpath] + [onnx_lib]
 
 onnx_so = os.path.join(onnx_lib, 'libonnxruntime.so')
+onnx_so_1 = os.path.join(onnx_lib, 'libonnxruntime.so.1')
+
+# Ensure the .so.1 runtime link exists
+if not os.path.exists(onnx_so_1) and os.path.exists(onnx_so):
+    try:
+        os.symlink(onnx_so, onnx_so_1)
+        print(f"Created symlink: {onnx_so_1} -> {onnx_so}")
+    except Exception as e:
+        import shutil
+        shutil.copy2(onnx_so, onnx_so_1)
+        print(f"Copied {onnx_so} to {onnx_so_1} (fallback from symlink: {e})")
 
 # ---------------- Program: cam_blindspot ----------------
 env.Program(
