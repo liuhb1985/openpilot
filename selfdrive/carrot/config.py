@@ -141,7 +141,7 @@ class UnifiedParams:
             "AutoKeepForkSpeed": 5,
             "ShowDebugLog": 0,
             "AutoCurveSpeedFactorH": 100,
-            "AutoCurveSpeedAggressivenessH": 100,
+            "AutoCurveSpeedAggressivenessH": 90,
             "SameSpiCamFilter": 1,
             "StockBlinkerCtrl": 0,
             "ExtBlinkerCtrlTest": 0,
@@ -162,7 +162,14 @@ class UnifiedParams:
             "AutoTurnLeft": 1,
             "AutoEnTurnNewLaneTimeH": 0,
             "AutoEnTurnNewLaneTime": 0,
-            "NewLaneWidthDiff": 8
+            "NewLaneWidthDiff": 8,
+            "AutoNaviSpeedCtrlEnd": 8,
+            "AutoNaviSpeedDecelRate": 100,
+            "LateralTorqueAccelFactor": 2800,
+            "LateralTorqueKpV": 105,
+            "LateralTorqueKiV": 10,
+            "LateralTorqueKf": 100,
+            "LateralTorqueCustom": 1
         }
 
     def get_bool(self, key, default=False):
