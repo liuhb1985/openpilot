@@ -120,8 +120,7 @@ class UnifiedParams:
     def _get_default_nav_data(self):
         """获取默认的自定义参数数据"""
         return {
-            "AutoTurnDistOffset": 0,
-            "AutoForkDistOffset": 30,
+            "AutoForkDistOffset": 50,
             "AutoDoForkBlinkerDist": 15,
             "AutoDoForkNavDist": 15,
             "AutoForkDistOffsetH": 1000,
@@ -151,8 +150,8 @@ class UnifiedParams:
             "DynamicBlindRange": 0,
             "DynamicBlindDistance":0,
             "DisableBlindSpot": 0,
-            "BsdDelayTime": 20,
-            "SideBsdDelayTime": 20,
+            "BsdDelayTime": 5,
+            "SideBsdDelayTime": 5,
             "SideRelDistTime": 10,
             "SidevRelDistTime": 10,
             "SideRadarMinDist": 0,
