@@ -14,10 +14,10 @@ from openpilot.selfdrive.locationd.helpers import PointBuckets, ParameterEstimat
 
 HISTORY = 5  # secs
 POINTS_PER_BUCKET = 1500
-MIN_POINTS_TOTAL = 4000
-MIN_POINTS_TOTAL_QLOG = 600
-FIT_POINTS_TOTAL = 2000
-FIT_POINTS_TOTAL_QLOG = 600
+MIN_POINTS_TOTAL = 1000
+MIN_POINTS_TOTAL_QLOG = 400
+FIT_POINTS_TOTAL = 1000
+FIT_POINTS_TOTAL_QLOG = 400
 MIN_VEL = 15  # m/s
 FRICTION_FACTOR = 1.5  # ~85% of data coverage
 FACTOR_SANITY = 0.3
@@ -29,7 +29,7 @@ MIN_FILTER_DECAY = 50
 MAX_FILTER_DECAY = 250
 LAT_ACC_THRESHOLD = 1
 STEER_BUCKET_BOUNDS = [(-0.5, -0.3), (-0.3, -0.2), (-0.2, -0.1), (-0.1, 0), (0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.5)]
-MIN_BUCKET_POINTS = np.array([100, 300, 500, 500, 500, 500, 300, 100])
+MIN_BUCKET_POINTS = np.array([20, 50, 100, 100, 100, 100, 50, 20])
 MIN_ENGAGE_BUFFER = 2  # secs
 
 VERSION = 1  # bump this to invalidate old parameter caches
