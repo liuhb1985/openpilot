@@ -1,50 +1,114 @@
 #!/usr/bin/env python3
 import time
-import numpy as np
+
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
-from openpilot.common.params import Params
 
+
+# ======================================
+# 简单低通滤波
+# ======================================
+class LowPass:
+  def __init__(self, alpha=0.35):
+    self.alpha = alpha
+    self.x = 0.0
+    self.initialized = False
+
+  def update(self, v):
+    if not self.initialized:
+      self.x = v
+      self.initialized = True
+    else:
+      self.x = self.alpha * v + (1 - self.alpha) * self.x
+
+    return self.x
+
+
+# ======================================
+# 主程序
+# ======================================
 def main():
-  params = Params()
-  # 只有在非 JY62 模式下才建议运行此服务，或者由 manager 根据配置启动
 
   sm = messaging.SubMaster(['carState'])
   pm = messaging.PubMaster(['gyroscope', 'accelerometer'])
-  rk = Ratekeeper(100, print_delay_threshold=None) # 100Hz 匹配现代底盘频率
 
-  print("************************************************Native IMU Service Started************************************************")
+  rk = Ratekeeper(50, print_delay_threshold=None)
+
+  yaw_filter = LowPass(0.3)
+  lon_filter = LowPass(0.3)
+  lat_filter = LowPass(0.3)
+
+  print("******** Native Vehicle IMU Started ********")
 
   while True:
+
     sm.update(0)
 
     if sm.updated['carState']:
+
       cs = sm['carState']
 
-      # 创建陀螺仪消息 (Angular Velocity)
-      # openpilot 坐标系: x=前, y=左, z=上 (基于 LSM6DS3 映射)
+      timestamp = int(time.monotonic() * 1e9)
+
+      # ======================================
+      # 原车 IMU 数据
+      # ======================================
+
+      yaw = cs.yawRate
+      lon = cs.longitudinalAcceleration
+      lat = cs.lateralAcceleration
+
+      # ======================================
+      # 滤波
+      # ======================================
+
+      yaw = yaw_filter.update(yaw)
+      lon = lon_filter.update(lon)
+      lat = lat_filter.update(lat)
+
+      # ======================================
+      # 异常保护
+      # ======================================
+
+      if abs(yaw) > 5:
+        yaw = 0
+
+      if abs(lon) > 20:
+        lon = 0
+
+      if abs(lat) > 20:
+        lat = 0
+
+      # ======================================
+      # Gyroscope
+      # ======================================
+
       gyro_msg = messaging.new_message('gyroscope')
       gyro_msg.valid = True
 
-      g = gyro_msg.gyroscope.gyroUncalibrated
-      g.timestamp = int(time.monotonic() * 1e9)
-      g.v = [0.0, 0.0, cs.yawRate]
+      g = gyro_msg.gyroscope.init('gyroUncalibrated')
+      g.timestamp = timestamp
+      g.v = [0.0, 0.0, yaw]
       g.status = 1
 
       pm.send('gyroscope', gyro_msg)
 
+      # ======================================
+      # Accelerometer
+      # ======================================
 
       accel_msg = messaging.new_message('accelerometer')
       accel_msg.valid = True
 
-      a = accel_msg.accelerometer.acceleration
-      a.timestamp = int(time.monotonic() * 1e9)
-      a.v = [cs.longitudinalAcceleration, cs.lateralAcceleration, 9.80665]
+      a = accel_msg.accelerometer.init('acceleration')
+      a.timestamp = timestamp
+      a.v = [lon, lat, 0.0]
       a.status = 1
 
       pm.send('accelerometer', accel_msg)
 
     rk.keep_time()
+
 
 if __name__ == "__main__":
   main()
