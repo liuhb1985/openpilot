@@ -76,40 +76,29 @@ function launch {
 
   # write tmux scrollback to a file
   tmux capture-pane -pq -S-1500 > /tmp/launch_log
-  if python -c "import flask" > /dev/null 2>&1; then
-    echo "Flask already installed."
-  else
-    echo "Flask installing."
-    pip install flask
-  fi
-  if python -c "import shapely" > /dev/null 2>&1; then
-    echo "shapely already installed."
-  else
-    echo "shapely installing."
-    pip install shapely
-  fi
-  if python -c "import kaitaistruct" > /dev/null 2>&1; then
-    echo "kaitaistruct already installed."
-  else
-    echo "kaitaistruct installing."
-    pip install kaitaistruct
-  fi
 
   # events language init
-  #LANG=$(cat ${PARAMS_ROOT}/d/LanguageSetting)
   LANG=$(cat /data/params/d/LanguageSetting)
-  EVENTSTAT=$(git status)
+  # 使用 md5sum 或文件检查替代耗时的 git status
+  # 如果需要检测是否修改过，可以检查备份文件是否存在
 
-  # events.py 한글로 변경 및 파일이 교체된 상태인지 확인
-  if [ "${LANG}" = "main_ko" ] && [[ ! "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
-    cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
-    cp -f $DIR/scripts/add/events_ko.py $DIR/selfdrive/selfdrived/events.py
-  elif [ "${LANG}" = "main_zh-CHS" ] && [[ ! "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
-    # Backup current events.py (assumed English) and install Simplified Chinese events
-    cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
-    cp -f $DIR/scripts/add/events_zh.py $DIR/selfdrive/selfdrived/events.py
-  elif [ "${LANG}" = "main_en" ] && [[ "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
-    cp -f $DIR/scripts/add/events_en.py $DIR/selfdrive/selfdrived/events.py
+  # events.py 语言处理逻辑优化
+  if [ "${LANG}" = "main_ko" ]; then
+    if [ ! -f $DIR/scripts/add/events_en.py ]; then
+      cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
+      cp -f $DIR/scripts/add/events_ko.py $DIR/selfdrive/selfdrived/events.py
+    fi
+  elif [ "${LANG}" = "main_zh-CHS" ]; then
+    if [ ! -f $DIR/scripts/add/events_en.py ] || [ ! -f /tmp/zh_applied ]; then
+      cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
+      cp -f $DIR/scripts/add/events_zh.py $DIR/selfdrive/selfdrived/events.py
+      touch /tmp/zh_applied
+    fi
+  elif [ "${LANG}" = "main_en" ]; then
+    if [ -f $DIR/scripts/add/events_en.py ]; then
+      cp -f $DIR/scripts/add/events_en.py $DIR/selfdrive/selfdrived/events.py
+      rm -f /tmp/zh_applied
+    fi
   fi
 
   # c3xl amplifier file change

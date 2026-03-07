@@ -2,8 +2,10 @@
 import datetime
 import os
 import signal
+import subprocess
 import sys
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 from cereal import log
 import cereal.messaging as messaging
@@ -100,9 +102,9 @@ def manager_init() -> None:
                        dirty=build_metadata.openpilot.is_dirty,
                        device=HARDWARE.get_device_type())
 
-  # preimport all processes
-  for p in managed_processes.values():
-    p.prepare()
+  # 并行预加载所有进程模块
+  with ThreadPoolExecutor() as executor:
+    executor.map(lambda p: p.prepare(), managed_processes.values())
 
 
 def manager_cleanup() -> None:
@@ -195,15 +197,28 @@ def manager_thread() -> None:
 
 def main() -> None:
   manager_init()
-  print(f"python opendbc_repo/opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python opendbc_repo/opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python opendbc_repo/opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
-  os.system(f"python opendbc_repo/opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
-  os.system(f"python opendbc_repo/opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
-  os.system(f"python opendbc_repo/opendbc/car/honda/values.py > {Params().get_param_path()}/SupportedCars_honda")
-  os.system(f"python opendbc_repo/opendbc/car/ford/values.py > {Params().get_param_path()}/SupportedCars_ford")
-  os.system(f"python opendbc_repo/opendbc/car/tesla/values.py > {Params().get_param_path()}/SupportedCars_tesla")
-  os.system(f"python opendbc_repo/opendbc/car/volkswagen/values.py > {Params().get_param_path()}/SupportedCars_volkswagen")
+
+  # 并行生成受支持车型文件以减少启动时间
+  print("Generating SupportedCars files in parallel...")
+  params_path = Params().get_param_path()
+  commands = [
+      f"python opendbc_repo/opendbc/car/hyundai/values.py > {params_path}/SupportedCars",
+      f"python opendbc_repo/opendbc/car/gm/values.py > {params_path}/SupportedCars_gm",
+      f"python opendbc_repo/opendbc/car/toyota/values.py > {params_path}/SupportedCars_toyota",
+      f"python opendbc_repo/opendbc/car/mazda/values.py > {params_path}/SupportedCars_mazda",
+      f"python opendbc_repo/opendbc/car/honda/values.py > {params_path}/SupportedCars_honda",
+      f"python opendbc_repo/opendbc/car/ford/values.py > {params_path}/SupportedCars_ford",
+      f"python opendbc_repo/opendbc/car/tesla/values.py > {params_path}/SupportedCars_tesla",
+      f"python opendbc_repo/opendbc/car/volkswagen/values.py > {params_path}/SupportedCars_volkswagen"
+  ]
+
+  processes = []
+  for cmd in commands:
+      processes.append(subprocess.Popen(cmd, shell=True))
+
+  # 等待所有车型列表生成任务完成
+  for p in processes:
+      p.wait()
 
   if os.getenv("PREPAREONLY") is not None:
     return
