@@ -25,22 +25,23 @@ def main():
       # openpilot 坐标系: x=前, y=左, z=上 (基于 LSM6DS3 映射)
       gyro_msg = messaging.new_message('gyroscope')
       gyro_msg.valid = True
-      g = gyro_msg.init('gyroUncalibrated')
+
+      g = gyro_msg.gyroscope.gyroUncalibrated
       g.timestamp = int(time.monotonic() * 1e9)
-      # 映射: Z 轴 = yawRate (左转为正)
       g.v = [0.0, 0.0, cs.yawRate]
       g.status = 1
+
       pm.send('gyroscope', gyro_msg)
 
-      # 创建加速度计消息 (Linear Acceleration)
+
       accel_msg = messaging.new_message('accelerometer')
       accel_msg.valid = True
-      a = accel_msg.init('acceleration')
+
+      a = accel_msg.accelerometer.acceleration
       a.timestamp = int(time.monotonic() * 1e9)
-      # 映射: [纵向, 横向, 垂直]
-      # 纵向 (cs.longitudinalAcceleration), 横向 (cs.lateralAcceleration), 垂直 (1g)
       a.v = [cs.longitudinalAcceleration, cs.lateralAcceleration, 9.80665]
       a.status = 1
+
       pm.send('accelerometer', accel_msg)
 
     rk.keep_time()
