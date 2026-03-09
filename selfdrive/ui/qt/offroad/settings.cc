@@ -744,8 +744,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("LaneChangeBsd", "变道盲区BSD设置", "-1:忽略BSD, 0:检测BSD(轻推方向盘可变道), 1:轻推方向盘不变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("CustomSteerOffset", "横向: 自定义方向盘偏移(0)", "CustomSteerOffset自定义方向盘偏移,1表示开，0表示关", 0, 1, 1));
   latLongToggles->addItem(new CValueControl("SteerAngleOffset", "横向: 方向盘偏移角度x0.1(0)", "SteerAngleOffset自定义方向盘偏移量,单位为0.1度", -100, 100, 1));
-  latLongToggles->addItem(new CValueControl("CustomSR", "横向: 自定义方向盘比x0.1(0)", "CustomSR自定义转向比,设置为0表示使用自学习的值. 胜达建议设置165x0.1", 0, 300, 1));
-  latLongToggles->addItem(new CValueControl("SteerRatioRate", "横向: 转向比应用速率x0.01(100)", "SteerRatioRate转向比应用速率，实时学习得到的SteerRatio会乘上这个系数作为最终的转向比", 30, 170, 1));
+  latLongToggles->addItem(new CValueControl("CustomSR", "横向: 自定义方向盘比x0.1(0)", "CustomSR自定义比,设置为0表示使用自学习的值. 胜达建议设置165x0.1", 0, 300, 1));
+  latLongToggles->addItem(new CValueControl("SteerRatioRate", "横向: 比应用速率x0.01(100)", "SteerRatioRate转向比应用速率，实时学习得到的SteerRatio会乘上这个系数作为最终的转向比", 30, 170, 1));
   latLongToggles->addItem(new CValueControl("PathOffset", "横向: 路径偏移", "(-)左偏, (+)右偏", -150, 150, 1));
   latLongToggles->addItem(new CValueControl("SteerActuatorDelay", "横向: 转向执行器延迟(30)", "SteerActuatorDelay, x0.01, 0:使用自学习的延迟, 其它值指定延迟", 0, 100, 1));
   latLongToggles->addItem(new CValueControl("LateralTorqueCustom", "横向: 自定义扭矩模式(0),", "LateralTorqueCustom,0 使用自学习的扭矩因子和摩擦,1 使用自定义, 2 使用默认值", 0, 2, 1));

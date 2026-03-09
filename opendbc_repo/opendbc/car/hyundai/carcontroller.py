@@ -36,8 +36,10 @@ def process_hud_alert(enabled, fingerprint, hud_control):
   # initialize to no line visible
   # TODO: this is not accurate for all cars
   sys_state = 1
-  if hud_control.leftLaneVisible and hud_control.rightLaneVisible or sys_warning:  # HUD alert only display when LKAS status is active
-    sys_state = 3 if enabled or sys_warning else 4
+  if enabled or sys_warning:
+    sys_state = 3
+  elif hud_control.leftLaneVisible and hud_control.rightLaneVisible:
+    sys_state = 4
   elif hud_control.leftLaneVisible:
     sys_state = 5
   elif hud_control.rightLaneVisible:
@@ -227,7 +229,8 @@ class CarController(CarControllerBase):
     set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
 
     # HUD messages
-    sys_warning, sys_state, left_lane_warning, right_lane_warning = process_hud_alert(CC.enabled, self.car_fingerprint,
+    lat_or_enabled = CC.latActive or CC.enabled
+    sys_warning, sys_state, left_lane_warning, right_lane_warning = process_hud_alert(lat_or_enabled, self.car_fingerprint,
                                                                                       hud_control)
 
     active_speed_decel = hud_control.activeCarrot == 3 and self.activeCarrot != 3 # 3: Speed Decel
@@ -325,9 +328,11 @@ class CarController(CarControllerBase):
           can_sends.extend(self.create_button_messages(CC, CS, use_clu11=False))
 
     else:
+      left_lane = lat_or_enabled or hud_control.leftLaneVisible
+      right_lane = lat_or_enabled or hud_control.rightLaneVisible
       can_sends.append(hyundaican.create_lkas11(self.packer, self.frame, self.CP, apply_torque, apply_steer_req,
-                                                torque_fault, CS.lkas11, sys_warning, sys_state, CC.enabled,
-                                                hud_control.leftLaneVisible, hud_control.rightLaneVisible,
+                                                torque_fault, CS.lkas11, sys_warning, sys_state, lat_or_enabled,
+                                                left_lane, right_lane,
                                                 left_lane_warning, right_lane_warning, self.is_ldws_car))
 
       if not self.CP.openpilotLongitudinalControl:
@@ -351,7 +356,8 @@ class CarController(CarControllerBase):
 
 
       # 20 Hz LFA MFA message
-      if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
+      # if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
+      if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE,)):
         can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal))
 
       # 5 Hz ACC options
@@ -483,7 +489,7 @@ class CarController(CarControllerBase):
     send_button = 0
     activate_cruise = False
 
-    if CC.enabled:
+    if CC.longActive or CC.cruiseControl.override:
       if not CS.out.cruiseState.enabled:
         if (hud_control.leadVisible or v_ego_kph > 10.0) and self.activateCruise == 0:
           send_button = Buttons.RES_ACCEL
