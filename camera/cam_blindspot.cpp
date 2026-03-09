@@ -358,7 +358,7 @@ void capture_from_camera(const std::string& device, int cam_id) {
 
     // ================== 新增：跳帧控制 ==================
     auto last_time = std::chrono::steady_clock::now();
-    const double target_fps = 10.0;
+    const double target_fps = 20.0;
     const double frame_interval_ms = 1000.0 / target_fps;
 
     while (running) {
@@ -620,6 +620,9 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
 
     auto distance = [](cv::Point a, cv::Point b) { return std::sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)); };
     const int select_radius = 10;
+    const int drag_threshold = 5;   // ⭐ 新增拖动阈值
+    static cv::Point drag_start;
+    static bool dragging = false;
 
     static std::chrono::steady_clock::time_point last_save_time = std::chrono::steady_clock::now();
     bool changed = false;
@@ -630,33 +633,56 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         for (int i = 0; i < roi.polygon.size(); i++) {
             if (distance(roi.polygon[i], cv::Point(x, y)) < select_radius) {
                 roi.selected_idx = i;
+                drag_start = cv::Point(x, y);
+                dragging = true;
                 return;
             }
         }
         // 没有选中顶点，新增顶点
-        roi.polygon.push_back(cv::Point(x, y));
-        changed = true;
+        // ⭐ 只有按住 Ctrl 才允许新增点
+        if (flags & cv::EVENT_FLAG_CTRLKEY) {
+            roi.polygon.push_back(cv::Point(x, y));
+            changed = true;
+        }
+        // roi.polygon.push_back(cv::Point(x, y));
+        // changed = true;
     }
     else if (event == cv::EVENT_MOUSEMOVE) {
-        if (roi.selected_idx != -1 && (flags & cv::EVENT_FLAG_LBUTTON)) {
-            roi.polygon[roi.selected_idx] = cv::Point(x, y);
-            changed = true;
+        if (dragging && roi.selected_idx != -1 &&
+            (flags & cv::EVENT_FLAG_LBUTTON)) {
+
+            int dx = std::abs(x - drag_start.x);
+            int dy = std::abs(y - drag_start.y);
+
+            // ⭐ 超过阈值才更新
+            if (dx > drag_threshold || dy > drag_threshold) {
+                roi.polygon[roi.selected_idx] = cv::Point(x, y);
+                drag_start = cv::Point(x, y);
+                changed = true;
+            }
         }
     }
     else if (event == cv::EVENT_LBUTTONUP) {
+        dragging = false;
         roi.selected_idx = -1;
     }
     else if (event == cv::EVENT_RBUTTONDOWN) {
         // 删除最近顶点
-        int idx = -1;
-        float min_dist = select_radius;
-        for (int i = 0; i < roi.polygon.size(); i++) {
-            float d = distance(roi.polygon[i], cv::Point(x, y));
-            if (d < min_dist) { min_dist = d; idx = i; }
-        }
-        if (idx != -1) {
-            roi.polygon.erase(roi.polygon.begin() + idx);
-            changed = true;
+        // ⭐ Ctrl + 右键才删除
+        if (flags & cv::EVENT_FLAG_CTRLKEY) {
+
+            int idx = -1;
+            float min_dist = select_radius;
+
+            for (int i = 0; i < roi.polygon.size(); i++) {
+                float d = distance(roi.polygon[i], cv::Point(x, y));
+                if (d < min_dist) { min_dist = d; idx = i; }
+            }
+
+            if (idx != -1) {
+                roi.polygon.erase(roi.polygon.begin() + idx);
+                changed = true;
+            }
         }
     }
 
@@ -705,7 +731,11 @@ void display_loop() {
                 int height = shared_images[valid_index].rows;
                 int type = shared_images[valid_index].type();
 
-                int cols = (cam_count > 4) ? 3 : 2;
+                int cols;
+                if (cam_count == 1) cols = 1;
+                else if (cam_count <= 4) cols = 2;
+                else cols = 3;
+
                 int rows = (cam_count + cols - 1) / cols;
 
                 cv::Mat combined = cv::Mat::zeros(rows * height, cols * width, type);
@@ -724,12 +754,13 @@ void display_loop() {
                         cv::resize(img, img, cv::Size(width, height));
                     }
 
-                    int c = i / cols;
-                    int r = i % cols;
+                    int r = i / cols;
+                    int c = i % cols;
                     cv::Rect roi(c * width, r * height, width, height);
-                    img.copyTo(combined(roi));
-
-                    has_any_frame = true;
+                    if ((roi.x + roi.width) <= combined.cols && (roi.y + roi.height) <= combined.rows) {
+                        img.copyTo(combined(roi));
+                        has_any_frame = true;
+                    }
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
@@ -863,8 +894,8 @@ void lane_check_thread() {
             }
         }
 
-        // 控制线程循环频率，例如 100ms 一次
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // 控制线程循环频率，例如 50ms 一次 (20Hz)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
@@ -1076,10 +1107,10 @@ void udp_comm_thread(UDPComm &comm) {
 
         auto now = chrono::steady_clock::now();
 
-        /* ================= 周期性 0.1s 主动发送 ================= */
+        /* ================= 周期性 0.05s 主动发送 (20Hz) ================= */
         if (!comm.last_ip.empty() &&
             chrono::duration_cast<chrono::milliseconds>(
-                now - comm.last_send_time).count() >= 100) {
+                now - comm.last_send_time).count() >= 50) {
 
             bool timeout =
                 chrono::duration_cast<chrono::seconds>(
@@ -1387,7 +1418,7 @@ int main() {
         return 1;
     }
 
-    if (!load_camera_config("camerablind.json")) {
+    if (!load_camera_config("camera_blindspot.json")) {
         return -1;
     }
 
