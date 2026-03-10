@@ -118,11 +118,11 @@ def create_clu11(packer, frame, clu11, button, CP):
 
 def create_lfahda_mfc(packer, CC, blinking_signal):
   activeCarrot = CC.hudControl.activeCarrot
-  hda_active = 1 if CC.enabled else 0
+  hda_active = 1 if CC.longActive else 0
   if activeCarrot == 3 and blinking_signal:
     hda_icon = 0
   else:
-    hda_icon = 2 if CC.enabled else 0
+    hda_icon = 2 if CC.longActive else 0
 
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
