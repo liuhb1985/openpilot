@@ -206,7 +206,7 @@ class DesireHelper:
     self.lane_count_stab_cnt = int(1 / DT_MDL)
     self.trigger_name = ""
     self.trigger_type = 0
-    self.newLaneWidthDiff = 0.8
+    self.newLaneWidthDiff = 0.12 # Increase to 1.2 * 0.1 = 0.12
     self.autoEnTurnNewLaneTimeH = 0
     self.autoEnTurnNewLaneTime = 0
     self.events = Events()

@@ -121,10 +121,10 @@ class UnifiedParams:
         """获取默认的自定义参数数据"""
         return {
             "AutoTurnDistOffset": 0,
-            "AutoForkDistOffset": 30,
+            "AutoForkDistOffset": 15,
             "AutoDoForkBlinkerDist": 15,
             "AutoDoForkNavDist": 15,
-            "AutoForkDistOffsetH": 1000,
+            "AutoForkDistOffsetH": 300,
             "AutoDoForkDecalDistH": 50,
             "AutoDoForkDecalDist": 20,
             "AutoDoForkBlinkerDistH": 30,
@@ -163,7 +163,7 @@ class UnifiedParams:
             "AutoTurnLeft": 1,
             "AutoEnTurnNewLaneTimeH": 0,
             "AutoEnTurnNewLaneTime": 0,
-            "NewLaneWidthDiff": 8,
+            "NewLaneWidthDiff": 12,
             "DynamicExperimentalSpeed": -5,
             "DynamicExperimentalLatA": 0,
         }

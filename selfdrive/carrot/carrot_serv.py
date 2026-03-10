@@ -238,10 +238,10 @@ class CarrotServ:
 
     self.sameSpiCamFilter = 0
     self.autoTurnDistOffset = 0
-    self.autoForkDistOffsetH = 1000
+    self.autoForkDistOffsetH = 300
     self.autoDoForkDecalDistH = 50
     self.autoDoForkDecalDist = 20
-    self.autoForkDistOffset = 30
+    self.autoForkDistOffset = 15
     #self.autoDoForkCheckDistH = 0
     self.autoDoForkBlinkerDist = 15
     self.autoDoForkNavDist = 15
