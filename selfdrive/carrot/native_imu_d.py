@@ -85,9 +85,11 @@ def main():
 
       gyro_msg = messaging.new_message('gyroscope')
       gyro_msg.valid = True
+      gyro_msg.gyroscope.timestamp = timestamp
+      gyro_msg.gyroscope.type = 16   # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
+      gyro_msg.gyroscope.sensor = 5  # SENSOR_GYRO_UNCALIBRATED
 
       g = gyro_msg.gyroscope.init('gyroUncalibrated')
-      g.timestamp = timestamp
       g.v = [0.0, 0.0, yaw]
       g.status = 1
 
@@ -99,9 +101,11 @@ def main():
 
       accel_msg = messaging.new_message('accelerometer')
       accel_msg.valid = True
+      accel_msg.accelerometer.timestamp = timestamp
+      accel_msg.accelerometer.type = 1   # SENSOR_TYPE_ACCELEROMETER
+      accel_msg.accelerometer.sensor = 1 # SENSOR_ACCELEROMETER
 
       a = accel_msg.accelerometer.init('acceleration')
-      a.timestamp = timestamp
       a.v = [lon, lat, 0.0]
       a.status = 1
 
