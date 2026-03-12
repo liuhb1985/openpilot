@@ -38,7 +38,7 @@ except ImportError:
 NetworkType = log.DeviceState.NetworkType
 
 ################ CarrotNavi
-## 국가법령정보센터: 도로설계기준
+## 国家法令信息中心：道路设计标准
 #V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./15.]
 #V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 45, 35, 30]
 V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./25.]
@@ -94,7 +94,7 @@ def get_path_after_distance(start_index, coordinates, current_position, distance
 
     start_index = max(0, start_index - 2)
 
-    # 가까운 점만 탐색하도록 수정
+    # 修改为仅搜索附近的点
     for i in range(start_index, len(coordinates) - 1):
         p1 = coordinates[i]
         p2 = coordinates[i + 1]
@@ -383,14 +383,14 @@ class CarrotMan:
 
   def get_local_ip(self):
       try:
-          # 외부 서버와의 연결을 통해 로컬 IP 확인
+          # 通过连接外部服务器确认本地 IP
           with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-              s.connect(("8.8.8.8", 80))  # Google DNS로 연결 시도
+              s.connect(("8.8.8.8", 80))  # 尝试连接 Google DNS
               return s.getsockname()[0]
       except Exception as e:
           return f"Error: {e}"
 
-  # 브로드캐스트 메시지 전송
+  # 发送广播消息
   def broadcast_version_info(self):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -622,16 +622,16 @@ class CarrotMan:
     while True:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('0.0.0.0', self.carrot_man_port))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时 (10秒)
+          sock.bind(('0.0.0.0', self.carrot_man_port))  # 绑定 UDP 端口
           print("#########carrot_man_thread: UDP thread started...")
 
           while True:
             try:
               #self.remote_addr = None
-              # 데이터 수신 (UDP는 recvfrom 사용)
+              # 接收数据 (UDP使用recvfrom)
               try:
-                data, remote_addr = sock.recvfrom(4096)  # 최대 4096 바이트 수신
+                data, remote_addr = sock.recvfrom(4096)  # 最大接收4096字节
                 #print(f"Received data from {self.remote_addr}")
 
                 if not data:
@@ -648,7 +648,7 @@ class CarrotMan:
                   print(f"carrot_man_thread: json error...: {e}")
                   print(data)
 
-                # 응답 메시지 생성 및 송신 (UDP는 sendto 사용)
+                # 生成并发送响应消息 (UDP使用sendto)
                 #try:
                 #  msg = self.make_send_message()
                 #  sock.sendto(msg.encode('utf-8'), self.remote_addr)
@@ -702,8 +702,8 @@ class CarrotMan:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
           sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('', 12345))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时 (10秒)
+          sock.bind(('', 12345))  # 绑定 UDP 端口
           print("#########kisa_app_thread: UDP thread started...")
 
           while True:
@@ -907,7 +907,7 @@ class CarrotMan:
         socket, poller = setup_socket()
 
   def recvall(self, sock, n):
-    """n바이트를 수신할 때까지 반복적으로 데이터를 받는 함수"""
+    """重复接收数据直到接收到 n 字节的函数"""
     data = bytearray()
     while len(data) < n:
       packet = sock.recv(n - len(data))
@@ -917,11 +917,11 @@ class CarrotMan:
     return data
 
   def receive_double(self, sock):
-    double_data = self.recvall(sock, 8)  # Double은 8바이트
+    double_data = self.recvall(sock, 8)  # Double 是 8 字节
     return struct.unpack('!d', double_data)[0]
 
   def receive_float(self, sock):
-    float_data = self.recvall(sock, 4)  # Float은 4바이트
+    float_data = self.recvall(sock, 4)  # Float 是 4 字节
     return struct.unpack('!f', float_data)[0]
 
 
@@ -934,7 +934,7 @@ class CarrotMan:
         print("Received points from navd:", len(self.navi_points))
         self.navd_active = True
 
-        # 경로수신 -> carrotman active되고 약간의 시간지연이 발생함..
+        # 接收路径 -> carrotman 激活后会产生轻微的时间延迟..
         if not from_navd:
           self.carrot_serv.active_count = 80
           self.carrot_serv.active_sdi_count = self.carrot_serv.active_sdi_count_max
@@ -951,8 +951,8 @@ class CarrotMan:
     self.pm.send('navRoute', msg)
 
   def carrot_route(self):
-    host = '0.0.0.0'  # 혹은 다른 호스트 주소
-    port = 7709  # 포트 번호
+    host = '0.0.0.0'  # 或者其他主机地址
+    port = 7709  # 端口号
 
     try:
       with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -966,14 +966,14 @@ class CarrotMan:
             print(f"Connected by {addr}")
             #self.clear_route()
 
-            # 전체 데이터 크기 수신
+            # 接收完整数据大小
             total_size_bytes = self.recvall(conn, 4)
             if not total_size_bytes:
               print("Connection closed or error occurred")
               continue
             try:
               total_size = struct.unpack('!I', total_size_bytes)[0]
-              # 전체 데이터를 한 번에 수신
+              # 一次性接收完整数据
               all_data = self.recvall(conn, total_size)
               if all_data is None:
                   print("Connection closed or incomplete data received")

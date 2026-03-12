@@ -66,7 +66,7 @@ def calculate_lane_width(lane, lane_prob, current_lane, road_edge):
   current_lane_y = np.interp(t, ModelConstants.T_IDXS, current_lane.y)
   lane_y = np.interp(t, ModelConstants.T_IDXS, lane.y)
   distance_to_lane = abs(current_lane_y - lane_y)
-  #if lane_prob < 0.3:# 차선이 없으면 없는것으로 간주시킴.
+  #if lane_prob < 0.3:# 如果没有车道，则视为无车道.
   #  distance_to_lane = min(2.0, distance_to_lane)
   road_edge_y = np.interp(t, ModelConstants.T_IDXS, road_edge.y)
   distance_to_road_edge = abs(current_lane_y - road_edge_y)
@@ -85,17 +85,17 @@ class ExistCounter:
     self.counter = 0
     self.true_count = 0
     self.false_count = 0
-    self.threshold = int(0.2 / DT_MDL)  # 노이즈를 무시하기 위한 임계값 설정
+    self.threshold = int(0.2 / DT_MDL)  # 设置阈值以忽略噪声
 
   def update(self, exist_flag):
     if exist_flag:
       self.true_count += 1
-      self.false_count = 0  # false count 초기화
+      self.false_count = 0  # false count 初始化
       if self.true_count >= self.threshold:
           self.counter = max(self.counter + 1, 1)
     else:
       self.false_count += 1
-      self.true_count = 0  # true count 초기화
+      self.true_count = 0  # true count 初始化
       if self.false_count >= self.threshold:
           self.counter = min(self.counter - 1, -1)
 

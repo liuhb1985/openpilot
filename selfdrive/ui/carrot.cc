@@ -1475,31 +1475,17 @@ protected:
 
 protected:
     void ui_draw_bsd(const UIState* s, const QPolygonF& vd, NVGcolor* color, bool right) {
-        int index = vd.length();
-
+        int n = vd.length() / 2;
         float x[4], y[4];
-        for (int i = 0; i < index / 2 - 2; i += 2) {
-
-            if (right) {
-                x[0] = vd[i + 0].x();
-                y[0] = vd[i + 0].y();
-                x[1] = vd[i + 1].x();
-                y[1] = vd[i + 1].y();
-                x[2] = vd[index - i - 3].x();
-                y[2] = vd[index - i - 3].y();
-                x[3] = vd[index - i - 2].x();
-                y[3] = vd[index - i - 2].y();
-            }
-            else {
-                x[0] = vd[i + 0].x();
-                y[0] = vd[i + 0].y();
-                x[1] = vd[i + 1].x();
-                y[1] = vd[i + 1].y();
-                x[2] = vd[index - i - 3].x();
-                y[2] = vd[index - i - 3].y();
-                x[3] = vd[index - i - 2].x();
-                y[3] = vd[index - i - 2].y();
-            }
+        for (int i = 0; i < n - 1; i++) {
+            x[0] = vd[i].x();
+            y[0] = vd[i].y();
+            x[1] = vd[i + 1].x();
+            y[1] = vd[i + 1].y();
+            x[2] = vd[2 * n - i - 2].x();
+            y[2] = vd[2 * n - i - 2].y();
+            x[3] = vd[2 * n - i - 1].x();
+            y[3] = vd[2 * n - i - 1].y();
             ui_draw_line2(s, x, y, 4, color, nullptr, 3.0f);
         }
     }

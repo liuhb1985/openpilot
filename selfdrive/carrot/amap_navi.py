@@ -1708,9 +1708,9 @@ class AmapNaviServ:
 
   def navi_get_local_ip(self):
       try:
-          # 외부 서버와의 연결을 통해 로컬 IP 확인
+          # 通过连接外部服务器确认本地 IP
           with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-              s.connect(("8.8.8.8", 80))  # Google DNS로 연결 시도
+              s.connect(("8.8.8.8", 80))  # 尝试连接 Google DNS
               return s.getsockname()[0]
       except Exception as e:
           return f"Error: {e}"

@@ -409,7 +409,7 @@ class CarrotServ:
       self.traffic_state = 1
       #self._add_log("Red light triggered")
       #print("Red light triggered")
-    elif traffic_green_trig > 0 and traffic_green > traffic_red:  #주변에 red light의 cnf보다 더 크면 출발... 감지오류로 출발하는경우가 생김.
+    elif traffic_green_trig > 0 and traffic_green > traffic_red:  # 如果周围红灯的 cnf 更大则出发... 有时会因为检测错误而出发.
       self.traffic_state = 2
       #self._add_log("Green light triggered")
       #print("Green light triggered")
@@ -439,7 +439,7 @@ class CarrotServ:
       return safe_speed_kph
 
     # v_i^2 = v_f^2 + 2ad
-    temp = safe_speed**2 + 2 * safe_decel_rate * decel_dist  # 공식에서 감속 적용
+    temp = safe_speed**2 + 2 * safe_decel_rate * decel_dist  # 公式中应用减速
 
     if temp < 0:
       speed_mps = safe_speed
@@ -680,18 +680,18 @@ class CarrotServ:
 
     external_gps_update_timedout = not (gps_updated_phone or gps_updated_navi)
     #print(f"gps_valid = {self.gps_valid}, bearing = {bearing:.1f}, pos = {location.positionGeodetic.value[0]:.6f}, {location.positionGeodetic.value[1]:.6f}")
-    if self.gps_valid and external_gps_update_timedout:    # 내부GPS가 자동하고 carrotman으로부터 gps신호가 없는경우
+    if self.gps_valid and external_gps_update_timedout:    # 内部 GPS 自动运行且没有来自 carrotman 的 GPS 信号的情况
       self.vpPosPointLatNavi = location.positionGeodetic.value[0]
       self.vpPosPointLonNavi = location.positionGeodetic.value[1]
       self.last_calculate_gps_time = now #sm.recv_time[llk]
-    elif gps_updated_navi:  # carrot navi로부터 gps신호가 수신되는 경우..
+    elif gps_updated_navi:  # 收到来自 carrot navi 的 GPS 信号的情况..
       if abs(self.bearing_measured - bearing) < 0.1:
           self.diff_angle_count += 1
       else:
           self.diff_angle_count = 0
       self.bearing_measured = bearing
 
-      if self.diff_angle_count > 5: # 조향각도변화가 거의 없을때만 업데이트
+      if self.diff_angle_count > 5: # 仅在转向角几乎没有变化时更新
         diff_angle = (self.nPosAngle - bearing) % 360
         if diff_angle > 180:
           diff_angle -= 360
@@ -1600,7 +1600,7 @@ class CarrotServ:
 
     #print(json)
     if self.carrotIndex % 60 == 0 and "epochTime" in json:
-      # op는 ntp를 사용하기때문에... 필요없는 루틴으로 보임.
+      # 因为 op 使用 ntp... 似乎是不需要的例程.
       timezone_remote = json.get("timezone", "Asia/Seoul")
 
       if not PC:
@@ -1714,7 +1714,7 @@ class CarrotServ:
       #print(json)
       pass
 
-    # 3초간 navi 데이터가 없으면, phone gps로 업데이트
+    # 如果 3 秒没有导航数据，使用手机 GPS 更新
     if "latitude" in json:
       self.nPosAnglePhone = float(json.get("heading", self.nPosAngle))
       if (now - self.last_update_gps_time_navi) > 3.0:
