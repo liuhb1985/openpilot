@@ -248,6 +248,8 @@ class CarrotServ:
     #self.autoDoForkCheckDistH = 0
     self.autoDoForkBlinkerDistH = 30
     self.autoDoForkNavDistH = 50
+    self.autoOvertake = 0
+    self.overtake_wait_count = 0
     self.autoUpRoadLimit = 0
     self.autoUpRoadLimit40KMH = 15
     self.autoUpHighwayRoadLimit = 0
@@ -342,6 +344,7 @@ class CarrotServ:
       self.autoKeepForkSpeed = self.params.get_int("AutoKeepForkSpeed")
       self.showDebugLog = self.params.get_int("ShowDebugLog")
       self.enable_radar_tracks = self.params.get_int("EnableRadarTracks")
+      self.autoOvertake = self.params.get_int("AutoOvertake")
 
     self.param_frame += 1
     if self.roadType >= 0: #手动设置道路类型
@@ -1444,6 +1447,7 @@ class CarrotServ:
 
       self.left_sec = left_sec
 
+    self.check_auto_overtake(sm, v_ego)
     self._update_cmd()
     msg = messaging.new_message('carrotMan')
     msg.valid = True
@@ -1496,6 +1500,70 @@ class CarrotServ:
 
     msg.carrotMan.leftSec = int(self.carrot_left_sec)
     pm.send('carrotMan', msg)
+ 
+  def check_auto_overtake(self, sm, v_ego):
+    if self.autoOvertake <= 0:
+      self.overtake_wait_count = 0
+      return
+
+    if not (sm.alive['carState'] and sm.alive['selfdriveState'] and sm['selfdriveState'].active):
+      self.overtake_wait_count = 0
+      return
+
+    v_ego_kph = v_ego * 3.6
+    if v_ego_kph < 60: # 仅在高速场景（>60km/h）
+      self.overtake_wait_count = 0
+      return
+
+    # 获取巡航速度
+    v_cruise_kph = sm['carState'].vCruise
+    if v_cruise_kph < 70: # 如果定速太低，也不触发自动超车
+      self.overtake_wait_count = 0
+      return
+
+    # 获取前车信息 (leadOne)
+    lead_one = sm['radarState'].leadOne
+    if not (lead_one and lead_one.status):
+      self.overtake_wait_count = 0
+      return
+
+    # 计算前车绝对速度
+    v_lead_kph = (v_ego + lead_one.vRel) * 3.6
+    
+    # 触发条件：前车速度慢于巡航设定速度 15km/h 以上，且距离在 100 米内
+    if v_lead_kph < v_cruise_kph - 15 and lead_one.dRel < 100:
+      self.overtake_wait_count += 1
+    else:
+      self.overtake_wait_count = 0
+      return
+
+    # 持续 5 秒检测到阻碍才发起超车
+    if self.overtake_wait_count < int(5.0 / DT_NAV):
+      return
+
+    # 避开即将到来的导航转向/分叉 (500米内)
+    if 0 < self.xDistToTurn < 500:
+      self.overtake_wait_count = 0
+      return
+
+    overtake_arg = ""
+    # 优先左侧超车 (1:左侧, 3:双侧)
+    if self.autoOvertake in [1, 3]:
+      # self.left_lane: 车道线存在, self.left_blind: 盲区是否有车 (来自 model/radar)
+      if self.left_lane and not self.left_blind:
+        overtake_arg = "LEFT"
+
+    # 如果左侧不支持或不安全，且开启了右侧超车 (2:右侧, 3:双侧)
+    if not overtake_arg and self.autoOvertake in [2, 3]:
+      if self.right_lane and not self.right_blind:
+        overtake_arg = "RIGHT"
+
+    if overtake_arg:
+      self.carrotCmdIndex += 1
+      self.carrotCmd = "OVERTAKE"
+      self.carrotArg = overtake_arg
+      self.overtake_wait_count = -int(10.0 / DT_NAV) # 10秒内不再次触发
+      print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertake triggered: {overtake_arg}")
 
     inst = messaging.new_message('navInstructionCarrot')
     if self.active_carrot > 1 and self.active_kisa_count <= 0:

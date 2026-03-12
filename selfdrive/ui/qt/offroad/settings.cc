@@ -740,6 +740,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("AdjustCurveOffset", "弯道偏移调整(0)cm", "", -500, 500, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "轻推方向变道", "-1:禁用变道, 0:无需轻推方向, 1:需要轻推方向变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("AutoLaneChangeMinSpeed", "打灯变道最低速度", "低于这个速度打灯不自动变道", -1, 100, 5));
+  latLongToggles->addItem(new CValueControl("AutoOvertake", "高速自主超车模式", "0:关闭, 1:左侧, 2:右侧, 3:双侧", 0, 3, 1));
   latLongToggles->addItem(new CValueControl("LaneChangeDelay", "变道延迟", "单位 x0.1秒", 0, 100, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeBsd", "变道盲区BSD设置", "-1:忽略BSD, 0:检测BSD(轻推方向盘可变道), 1:轻推方向盘不变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("CustomSteerOffset", "横向: 自定义方向盘偏移(0)", "CustomSteerOffset自定义方向盘偏移,1表示开，0表示关", 0, 1, 1));

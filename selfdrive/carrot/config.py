@@ -166,6 +166,7 @@ class UnifiedParams:
             "NewLaneWidthDiff": 12,
             "DynamicExperimentalSpeed": -5,
             "DynamicExperimentalLatA": 0,
+            "AutoOvertake": 0,
         }
 
     def get_bool(self, key, default=False):
