@@ -912,7 +912,7 @@ class CarrotServ:
           atc_bsd_adjust_enable = False
           if auto_decel_rate > 0 and check_steer: #设置了减速比率
             if atc_speed > decel_speed_min: #只有车速大于最小设定速度时才允许降速
-              atc_speed = max(decel_speed_min, atc_speed*auto_decel_rate)
+              atc_speed = max(decel_speed_min, atc_speed*auto_decel_rate*0.8) # 强化0.8倍的进匝道减速要求
               self.atc_speed_decal = atc_speed #保存进匝道减速的目标速度
               self.fork_speed_keep_time = int(fork_speed_keep_time/DT_NAV) #重置保持时间
         # 如果上面的条件都不成立，则atc_type直接就是查表得到的类型，即atc_type = mapping["type"]
