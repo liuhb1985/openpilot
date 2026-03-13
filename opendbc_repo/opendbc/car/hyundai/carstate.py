@@ -676,6 +676,13 @@ class CarState(CarStateBase):
                         *create_button_events(self.main_buttons[-1], prev_main_buttons, {1: ButtonType.mainCruise})]
 
     self.paddle_button_prev = paddle_button
+
+    if 0x130 in cp.vl:
+      ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
+      ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+    if 0x140 in cp.vl:
+      ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
+
     return ret
 
   def get_can_parsers_canfd(self, CP):
@@ -695,7 +702,12 @@ class CarState(CarStateBase):
     if CP.flags & HyundaiFlags.CANFD:
       return self.get_can_parsers_canfd(CP)
 
+    msgs = [
+      ("YRS11", 100),
+      ("YRS12", 100),
+    ]
+
     return {
-      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 0),
+      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, 0),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 2),
     }

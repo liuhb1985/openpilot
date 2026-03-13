@@ -255,6 +255,8 @@ struct CarState {
   leftLaneLine @74 : Int16; # -1: no lane, 0: dashed, 1: solid, +10: white, +20: yellow, ex) 21: solid yellow
   rightLaneLine @75 : Int16; # -1: no lane, 0: dashed, 1: solid, +10: white, +20: yellow, ex) 21: solid yellow
   datetime @76 :UInt64; # timestamp in milliseconds since epoch
+  lateralAcceleration @77 :Float32;
+  longitudinalAcceleration @78 :Float32;
 
   struct Tpms {
     fl @0 :Float32;
