@@ -285,4 +285,3 @@ void OnroadWindow::initializeGL() {
 }
 
 
-#include "selfdrive/ui/qt/onroad/onroad_home.moc"
