@@ -764,6 +764,7 @@ void display_loop() {
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
+                    cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
                     cv::imshow("All Cameras", combined);
 
                     // 为单窗口模式注册鼠标回调

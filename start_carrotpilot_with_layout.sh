@@ -89,20 +89,17 @@ sleep 8
 SCREEN_WIDTH=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f1)
 SCREEN_HEIGHT=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f2)
 
+# 计算半屏宽度
+HALF_WIDTH=$((SCREEN_WIDTH / 2))
+
 # 输出调试信息
-echo "Screen resolution: ${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
+echo "Screen resolution: ${SCREEN_WIDTH}x${SCREEN_HEIGHT}, Half width: ${HALF_WIDTH}"
 
-# 定义预设位置 - 根据当前实际窗口位置
-UI_WINDOW_X=720      # UI窗口的X坐标 (从当前位置获取)
-UI_WINDOW_Y=60      # UI窗口的Y坐标 (从当前位置获取)
-UI_WINDOW_WIDTH=2160 # UI窗口的宽度
-UI_WINDOW_HEIGHT=1080 # UI窗口的高度
-
-# 等待UI窗口出现并移动到预设位置
+# 等待UI窗口出现并移动到左半屏
 for i in {1..30}; do
     if wmctrl -l | grep -q "ui"; then
-        echo "Found ui window, moving to (${UI_WINDOW_X}, ${UI_WINDOW_Y})"
-        wmctrl -r "ui" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
+        echo "Found ui window, moving to left half (0, 0, $HALF_WIDTH, $SCREEN_HEIGHT)"
+        wmctrl -r "ui" -e 0,0,0,$HALF_WIDTH,$SCREEN_HEIGHT
         break
     else
         echo "Waiting for ui window... ($i/30)"
@@ -110,11 +107,22 @@ for i in {1..30}; do
     sleep 1
 done
 
-# 定义摄像头窗口位置
+# 等待盲区监控窗口出现并移动到右半屏
+for i in {1..30}; do
+    if wmctrl -l | grep -q "All Cameras"; then
+        echo "Found blindspot window, moving to right half ($HALF_WIDTH, 0, $HALF_WIDTH, $SCREEN_HEIGHT)"
+        wmctrl -r "All Cameras" -e 0,$HALF_WIDTH,0,$HALF_WIDTH,$SCREEN_HEIGHT
+        break
+    else
+        echo "Waiting for blindspot window... ($i/30)"
+    fi
+    sleep 1
+done
+
+# 定义摄像头窗口预设位置 (保留兼容 non single_window)
 CAMERA_WINDOW_HEIGHT=528
 CAMERA_WINDOW_WIDTH=640
 
-# 定义摄像头窗口预设位置
 CAMERA_1_X=737   # Camera 1的X坐标
 CAMERA_1_Y=1129  # Camera 1的Y坐标
 
@@ -137,7 +145,8 @@ position_camera_window() {
             wmctrl -r "Camera $cam_num" -e 0,$target_x,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
             break
         else
-            echo "Waiting for Camera $cam_num... ($i/30)"
+            # echo "Waiting for Camera $cam_num... ($i/30)"
+            :
         fi
         sleep 1
     done
