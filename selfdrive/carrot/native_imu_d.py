@@ -83,15 +83,17 @@ def main():
       # Gyroscope
       # ======================================
 
-      gyro_msg = messaging.new_message('gyroscope')
-      gyro_msg.valid = True
-      gyro_msg.gyroscope.timestamp = timestamp
-      gyro_msg.gyroscope.type = 16   # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
-      gyro_msg.gyroscope.sensor = 5  # SENSOR_GYRO_UNCALIBRATED
-
-      g = gyro_msg.gyroscope.init('gyroUncalibrated')
-      g.v = [0.0, 0.0, yaw]
-      g.status = 1
+      gyro_msg = messaging.new_message('gyroscope', valid=True)
+      gyro_msg.gyroscope = {
+        'timestamp': timestamp,
+        'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
+        'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
+        'source': 0, # log.SensorEventData.SensorSource.android
+        'gyroUncalibrated': {
+          'v': [0.0, 0.0, float(yaw)],
+          'status': 1
+        }
+      }
 
       pm.send('gyroscope', gyro_msg)
 
@@ -99,15 +101,17 @@ def main():
       # Accelerometer
       # ======================================
 
-      accel_msg = messaging.new_message('accelerometer')
-      accel_msg.valid = True
-      accel_msg.accelerometer.timestamp = timestamp
-      accel_msg.accelerometer.type = 1   # SENSOR_TYPE_ACCELEROMETER
-      accel_msg.accelerometer.sensor = 1 # SENSOR_ACCELEROMETER
-
-      a = accel_msg.accelerometer.init('acceleration')
-      a.v = [lon, lat, 0.0]
-      a.status = 1
+      accel_msg = messaging.new_message('accelerometer', valid=True)
+      accel_msg.accelerometer = {
+        'timestamp': timestamp,
+        'type': 1,   # SENSOR_TYPE_ACCELEROMETER
+        'sensor': 1, # SENSOR_ACCELEROMETER
+        'source': 0, # log.SensorEventData.SensorSource.android
+        'acceleration': {
+          'v': [float(lon), float(lat), 0.0],
+          'status': 1
+        }
+      }
 
       pm.send('accelerometer', accel_msg)
 
