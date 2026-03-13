@@ -1475,7 +1475,7 @@ protected:
 
 protected:
     void ui_draw_bsd(const UIState* s, const QPolygonF& vd, NVGcolor* color, bool right) {
-        int n = vd.length() / 2;
+        int n = vd.size() / 2;
         float x[4], y[4];
         for (int i = 0; i < n - 1; i++) {
             x[0] = vd[i].x();
@@ -2107,7 +2107,7 @@ public:
 private:
     void drawSpecialModes(const UIState* s, int mode, int color_idx,
         bool brake_valid, NVGcolor* colors) {
-        int track_vertices_len = track_vertices.length();
+        int track_vertices_len = track_vertices.size();
         float xp[3][128], yp[3][128];
         float g = 0.05f, gc = 0.4f;
 
@@ -2163,7 +2163,7 @@ private:
 
     void drawComplexPath(const UIState* s, int color_idx, bool brake_valid,
         NVGcolor* colors) {
-        int track_vertices_len = track_vertices.length();
+        int track_vertices_len = track_vertices.size();
         float x[6], y[6];
         int color_n = 0;
         for (int i = 0; i < track_vertices_len / 2 - 1; i += 3) {
@@ -2190,7 +2190,7 @@ private:
     void drawAnimatedPath(const UIState* s, const cereal::CarState::Reader& car_state,
         float& pathDrawSeq, bool& forward, int mode, int color_idx, bool brake_valid,
         NVGcolor* colors) {
-        int track_vertices_len = track_vertices.length();
+        int track_vertices_len = track_vertices.size();
         float accel = car_state.getAEgo();
         float v_ego_kph = car_state.getVEgo() * MS_TO_KPH;
 
@@ -2239,7 +2239,7 @@ private:
 
     void drawMode1To6(const UIState* s, float pathDrawSeq, int pathDrawSeq2, int mode,
         int color_idx, bool brake_valid, NVGcolor* colors) {
-        int track_vertices_len = track_vertices.length();
+        int track_vertices_len = track_vertices.size();
         float x[4], y[4];
         for (int i = 0, color_n = 0; i < track_vertices_len / 2 - 4; i += 2) {
             x[0] = track_vertices[i].x();
@@ -2268,7 +2268,7 @@ private:
 
     void drawMode3To8(const UIState* s, float pathDrawSeq, int pathDrawSeq2, int mode,
         int color_idx, bool brake_valid, NVGcolor* colors) {
-        int track_vertices_len = track_vertices.length();
+        int track_vertices_len = track_vertices.size();
         float x[6], y[6];
         for (int i = 0, color_n = 0; i < track_vertices_len / 2 - 4; i += 2) {
             x[0] = track_vertices[i].x();
