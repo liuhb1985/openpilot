@@ -513,8 +513,8 @@ class DrivingModeDetector:
         self.lead_speed_exit_threshold = 35  # (km/h)
 
     def update_data(self, my_speed, lead_speed, my_accel, lead_accel, distance):
-    # 1. 拥堵条件：前车靠近且停止的情况
-    if distance <= self.distance_threshold and lead_speed <= self.speed_threshold:
+        # 1. 拥堵条件：前车靠近且停止的情况
+        if distance <= self.distance_threshold and lead_speed <= self.speed_threshold:
             self.congested = True
 
         # 2. 行驶条件：前车加速或快速移动
