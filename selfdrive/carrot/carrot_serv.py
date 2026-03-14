@@ -250,6 +250,8 @@ class CarrotServ:
     self.autoDoForkNavDistH = 50
     self.autoOvertake = 0
     self.overtake_wait_count = 0
+    self.vision_lead_decel = 0
+    self.vision_lead_decel_rate = 0.8
     self.autoUpRoadLimit = 0
     self.autoUpRoadLimit40KMH = 15
     self.autoUpHighwayRoadLimit = 0
@@ -345,6 +347,8 @@ class CarrotServ:
       self.showDebugLog = self.params.get_int("ShowDebugLog")
       self.enable_radar_tracks = self.params.get_int("EnableRadarTracks")
       self.autoOvertake = self.params.get_int("AutoOvertake")
+      self.vision_lead_decel = self.params.get_int("VisionLeadDecel")
+      self.vision_lead_decel_rate = float(self.params.get_int("VisionLeadDecelRate")) * 0.01
 
     self.param_frame += 1
     if self.roadType >= 0: #手动设置道路类型
@@ -1376,6 +1380,21 @@ class CarrotServ:
     ]
     if self.turnSpeedControlMode in [1,2]: #模式1和2均有视觉转弯控速,autoCurveSpeedLowerLimit为用户设置的最小转弯速度，vturn_speed这视觉计算的限速
       speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
+
+    # 视觉纵向控制 (Vision Longitudinal Control): 获取视觉识别的前车
+    if self.vision_lead_decel > 0 and sm.alive['modelV2']:
+      model_v2 = sm['modelV2']
+      if hasattr(model_v2, 'leadsV3') and len(model_v2.leadsV3) > 0:
+        v_lead = model_v2.leadsV3[0]
+        if v_lead.prob > 0.5: # 概率大于0.5
+          v_lead_x = v_lead.x[0] # 距离
+          v_lead_v = v_lead.v[0] # 速度 (m/s)
+          # 设置视觉前车的安全速度为前车速度的一定比例或其绝对值，这里我们尝试计算一个平滑减速的速度
+          # 使用 calculate_current_speed，将前车速度作为安全速度，并预留一定的安全距离(safe_sec)
+          v_lead_kph = (v_ego + v_lead_v) * 3.6
+          vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, 1.5, self.vision_lead_decel_rate)
+          speed_n_sources.append((vision_speed, "vlead"))
+          self.debugText += f" v_l={v_lead_x:.1f}m,{v_lead_v*3.6:.1f}k"
 
     route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
     if self.turnSpeedControlMode == 2:

@@ -167,6 +167,8 @@ class UnifiedParams:
             "DynamicExperimentalSpeed": -5,
             "DynamicExperimentalLatA": 0,
             "AutoOvertake": 0,
+            "VisionLeadDecel": 1,
+            "VisionLeadDecelRate": 80,
         }
 
     def get_bool(self, key, default=False):
