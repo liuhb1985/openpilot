@@ -18,23 +18,6 @@
 #include "selfdrive/ui/qt/maps/map_panel.h"
 #endif
 
-class OverlayDialog : public QWidget {
-  Q_OBJECT
-
-public:
-  explicit OverlayDialog(QWidget* parent = nullptr) : QWidget(parent) {
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint); // ´ÙÀÌ¾ó·Î±×Ã³·³ µ¿ÀÛ
-    setStyleSheet("background-color: rgba(0, 0, 0, 0.8); border-radius: 10px;");
-    resize(400, 300); // ±âº» Å©±â ¼³Á¤
-  }
-
-  void setContent(QWidget* content) {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->addWidget(content);
-    layout->setMargin(0);
-    setLayout(layout);
-  }
-};
 
 OnroadWindow::OnroadWindow(QWidget *parent) : QOpenGLWidget(parent) {
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
@@ -186,15 +169,15 @@ void OnroadWindow::updateState(const UIState &s) {
           if (map == nullptr) ss->scene._current_carrot_display = 1;
           else {
               map->setVisible(true);
-              //map->setFixedWidth(topWidget(this)->width() / 2 - UI_BORDER_SIZE);
+              map->setFixedWidth(topWidget(this)->width() / 2 - UI_BORDER_SIZE);
           }
           break;
       case 4: // fullmap
           if (map == nullptr) ss->scene._current_carrot_display = 1;
           else {
               map->setVisible(true);
-              //map->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-              //map->setFixedWidth(topWidget(this)->width() - UI_BORDER_SIZE);
+              map->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+              map->setFixedWidth(topWidget(this)->width() - UI_BORDER_SIZE);
           }
           break;
       }
@@ -254,18 +237,16 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
     }
     
     UIState* s = uiState();
-    s->scene._current_carrot_display = (s->scene._current_carrot_display % 3) + 1;  // 4¹ø: full mapÀº ¾Èº¸¿©ÁÜ.
+    s->scene._current_carrot_display = (s->scene._current_carrot_display % 3) + 1;  // 4ë²ˆ: full mapì€ ì•ˆë³´ì—¬ì¤Œ.
     printf("_current_carrot_display1=%d\n", s->scene._current_carrot_display);
     QWidget::mousePressEvent(e);
   }
 }
-//OverlayDialog* mapDialog = nullptr;
 void OnroadWindow::offroadTransition(bool offroad) {
 #ifdef ENABLE_MAPS
   if (!offroad) {
     if (map == nullptr && (!MAPBOX_TOKEN.isEmpty())) {
       printf("####### Initialize MapPanel\n");
-#if 0
       auto m = new MapPanel(get_mapbox_settings());
       map = m;
 
@@ -274,26 +255,7 @@ void OnroadWindow::offroadTransition(bool offroad) {
 
       // hidden by default, made visible when navRoute is published
       m->setVisible(false);
-#else
-      OverlayDialog* mapDialog = new OverlayDialog(this);
-      mapDialog->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-      mapDialog->setAttribute(Qt::WA_TranslucentBackground);
-      mapDialog->setAttribute(Qt::WA_NoSystemBackground);
-
-      // MapPanel Ãß°¡
-      auto m = new MapPanel(get_mapbox_settings(), mapDialog);
-      map = m;
-      mapDialog->setContent(m);
-
-      // Æ¯Á¤ À§Ä¡¿¡ ¹èÄ¡ (¿À¸¥ÂÊ ÇÏ´Ü)
-      mapDialog->setGeometry(topWidget(this)->width() - 790 - UI_BORDER_SIZE, UI_BORDER_SIZE + 15, 775, topWidget(this)->height() - 400);
-
-      //mapDialog->hide(); // ±âº»ÀûÀ¸·Î ¼û±è »óÅÂ
-      mapDialog->show();
-      mapDialog->raise();
       uiState()->scene._current_carrot_display = 1;
-
-#endif
     }
   }
 #endif
@@ -310,11 +272,11 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 }
 
 
-// OnroadWindow.cpp¿¡¼­ OpenGL ÃÊ±âÈ­ ¹× ±×¸®±â ±¸Çö
+// OnroadWindow.cppì—ì„œ OpenGL ì´ˆê¸°í™” ë° ê·¸ë¦¬ê¸° êµ¬í˜„
 void OnroadWindow::initializeGL() {
-    initializeOpenGLFunctions(); // QOpenGLFunctions ÃÊ±âÈ­
+    initializeOpenGLFunctions(); // QOpenGLFunctions ì´ˆê¸°í™”
 
-    // Parent widgetÀ» À§ÇÑ NanoVG ÄÁÅØ½ºÆ® »ý¼º
+    // Parent widgetì„ ìœ„í•œ NanoVG ì»¨í…ìŠ¤íŠ¸ ìƒì„±
     //s->vg = nvgCreate(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
     //if (s->vg == nullptr) {
     //    printf("Could not init nanovg.\n");
@@ -323,4 +285,3 @@ void OnroadWindow::initializeGL() {
 }
 
 
-#include "selfdrive/ui/qt/onroad/onroad_home.moc"
