@@ -741,6 +741,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "轻推方向变道", "-1:禁用变道, 0:无需轻推方向, 1:需要轻推方向变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("AutoLaneChangeMinSpeed", "打灯变道最低速度", "低于这个速度打灯不自动变道", -1, 100, 5));
   latLongToggles->addItem(new CValueControl("AutoOvertake", "高速自主超车模式", "0:关闭, 1:左侧, 2:右侧, 3:双侧", 0, 3, 1));
+  latLongToggles->addItem(new CValueControl("AutoOvertakeSpeedDiff", "自主超车触发速度差", "定速与前车速度差达到此值触发超车(单位:km/h)", 5, 30, 1));
+  latLongToggles->addItem(new CValueControl("AutoOvertakePreAccel", "自主超车预提速幅度", "变道初期额外增加的期望速度(单位:km/h)", 0, 15, 1));
   latLongToggles->addItem(new CValueControl("LaneChangeDelay", "变道延迟", "单位 x0.1秒", 0, 100, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeBsd", "变道盲区BSD设置", "-1:忽略BSD, 0:检测BSD(轻推方向盘可变道), 1:轻推方向盘不变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("CustomSteerOffset", "横向: 自定义方向盘偏移(0)", "CustomSteerOffset自定义方向盘偏移,1表示开，0表示关", 0, 1, 1));
@@ -925,6 +927,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   speedToggles->addItem(new CValueControl("AutoTurnControlSpeedTurn", "ATC: 转弯速度(20)", "0:无, 转弯速度", 0, 100, 5));
   speedToggles->addItem(new CValueControl("AutoTurnControlTurnEnd", "ATC: 转弯结束时间(6)", "距离=速度*时间", 0, 30, 1));
   speedToggles->addItem(new CValueControl("AutoTurnMapChange", "ATC 自动地图切换(0)", "", 0, 1, 1));
+  speedToggles->addItem(new CValueControl("VisionLeadDecel", "视觉前车提前减速", "0:关闭, 1:开启", 0, 1, 1));
+  speedToggles->addItem(new CValueControl("VisionLeadDecelRate", "视觉减速率调整(80%)", "视觉识别到前车时的减速力度百分比", 10, 200, 10));
 
   //new
   navToggles = new ListWidget(this);

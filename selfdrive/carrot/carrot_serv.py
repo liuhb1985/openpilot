@@ -252,6 +252,8 @@ class CarrotServ:
     self.overtake_wait_count = 0
     self.vision_lead_decel = 0
     self.vision_lead_decel_rate = 0.8
+    self.autoOvertakeSpeedDiff = 15
+    self.autoOvertakePreAccel = 5
     self.autoUpRoadLimit = 0
     self.autoUpRoadLimit40KMH = 15
     self.autoUpHighwayRoadLimit = 0
@@ -349,6 +351,8 @@ class CarrotServ:
       self.autoOvertake = self.params.get_int("AutoOvertake")
       self.vision_lead_decel = self.params.get_int("VisionLeadDecel")
       self.vision_lead_decel_rate = float(self.params.get_int("VisionLeadDecelRate")) * 0.01
+      self.autoOvertakeSpeedDiff = self.params.get_int("AutoOvertakeSpeedDiff")
+      self.autoOvertakePreAccel = self.params.get_int("AutoOvertakePreAccel")
 
     self.param_frame += 1
     if self.roadType >= 0: #手动设置道路类型
@@ -1407,6 +1411,12 @@ class CarrotServ:
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
     if CS is not None:
+      if self.overtake_wait_count <= -int(5.0 / DT_NAV): # 触发超车后的前 5 秒
+        if source in ["road", "vlead", "radar", "atc"]: # 仅在非关键限速源时提速
+          desired_speed = min(desired_speed + self.autoOvertakePreAccel, v_cruise_kph + self.autoOvertakePreAccel)
+          source = "boost"
+          self.debugText += f" boost={self.autoOvertakePreAccel}"
+
       if source != self.source_last:
         self.gas_override_speed = 0
         self.gas_pressed_state = CS.gasPressed
@@ -1500,8 +1510,11 @@ class CarrotServ:
     msg.carrotMan.roadCate = int(self.roadcate)
     msg.carrotMan.extBlinker = int(self.ext_blinker)
     msg.carrotMan.extState = int(self.ext_state)
-    msg.carrotMan.leftBlind = (8 if self.left_lane else 0) + (4 if self.lidar_car_lblind else 0) + (2 if self.left_blind else 0) + (1 if self.lidar_lblind else 0)
-    msg.carrotMan.rightBlind = (8 if self.right_lane else 0) + (4 if self.lidar_car_rblind else 0) + (2 if self.right_blind else 0) + (1 if self.lidar_rblind else 0)
+    meta = sm['modelV2'].meta
+    onboard_left_blind = (meta.atcBsd in [1, 4])
+    onboard_right_blind = (meta.atcBsd in [2, 5])
+    msg.carrotMan.leftBlind = (16 if onboard_left_blind else 0) + (8 if self.left_lane else 0) + (4 if self.lidar_car_lblind else 0) + (2 if self.left_blind else 0) + (1 if self.lidar_lblind else 0)
+    msg.carrotMan.rightBlind = (16 if onboard_right_blind else 0) + (8 if self.right_lane else 0) + (4 if self.lidar_car_rblind else 0) + (2 if self.right_blind else 0) + (1 if self.lidar_rblind else 0)
     #new
 
     msg.carrotMan.xPosSpeed = float(v_ego_kph) #float(self.nPosSpeed)
@@ -1540,23 +1553,46 @@ class CarrotServ:
       self.overtake_wait_count = 0
       return
 
-    # 获取前车信息 (leadOne)
+    # 获取前车信息 (基础雷达leadOne + 视觉leadsV3辅助)
     lead_one = sm['radarState'].leadOne
-    if not (lead_one and lead_one.status):
+    v_lead_kph = -1
+    d_lead = 255
+
+    # 优先视觉信息辅助稳定性
+    if sm.alive['modelV2'] and len(sm['modelV2'].leadsV3) > 0:
+      v_lead_v3 = sm['modelV2'].leadsV3[0]
+      if v_lead_v3.prob > 0.8:
+        v_lead_kph = (v_ego + v_lead_v3.v[0]) * 3.6
+        d_lead = v_lead_v3.x[0]
+
+    # 如果雷达也有数据，进行校准
+    if lead_one and lead_one.status:
+      v_lead_radar = (v_ego + lead_one.vRel) * 3.6
+      d_lead_radar = lead_one.dRel
+      # 如果两者都存在且视觉概率高，取较慢的一个（保守策略）
+      if v_lead_kph > 0:
+        v_lead_kph = min(v_lead_kph, v_lead_radar)
+        d_lead = min(d_lead, d_lead_radar)
+      else:
+        v_lead_kph = v_lead_radar
+        d_lead = d_lead_radar
+
+    if v_lead_kph < 0:
       self.overtake_wait_count = 0
       return
 
-    # 计算前车绝对速度
-    v_lead_kph = (v_ego + lead_one.vRel) * 3.6
-    
-    # 触发条件：前车速度慢于巡航设定速度 15km/h 以上，且距离在 100 米内
-    if v_lead_kph < v_cruise_kph - 15 and lead_one.dRel < 100:
+    # 动态触发阈值 (Dynamic Threshold)
+    # 根据自车速度决定所需的速度差：越快所需的百分比差异可以越小
+    needed_diff = np.interp(v_ego_kph, [60, 100, 120], [self.autoOvertakeSpeedDiff, self.autoOvertakeSpeedDiff * 0.8, self.autoOvertakeSpeedDiff * 0.6])
+
+    # 触发条件检查
+    if v_lead_kph < v_cruise_kph - needed_diff and d_lead < 100:
       self.overtake_wait_count += 1
     else:
       self.overtake_wait_count = 0
       return
 
-    # 持续 5 秒检测到阻碍才发起超车
+    # 持续检测 (DT_NAV 为 0.1s, 5s 即 50次)
     if self.overtake_wait_count < int(5.0 / DT_NAV):
       return
 
@@ -1565,24 +1601,32 @@ class CarrotServ:
       self.overtake_wait_count = 0
       return
 
+    # 多源盲区融合感知 (Prioritize On-board Wide Camera)
+    meta = sm['modelV2'].meta
+    onboard_left_blind = (meta.atcBsd in [1, 4])
+    onboard_right_blind = (meta.atcBsd in [2, 5])
+
+    effective_left_blind = onboard_left_blind or self.left_blind or self.lidar_lblind or self.lidar_car_lblind
+    effective_right_blind = onboard_right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
+
     overtake_arg = ""
     # 优先左侧超车 (1:左侧, 3:双侧)
     if self.autoOvertake in [1, 3]:
-      # self.left_lane: 车道线存在, self.left_blind: 盲区是否有车 (来自 model/radar)
-      if self.left_lane and not self.left_blind:
+      if self.left_lane and not effective_left_blind:
         overtake_arg = "LEFT"
 
     # 如果左侧不支持或不安全，且开启了右侧超车 (2:右侧, 3:双侧)
     if not overtake_arg and self.autoOvertake in [2, 3]:
-      if self.right_lane and not self.right_blind:
+      if self.right_lane and not effective_right_blind:
         overtake_arg = "RIGHT"
 
     if overtake_arg:
       self.carrotCmdIndex += 1
       self.carrotCmd = "OVERTAKE"
       self.carrotArg = overtake_arg
-      self.overtake_wait_count = -int(10.0 / DT_NAV) # 10秒内不再次触发
-      print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertake triggered: {overtake_arg}")
+      # 触发后进入冷却及预加热阶段 ( -10秒 )
+      self.overtake_wait_count = -int(10.0 / DT_NAV)
+      print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertake optimized trigger: {overtake_arg}, diff={v_cruise_kph - v_lead_kph:.1f}kph")
 
     inst = messaging.new_message('navInstructionCarrot')
     if self.active_carrot > 1 and self.active_kisa_count <= 0:

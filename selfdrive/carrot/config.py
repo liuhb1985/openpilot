@@ -169,6 +169,8 @@ class UnifiedParams:
             "AutoOvertake": 0,
             "VisionLeadDecel": 1,
             "VisionLeadDecelRate": 80,
+            "AutoOvertakeSpeedDiff": 15,
+            "AutoOvertakePreAccel": 5,
         }
 
     def get_bool(self, key, default=False):

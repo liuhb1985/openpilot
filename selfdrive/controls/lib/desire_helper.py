@@ -607,8 +607,8 @@ class DesireHelper:
       right_solid = (carrot_right_blind & 0x08) #实线阻止
       car_left_blind = (carrot_left_blind & 0x04) #车身侧面盲区
       car_right_blind = (carrot_right_blind & 0x04) #车身侧面盲区
-      is_left_car = True if (carrot_left_blind & 7) != 0 else False #左侧是否有车
-      is_right_car = True if (carrot_right_blind & 7) != 0 else False # 右侧是否有车
+      is_left_car = True if (carrot_left_blind & 23) != 0 else False #左侧是否有车 (1|2|4|16)
+      is_right_car = True if (carrot_right_blind & 23) != 0 else False # 右侧是否有车 (1|2|4|16)
       carrot_blind = carrot_left_blind if blinker_state == BLINKER_LEFT else carrot_right_blind
       car_side_blind = car_left_blind if blinker_state == BLINKER_LEFT else car_right_blind
       is_car_blind = is_left_car if blinker_state == BLINKER_LEFT else is_right_car #盲区是否为车（非单纯实线阻止的变道）
