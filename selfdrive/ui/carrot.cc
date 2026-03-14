@@ -1593,14 +1593,14 @@ public:
         }
 
         int center_x = s->fb_w / 2;
-        int circle_radius = 46;
-        int vertical_spacing = 100;
-        int horizontal_offset = 150;
+        int circle_radius = 65;
+        int vertical_spacing = 150;
+        int horizontal_offset = 200;
         int top_y = 10;
-        int arrow_body_width = 22;
-        int arrow_body_length = 23;
-        int arrow_head_width = 46;
-        int arrow_head_length = 19;
+        int arrow_body_width = 35;
+        int arrow_body_length = 35;
+        int arrow_head_width = 65;
+        int arrow_head_length = 25;
 
         // 计算整个箭头的总长度
         int total_arrow_length = arrow_body_length + arrow_head_length;

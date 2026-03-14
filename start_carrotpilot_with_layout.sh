@@ -21,9 +21,9 @@ sleep 1
 SCREEN_WIDTH=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f1)
 SCREEN_HEIGHT=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f2)
 
-# 计算窗口尺寸（底部 1/3 屏幕高度）
-WINDOW_HEIGHT=$((SCREEN_HEIGHT / 3))
-WINDOW_WIDTH=$((SCREEN_WIDTH / 3))
+# 计算窗口尺寸（底部 2/5 屏幕高度）
+WINDOW_HEIGHT=$((SCREEN_HEIGHT * 2 / 5))
+WINDOW_WIDTH=$((SCREEN_WIDTH * 2 / 5))
 WINDOW_Y=$((SCREEN_HEIGHT - WINDOW_HEIGHT))
 
 # 定义窗口排列函数
