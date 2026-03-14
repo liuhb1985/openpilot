@@ -21,6 +21,13 @@ car_ekf = env.RednoseCompileFilter(
   extra_gen_artifacts=[],
   gen_script_deps=rednose_gen_deps,
 )
+pose_kf = env.RednoseCompileFilter(
+  target='pose',
+  filter_gen_script='models/pose_kf.py',
+  output_dir=rednose_gen_dir,
+  extra_gen_artifacts=[],
+  gen_script_deps=rednose_gen_deps,
+)
 
 # locationd build
 locationd_sources = ["locationd.cc", "models/live_kf.cc"]

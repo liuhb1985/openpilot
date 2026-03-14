@@ -53,7 +53,11 @@ class HandleLogResult(Enum):
 
 class LocationEstimator:
   def __init__(self, debug: bool):
-    self.kf = PoseKalman(GENERATED_DIR, MAX_FILTER_REWIND_TIME)
+    try:
+      self.kf = PoseKalman(GENERATED_DIR, MAX_FILTER_REWIND_TIME)
+    except Exception as e:
+      cloudlog.exception(f"Locationd: failed to initialize Kalman Filter: {e}")
+      raise
 
     self.debug = debug
 
