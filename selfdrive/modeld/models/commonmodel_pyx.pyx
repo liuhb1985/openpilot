@@ -32,6 +32,10 @@ cdef class CLMem:
   def mem_address(self):
     return <uintptr_t>(self.mem)
 
+  @property
+  def mem_handle(self):
+    return <uintptr_t>(self.mem[0])
+
 def cl_from_visionbuf(VisionBuf buf):
   return CLMem.create(<void*>&buf.buf.buf_cl)
 

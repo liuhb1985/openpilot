@@ -202,15 +202,17 @@ class ModelState:
 
     imgs_cl = {name: self.frames[name].prepare(bufs[name], transforms[name].flatten()) for name in self.vision_input_names}
 
-    if TICI and not USBGPU:
-      # The imgs tensors are backed by opencl memory, only need init once
+    if not self.vision_inputs:
       for key in imgs_cl:
-        if key not in self.vision_inputs:
+        if TICI and not USBGPU:
+          # The imgs tensors are backed by opencl memory, only need init once
           self.vision_inputs[key] = qcom_tensor_from_opencl_address(imgs_cl[key].mem_address, self.vision_input_shapes[key], dtype=dtypes.uint8)
+        else:
+          # Zero-copy path for standard OpenCL (PC/USBGPU)
+          self.vision_inputs[key] = Tensor.from_blob(imgs_cl[key].mem_handle, self.vision_input_shapes[key], dtype=dtypes.uint8, device='GPU')
     else:
-      for key in imgs_cl:
-        frame_input = self.frames[key].buffer_from_cl(imgs_cl[key]).reshape(self.vision_input_shapes[key])
-        self.vision_inputs[key] = Tensor(frame_input, dtype=dtypes.uint8).realize()
+      # If not zero-copy or not first run, we might need to update but here they are stable CL buffers
+      pass
 
     if prepare_only:
       return None
