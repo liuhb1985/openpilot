@@ -624,15 +624,25 @@ void Localizer::handle_msg(const cereal::Event::Reader& log) {
   double t = log.getLogMonoTime() * 1e-9;
   this->time_check(t);
   if (log.isAccelerometer()) {
-    //if (log.getAccelerometer().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
-      // 仅在非JY62设备模式下处理BMX055加速度计数据
-      this->handle_sensor(t, log.getAccelerometer());
-    //}
+    if (this->is_jy62()) {
+      if (log.getAccelerometer().getSource() == cereal::SensorEventData::SensorSource::JY62) {
+        this->handle_sensor(t, log.getAccelerometer());
+      }
+    } else {
+      if (log.getAccelerometer().getSource() != cereal::SensorEventData::SensorSource::JY62) {
+        this->handle_sensor(t, log.getAccelerometer());
+      }
+    }
   } else if (log.isGyroscope()) {
-    //if (log.getGyroscope().getSource() == cereal::SensorEventData::SensorSource::BMX055 && !this->is_jy62()) {
-      // 仅在非JY62设备模式下处理BMX055陀螺仪数据
-      this->handle_sensor(t, log.getGyroscope());
-    //}
+    if (this->is_jy62()) {
+      if (log.getGyroscope().getSource() == cereal::SensorEventData::SensorSource::JY62) {
+        this->handle_sensor(t, log.getGyroscope());
+      }
+    } else {
+      if (log.getGyroscope().getSource() != cereal::SensorEventData::SensorSource::JY62) {
+        this->handle_sensor(t, log.getGyroscope());
+      }
+    }
   } else if (log.isGpsLocation()) {
     this->handle_gps(t, log.getGpsLocation(), GPS_QUECTEL_SENSOR_TIME_OFFSET);
   } else if (log.isGpsLocationExternal()) {
@@ -1026,13 +1036,15 @@ void Localizer::publish_accelerometer(double x, double y, double z) {
   event.setLogMonoTime(current_time);
 
   auto accel = event.initAccelerometer();
-  accel.setSource(cereal::SensorEventData::SensorSource::BMX055);
+  accel.setSource(cereal::SensorEventData::SensorSource::JY62);
   accel.setSensor(SENSOR_ACCELEROMETER);
   accel.setType(SENSOR_TYPE_ACCELEROMETER);
   accel.setTimestamp(current_time);
 
   auto accelVec = accel.initAcceleration();
-  std::vector<float> accelVals = {(float)z, (float)y, (float)(-x)};  // 调整坐标轴顺序以匹配系统约定
+  // 按照 JY62 官方文档修正坐标映射 (假设水平放置：X轴向前，Y轴向左，Z轴向上)
+  // 如果安装方向不同，用户需要调整此映射
+  std::vector<float> accelVals = {(float)x, (float)y, (float)z};
   accelVec.setV(kj::ArrayPtr<float>(accelVals.data(), accelVals.size()));
 
   accel.setVersion(1);
@@ -1051,13 +1063,14 @@ void Localizer::publish_gyroscope(double x, double y, double z) {
   event.setLogMonoTime(current_time);
 
   auto gyro = event.initGyroscope();
-  gyro.setSource(cereal::SensorEventData::SensorSource::BMX055);
+  gyro.setSource(cereal::SensorEventData::SensorSource::JY62);
   gyro.setSensor(SENSOR_GYRO_UNCALIBRATED);
   gyro.setType(SENSOR_TYPE_GYROSCOPE_UNCALIBRATED);
   gyro.setTimestamp(current_time);
 
   auto gyroVec = gyro.initGyroUncalibrated();
-  std::vector<float> gyroVals = {(float)z, (float)y, (float)(-x)};  // 调整坐标轴顺序以匹配系统约定
+  // 按照 JY62 官方文档修正坐标映射 (假设水平放置：X轴向前，Y轴向左，Z轴向上)
+  std::vector<float> gyroVals = {(float)x, (float)y, (float)z};
   gyroVec.setV(kj::ArrayPtr<float>(gyroVals.data(), gyroVals.size()));
 
   gyro.setVersion(1);
