@@ -853,8 +853,8 @@ class DesireHelper:
 
     if self.carrot_lane_change_count > 0: #些计数为carrorMan发送过来的LANECHANGE触发的变道
       auto_lane_change_blocked = False
-      auto_lane_change_trigger = lane_change_available
-      auto_lane_change_trigger_no_bsd = auto_lane_change_trigger
+      auto_lane_change_trigger = lane_change_available and not side_object_detected
+      auto_lane_change_trigger_no_bsd = lane_change_available
     else:
       self.carrot_blinker_state = BLINKER_NONE #new
       #如果自动转弯要求是左变道，但是用户没有打左转向灯，那么会阻止自动变道

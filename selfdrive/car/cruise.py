@@ -336,8 +336,12 @@ class VCruiseCarrot:
         self.v_cruise_cluster_kph = self.v_cruise_kph
       else:
         if self.speed_from_pcm == 1:
-          self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
-          self.v_cruise_cluster_kph = CS.cruiseState.speedCluster * CV.MS_TO_KPH
+          if CS.gasPressed and self.autoGasSyncSpeed and self.v_ego_kph_set > v_cruise_kph:
+            self.v_cruise_kph = self.v_ego_kph_set
+            self.v_cruise_cluster_kph = self.v_ego_kph_set
+          else:
+            self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
+            self.v_cruise_cluster_kph = CS.cruiseState.speedCluster * CV.MS_TO_KPH
         else:
           self.v_cruise_kph = np.clip(v_cruise_kph, 30, self._cruise_speed_max)
           self.v_cruise_cluster_kph = self.v_cruise_kph
