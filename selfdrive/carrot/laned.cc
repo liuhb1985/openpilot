@@ -7,6 +7,7 @@
 #include <chrono>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 #include <opencv2/opencv.hpp>
 
@@ -175,8 +176,8 @@ void server_thread() {
 }
 
 int main() {
-  setproctitle("laned");
-  
+  prctl(PR_SET_NAME, "laned", 0, 0, 0);
+
   std::thread cam_t(camera_thread);
   std::thread server_t(server_thread);
 

@@ -1,18 +1,15 @@
 # distutils: language = c++
 # cython: language_level=3
+# NOTE: This file is a framework for future Cython optimization of model message filling.
+# It is NOT currently compiled or included in the build. To enable, add to selfdrive/modeld/SConscript.
+# The main win over fill_model_msg.py would be eliminating .tolist() calls on large arrays.
+
 import numpy as np
 cimport numpy as cnp
-from cereal cimport log
 
-# This would need a more complex setup to handle all cereal types efficiently
-# For now, let's start with a simpler version that handles the biggest arrays
-
-def fill_xyzt_fast(builder, t, float[:] x, float[:] y, float[:] z):
-    builder.t = t
-    builder.x = x
-    builder.y = y
-    builder.z = z
-
-# In a real implementation, we would use Cython to directly write into the capnp buffer
-# but that requires deeper integration with capnp C++ API.
-# The main win here is avoiding .tolist() on large arrays.
+def fill_xyzt_fast(builder, float[:] t, float[:] x, float[:] y, float[:] z):
+    cdef int i, n = t.shape[0]
+    builder.t = [t[i] for i in range(n)]
+    builder.x = [x[i] for i in range(n)]
+    builder.y = [y[i] for i in range(n)]
+    builder.z = [z[i] for i in range(n)]
