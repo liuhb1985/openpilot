@@ -12,6 +12,7 @@ FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 USBCAM = os.getenv("USE_USBCAM") is not None
 JY62 = int(os.getenv("JY62","0"))
+NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
@@ -146,7 +147,8 @@ procs = [
   #PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet, enabled=not PC),
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet),
   PythonProcess("carrot_man", "selfdrive.carrot.carrot_man", always_run),#, enabled=not PC),
-  PythonProcess("lane", "selfdrive.carrot.lane", only_onroad),
+  PythonProcess("lane", "selfdrive.carrot.lane", only_onroad, enabled=not NATIVE_LANE),
+  NativeProcess("laned", "selfdrive/carrot", ["./laned"], only_onroad, enabled=NATIVE_LANE),
 ]
 
 

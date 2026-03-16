@@ -1,0 +1,7 @@
+Import('env', 'messaging', 'common', 'visionipc')
+
+lenv = env.Clone()
+
+libs = [messaging, visionipc, common, 'opencv_core', 'opencv_imgproc', 'opencv_imgcodecs', 'pthread']
+
+lenv.Program('laned', ['laned.cc'], LIBS=libs)
