@@ -105,54 +105,37 @@ void camerad::camera_runner() {
 }
 
 void camerad::run() {
-  //if (mac() != 0) {
-    // return;
-  //}
+  const char* road_cam = getenv("ROAD_CAM");
+  const char* wide_cam = getenv("WIDE_CAM");
+  const char* cam_width_env = getenv("CAM_WIDTH");
+  const char* cam_height_env = getenv("CAM_HEIGHT");
 
-#ifdef USE_ROADCAMERASTATE
+  int width = cam_width_env ? atoi(cam_width_env) : CAM_WIDTH;
+  int height = cam_height_env ? atoi(cam_height_env) : CAM_HEIGHT;
+
   char device_path0[512] = {0};
-#endif
-#ifdef USE_ROADCAMERASTATE
   char device_path1[512] = {0};
-#endif
-  //get_device("usb-0000:03:00.4-3", device_path0);
-  // get_device("usb-0000:04:00.3-2", device_path0);
-  //std::cout << device_path0 <<  std::endl;
-  //get_device("usb-0000:03:00.3-4", device_path1);
-  //std::cout << device_path1 <<  std::endl;
 
-#ifdef USE_ROADCAMERASTATE
-  if (strlen(device_path0) == 0)
-  {
-      //std::cerr << "Error finding video " << "usb-0000:04:00.3-2.2" << std::endl;
-      strcpy(device_path0, "/dev/video0");
-      // return;
+  if (road_cam) {
+    snprintf(device_path0, sizeof(device_path0), "/dev/video%s", road_cam);
+  } else {
+    strcpy(device_path0, "/dev/video0");
   }
-#endif
 
-#ifdef USE_ROADCAMERASTATE
-  if (strlen(device_path1) == 0)
-  {
-      //std::cerr << "Error finding video " << "usb-0000:04:00.3-2.3" << std::endl;
-      strcpy(device_path1, "/dev/video2");
-      // return;
+  if (wide_cam) {
+    snprintf(device_path1, sizeof(device_path1), "/dev/video%s", wide_cam);
+  } else {
+    strcpy(device_path1, "/dev/video2");
   }
-#endif
 
 #ifdef USE_ROADCAMERASTATE
-  const char* device0 = device_path0;//"/dev/video0";
-  int width = CAM_WIDTH;
-  int height = CAM_HEIGHT;
-  std::string output_prefix = PATH_VIDEOS; // PC has a large hard drive capacity, so you can use it as a dashcam.
-  camera *cam_road = new camera(device0, "roadCameraState", width, height, CAM_FPS, output_prefix);
+  std::string output_prefix = PATH_VIDEOS;
+  camera *cam_road = new camera(device_path0, "roadCameraState", width, height, CAM_FPS, output_prefix);
   m_cameras.push_back(cam_road);
 #endif
 
 #ifdef USE_WIDEROADCAMERASTATE
-  const char* device1 = device_path1; //"/dev/video2";
-  width = CAM_WIDTH;
-  height = CAM_HEIGHT;
-  camera *cam_wide = new camera(device1, "wideRoadCameraState", width, height,  CAM_FPS, output_prefix);
+  camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, output_prefix);
   m_cameras.push_back(cam_wide);
 #endif
 
