@@ -51,7 +51,7 @@ system_libs = ['pthread', 'm', 'dl', 'stdc++', 'jpeg']  # 添加 jpeg
 all_includes = [f'-I{Dir(p).abspath}' for p in openpilot_includes] + opencv_cflags
 all_libs = openpilot_libs + ffmpeg_libs + opencv_libs + ['onnxruntime'] + system_libs
 all_libpath = [Dir(p).abspath for p in openpilot_libpath] + [onnx_lib]
-
+env.Append(CPPPATH=["/usr/include/opencv4"])
 # ---------------- Program: cam_blindspot ----------------
 env.Program(
    target='cam_blindspot',

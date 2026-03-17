@@ -219,7 +219,7 @@ env = Environment(
   tools=["default", "cython", "compilation_db", "rednose_filter"],
   toolpath=["#site_scons/site_tools", "#rednose_repo/site_scons/site_tools"],
 )
-
+env.Append(CPPPATH=["/usr/include/opencv4"])
 if arch == "Darwin":
   # RPATH is not supported on macOS, instead use the linker flags
   darwin_rpath_link_flags = [f"-Wl,-rpath,{path}" for path in env["RPATH"]]

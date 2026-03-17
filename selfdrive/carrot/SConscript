@@ -1,7 +1,86 @@
-Import('env', 'messaging', 'common', 'visionipc')
+# -*- coding: utf-8 -*-
+Import("env")
 
-lenv = env.Clone()
+# ----------------------------
+# 源文件
+# ----------------------------
+src = [
+    "laned.cc",
+]
 
-libs = [messaging, visionipc, common, 'opencv_core', 'opencv_imgproc', 'opencv_imgcodecs', 'pthread']
+# ----------------------------
+# 头文件路径
+# ----------------------------
+inc = [
+    ".",  # 当前目录
+    "../../common",
+    "../../msgq_repo",
+    "../../msgq_repo/visionipc",
+    "../../third_party/json11",
+    "../../third_party/libyuv/include",
+    "../../third_party/acados/include",
+    "../../third_party/mapbox-gl-native-qt/x86_64/include",
+    "../../selfdrive/cereal",  # <- cereal 头文件
+    "/usr/include/opencv4",
+]
 
-lenv.Program('laned', ['laned.cc'], LIBS=libs)
+# ----------------------------
+# 库路径
+# ----------------------------
+libpath = [
+    "../../common",
+    "../../msgq_repo",
+    "../../msgq_repo/visionipc",
+    "../../third_party/json11",
+    "../../third_party/libyuv/x86_64/lib",
+    "../../third_party/acados/x86_64/lib",
+    "../../third_party/mapbox-gl-native-qt/x86_64",
+    "../../selfdrive/cereal",  # <- cereal 静态库路径
+]
+
+# ----------------------------
+# 链接库顺序（顺序重要）
+# ----------------------------
+libs = [
+    "json11",        # json11 静态库
+    "common",        # common 的日志、swaglog
+    "visionipc",     # vision ipc 客户端/服务端
+    "msgq",          # messaging 库
+    "zmq",           # zmq
+    "cereal",        # cereal 静态库
+    "OpenCL",
+    "opencv_core",
+    "opencv_imgproc",
+    "opencv_imgcodecs",
+    "pthread",
+]
+
+# ----------------------------
+# 生成目标
+# ----------------------------
+env.Program(
+    target="selfdrive/carrot/laned",
+    source=src,
+    CPPPATH=inc,
+    LIBPATH=libpath,
+    LIBS=libs,
+    CPPFLAGS=[
+        "-std=c++17",
+        "-O2",
+        "-fPIC",
+        "-D_REENTRANT",
+        "-Wunused",
+        "-Werror",
+        "-Wshadow",
+        "-Wno-unknown-warning-option",
+        "-Wno-inconsistent-missing-override",
+        "-Wno-c99-designator",
+        "-Wno-reorder-init-list",
+        "-Wno-vla-cxx-extension",
+        "-DENABLE_MAPS",
+    ],
+    LINKFLAGS=[
+        "-Wl,--as-needed",
+        "-Wl,--no-undefined",
+    ],
+)

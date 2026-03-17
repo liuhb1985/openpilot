@@ -46,7 +46,7 @@ void camera_thread() {
   LOGW("laned connected to visionipc");
 
   while (running) {
-    VisionIpcBuf *buf = vipc_client.recv();
+    VisionBuf *buf = vipc_client.recv();
     if (buf == nullptr) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
@@ -57,7 +57,7 @@ void camera_thread() {
     // Create YUV Mat from buffer
     // Assuming NV12 format as per openpilot standards
     cv::Mat yuv(buf->height + buf->height / 2, buf->stride, CV_8UC1, buf->addr);
-    
+
     cv::Mat bgr;
     cv::cvtColor(yuv, bgr, cv::COLOR_YUV2BGR_NV12);
 
@@ -65,7 +65,7 @@ void camera_thread() {
     cv::Mat cropped;
     float scale = std::max((float)TARGET_WIDTH / bgr.cols, (float)TARGET_HEIGHT / bgr.rows);
     cv::resize(bgr, cropped, cv::Size(), scale, scale, cv::INTER_AREA);
-    
+
     int start_x = (cropped.cols - TARGET_WIDTH) / 2;
     int start_y = (cropped.rows - TARGET_HEIGHT) / 2;
     cv::Mat final_rgb = cropped(cv::Rect(start_x, start_y, TARGET_WIDTH, TARGET_HEIGHT));
@@ -79,7 +79,7 @@ void camera_thread() {
     cv::Mat y_resized;
     cv::resize(y_channel, y_resized, cv::Size(), scale, scale, cv::INTER_AREA);
     cv::Mat final_gray = y_resized(cv::Rect(start_x, start_y, TARGET_WIDTH, TARGET_HEIGHT));
-    
+
     std::vector<uchar> jpg_gray;
     cv::imencode(".jpg", final_gray, jpg_gray, {cv::IMWRITE_JPEG_QUALITY, JPEG_QUALITY});
 
