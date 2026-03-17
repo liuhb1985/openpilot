@@ -700,9 +700,22 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
 
 // ---------------- 显示线程 ----------------
 void display_loop() {
-    const int interval_ms = 100;  // 刷新间隔 100ms
-    int key = 0;
-    // 使用全局变量 g_current_roi_idx 和 g_current_cam_id
+    static bool window_init = false;
+    int win_x = -1, win_y = -1, win_w = -1, win_h = -1;
+    
+    // 从环境变量获取窗口布局 (由启动脚本设置)
+    const char* env_x = std::getenv("CAM_X");
+    const char* env_y = std::getenv("CAM_Y");
+    const char* env_w = std::getenv("CAM_W");
+    const char* env_h = std::getenv("CAM_H");
+    if (env_x && env_y) {
+        win_x = std::atoi(env_x);
+        win_y = std::atoi(env_y);
+    }
+    if (env_w && env_h) {
+        win_w = std::atoi(env_w);
+        win_h = std::atoi(env_h);
+    }
 
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
@@ -764,7 +777,12 @@ void display_loop() {
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
-                    cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
+                    if (!window_init) {
+                        cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
+                        if (win_x != -1 && win_y != -1) cv::moveWindow("All Cameras", win_x, win_y);
+                        if (win_w != -1 && win_h != -1) cv::resizeWindow("All Cameras", win_w, win_h);
+                        window_init = true;
+                    }
                     cv::imshow("All Cameras", combined);
 
                     // 为单窗口模式注册鼠标回调

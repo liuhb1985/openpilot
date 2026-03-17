@@ -32,7 +32,15 @@ UI_H=$((SCREEN_HEIGHT * 67 / 100))
 CAM_H=$((SCREEN_HEIGHT - UI_H))
 CAM_Y=$UI_H
 
-# 终极健壮的窗口定位函数
+# ========================================================
+# 方案：通过环境变量直接传递给 cam_blindspot 进程，由其内部调用 cv::moveWindow
+# ========================================================
+export CAM_X=0
+export CAM_Y=$CAM_Y
+export CAM_W=$SCREEN_WIDTH
+export CAM_H=$CAM_H
+
+# 终极健壮的窗口定位函数 (仅用于 UI，摄像头现在自定位)
 robust_place() {
     local key="$1"
     local class_key="$2"
@@ -74,11 +82,10 @@ robust_place() {
 # 监控 openpilot UI (类名是 ui)
 robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 
-# 监控摄像头窗口 (关键词 Cameras, 类名是 Opencv)
-robust_place "Cameras" "Opencv" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
+# 监控摄像头窗口 (现在已通过 CAM_X/Y 变量由进程内部自定位，脚本无需再找)
+# robust_place "Cameras" "Opencv" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
 
 # 在前台启动 manager
 USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 system/manager/manager.py
 
 # 等待监控任务完成
-wait
