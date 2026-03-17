@@ -317,7 +317,7 @@ bool camera::read_frame(std::vector<void*>& buffers, std::vector<size_t>& buffer
 // reading loop from camera
 void camera::reading_loop(int fd) {
     auto start = nanos_since_boot();
-    int count = 0;
+    // int count = 0;
     int count_empty = 0;
     m_jpeg_handle = tjInitDecompress();
     m_yuv_data.resize(m_width*m_height + m_width*m_height/2);
@@ -365,11 +365,11 @@ void camera::reading_loop(int fd) {
             m_frame_eof = nanos_since_boot();
         }
 
-        count ++;
+        // count ++;
         auto tm = nanos_since_boot() - start;
         if (tm/(1000*1000) >= 1000) {
             // printf("%s fps = %d\n", m_type.c_str(), count);
-            count = 0;
+            // count = 0;
             start = nanos_since_boot();
         }
 

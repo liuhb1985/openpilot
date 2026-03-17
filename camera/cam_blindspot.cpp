@@ -717,6 +717,9 @@ void display_loop() {
         win_h = std::atoi(env_h);
     }
 
+    const int interval_ms = 100;  // 刷新间隔 100ms
+    int key = 0;
+
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
 
