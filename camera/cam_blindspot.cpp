@@ -708,17 +708,26 @@ void display_loop() {
     const char* env_y = std::getenv("CAM_Y");
     const char* env_w = std::getenv("CAM_W");
     const char* env_h = std::getenv("CAM_H");
+    
+    printf("\n[BSM_WIN] PID: %d\n", getpid());
     if (env_x && env_y) {
         win_x = std::atoi(env_x);
         win_y = std::atoi(env_y);
+        printf("[BSM_WIN] Target Pos: %d, %d\n", win_x, win_y);
+    } else {
+        printf("[BSM_WIN] CAM_X/Y not set!\n");
     }
     if (env_w && env_h) {
         win_w = std::atoi(env_w);
         win_h = std::atoi(env_h);
+        printf("[BSM_WIN] Target Size: %d, %d\n", win_w, win_h);
+    } else {
+        printf("[BSM_WIN] CAM_W/H not set!\n");
     }
 
     const int interval_ms = 100;  // 刷新间隔 100ms
     int key = 0;
+    int force_pos_count = 100; // 连续 100 帧强制定位，防止被系统挪走
 
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
@@ -781,18 +790,44 @@ void display_loop() {
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
                     if (!window_init) {
-                        cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
-                        if (win_x != -1 && win_y != -1) cv::moveWindow("All Cameras", win_x, win_y);
-                        if (win_w != -1 && win_h != -1) cv::resizeWindow("All Cameras", win_w, win_h);
+                        cv::namedWindow("OpenPILOT_BS_VIEW", cv::WINDOW_NORMAL);
                         window_init = true;
                     }
-                    cv::imshow("All Cameras", combined);
+                    
+                    if (force_pos_count > 0) {
+                        if (win_x != -1 && win_y != -1) cv::moveWindow("OpenPILOT_BS_VIEW", win_x, win_y);
+                        if (win_w != -1 && win_h != -1) cv::resizeWindow("OpenPILOT_BS_VIEW", win_w, win_h);
+                        force_pos_count--;
+                    }
+
+                    // 创建黑色画布，将画面居中 (防止比例不匹配产生白边)
+                    cv::Mat canvas;
+                    if (win_w > 0 && win_h > 0) {
+                        canvas = cv::Mat::zeros(win_h, win_w, combined.type());
+                        
+                        // 计算缩放比例 (保持比例)
+                        double scale = std::min((double)win_w / combined.cols, (double)win_h / combined.rows);
+                        int new_w = combined.cols * scale;
+                        int new_h = combined.rows * scale;
+                        
+                        cv::Mat resized;
+                        cv::resize(combined, resized, cv::Size(new_w, new_h));
+                        
+                        // 居中粘贴
+                        int x_off = (win_w - new_w) / 2;
+                        int y_off = (win_h - new_h) / 2;
+                        resized.copyTo(canvas(cv::Rect(x_off, y_off, new_w, new_h)));
+                    } else {
+                        canvas = combined;
+                    }
+
+                    cv::imshow("OpenPILOT_BS_VIEW", canvas);
 
                     // 为单窗口模式注册鼠标回调
                     static std::array<int, 2> single_window_roi_ids;
                     single_window_roi_ids[0] = g_current_cam_id;
                     single_window_roi_ids[1] = g_current_roi_idx;
-                    cv::setMouseCallback("All Cameras", mouse_callback, single_window_roi_ids.data());
+                    cv::setMouseCallback("OpenPILOT_BS_VIEW", mouse_callback, single_window_roi_ids.data());
                 }
             }
             else {
