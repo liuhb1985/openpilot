@@ -135,8 +135,11 @@ void camerad::run() {
 #endif
 
 #ifdef USE_WIDEROADCAMERASTATE
-  camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, output_prefix);
-  m_cameras.push_back(cam_wide);
+  // 只有在明确指定了 WIDE_CAM 环境变量时才启用广角相机，避免没有第二个摄像头时的 ENOTTY 错误
+  if (wide_cam) {
+    camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, output_prefix);
+    m_cameras.push_back(cam_wide);
+  }
 #endif
 
   for (camera *cam : m_cameras) {
