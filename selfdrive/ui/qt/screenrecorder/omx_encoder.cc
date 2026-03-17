@@ -755,6 +755,14 @@ OmxEncoder::~OmxEncoder() {
 
 #ifdef WSL2
 extern "C" {
+#undef OMX_GetParameter
+#undef OMX_SetParameter
+#undef OMX_SendCommand
+#undef OMX_AllocateBuffer
+#undef OMX_FreeBuffer
+#undef OMX_EmptyThisBuffer
+#undef OMX_FillThisBuffer
+
 OMX_ERRORTYPE OMX_GetHandle(OMX_HANDLETYPE* pHandle, OMX_STRING cComponentName, OMX_PTR pAppData, OMX_CALLBACKTYPE* pCallBacks) { return OMX_ErrorNotImplemented; }
 OMX_ERRORTYPE OMX_FreeHandle(OMX_HANDLETYPE hComponent) { return OMX_ErrorNotImplemented; }
 OMX_ERRORTYPE OMX_GetParameter(OMX_HANDLETYPE hComponent, OMX_INDEXTYPE nParamIndex, OMX_PTR pComponentParameterStructure) { return OMX_ErrorNotImplemented; }
