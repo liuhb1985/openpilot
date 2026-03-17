@@ -368,7 +368,7 @@ void camera::reading_loop(int fd) {
         count ++;
         auto tm = nanos_since_boot() - start;
         if (tm/(1000*1000) >= 1000) {
-            printf("%s fps = %d\n", m_type.c_str(), count);
+            // printf("%s fps = %d\n", m_type.c_str(), count);
             count = 0;
             start = nanos_since_boot();
         }

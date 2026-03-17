@@ -3,9 +3,7 @@
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 sudo chmod 777 /dev/bus/usb/*
-export QT_SCALE_FACTOR=1
-export QT_AUTO_SCREEN_SCALE_FACTOR=0
-export QT_SCREEN_SCALE_FACTORS=
+
 export USE_NATIVE_LANE=1
 #sleep 1
 # 运行op
@@ -37,25 +35,26 @@ CAM_Y=$UI_H
 # 终极健壮的窗口定位函数
 robust_place() {
     local key="$1"
-    local x=$2 y=$3 w=$4 h=$5
+    local class_key="$2"
+    local x=$3 y=$4 w=$5 h=$6
     (
         local wid=""
-        echo "[wait] Searching for window: $key ..."
+        echo "[wait] Searching for window ($key / class: $class_key) ..."
 
-        # 循环等待进程启动并创建窗口 (最多等 40 秒)
         for i in {1..80}; do
-            # 方案 A: 尝试通过关键词搜索标题 (不区分大小写)
-            wid=$(xdotool search --name --onlyvisible "$key" 2>/dev/null | tail -n1)
+            # 先尝试类名匹配 (最稳)
+            if [ -n "$class_key" ]; then
+                wid=$(xdotool search --class "$class_key" 2>/dev/null | tail -n1)
+            fi
 
-            # 方案 B: 如果还没找到，尝试搜索窗口类名
+            # 再尝试标题匹配
             if [ -z "$wid" ]; then
-                wid=$(xdotool search --class --onlyvisible "$key" 2>/dev/null | tail -n1)
+                wid=$(xdotool search --name "$key" 2>/dev/null | tail -n1)
             fi
 
             if [ -n "$wid" ]; then
-                echo "[info] OK: Found window '$key' (WID: $wid), positioning..."
-                # 持续强力重置位置 15 秒，确保稳定
-                for j in {1..30}; do
+                echo "[info] OK: Found window '$key' (WID: $wid), stacking..."
+                for j in {1..40}; do
                     wmctrl -i -r "$wid" -b remove,maximized_vert,maximized_horz 2>/dev/null
                     xdotool windowmove "$wid" $x $y
                     xdotool windowsize "$wid" $w $h
@@ -65,16 +64,18 @@ robust_place() {
             fi
             sleep 0.5
         done
-        echo "[error] TIMEOUT: Could not find window containing '$key'"
+
+        echo "[error] TIMEOUT: Could not find '$key' or class '$class_key'"
+        echo "Current windows list (wmctrl -l):"
         wmctrl -l
     ) &
 }
 
-# 监控 openpilot UI (铺满上方 2/3)
-robust_place "ui" 0 0 $SCREEN_WIDTH $UI_H
+# 监控 openpilot UI (类名是 ui)
+robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 
-# 监控摄像头窗口 (占下方 1/3)
-robust_place "Camera" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
+# 监控摄像头窗口 (关键词 Cameras, 类名是 Opencv)
+robust_place "Cameras" "Opencv" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
 
 # 在前台启动 manager
 USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 system/manager/manager.py
