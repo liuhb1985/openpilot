@@ -752,3 +752,17 @@ OmxEncoder::~OmxEncoder() {
     free(this->v_ptr2);
   }
 }
+
+#ifdef WSL2
+extern "C" {
+OMX_ERRORTYPE OMX_GetHandle(OMX_HANDLETYPE* pHandle, OMX_STRING cComponentName, OMX_PTR pAppData, OMX_CALLBACKTYPE* pCallBacks) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_FreeHandle(OMX_HANDLETYPE hComponent) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_GetParameter(OMX_HANDLETYPE hComponent, OMX_INDEXTYPE nParamIndex, OMX_PTR pComponentParameterStructure) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_SetParameter(OMX_HANDLETYPE hComponent, OMX_INDEXTYPE nIndex, OMX_PTR pComponentParameterStructure) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_SendCommand(OMX_HANDLETYPE hComponent, OMX_COMMANDTYPE Cmd, OMX_U32 nParam1, OMX_PTR pCmdData) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_AllocateBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE** ppBuffer, OMX_U32 nPortIndex, OMX_PTR pAppPrivate, OMX_U32 nSizeBytes) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_FreeBuffer(OMX_HANDLETYPE hComponent, OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_EmptyThisBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
+OMX_ERRORTYPE OMX_FillThisBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
+}
+#endif
