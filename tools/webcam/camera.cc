@@ -297,8 +297,11 @@ bool camera::read_frame(std::vector<void*>& buffers, std::vector<size_t>& buffer
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
     if (ioctl(m_fd, VIDIOC_DQBUF, &buf) == -1) {
-        std::cerr << "Dequeue buffer failed. " << m_fd << std::endl;
-        usleep(10);
+        static int err_count = 0;
+        if (err_count++ % 60 == 0) {
+            std::cerr << "Dequeue buffer failed. fd=" << m_fd << " errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+        }
+        usleep(10000); // 10ms sleep to avoid 100% CPU on continuous failure
         return false;
     }
     out_data = buffers[buf.index];
