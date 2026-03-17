@@ -1,53 +1,18 @@
 # -*- coding: utf-8 -*-
-Import("env")
+Import("env", "common", "messaging", "visionipc", "cereal")
 
-# ----------------------------
-# 源文件
-# ----------------------------
+# 使用全局配置的克隆，避免污染其他模块
+senv = env.Clone()
+
 src = [
     "laned.cc",
 ]
 
-# ----------------------------
-# 头文件路径
-# ----------------------------
-inc = [
-    ".",  # 当前目录
-    "../../common",
-    "../../msgq_repo",
-    "../../msgq_repo/visionipc",
-    "../../third_party/json11",
-    "../../third_party/libyuv/include",
-    "../../third_party/acados/include",
-    "../../third_party/mapbox-gl-native-qt/x86_64/include",
-    "../../selfdrive/cereal",  # <- cereal 头文件
-    "/usr/include/opencv4",
-]
-
-# ----------------------------
-# 库路径
-# ----------------------------
-libpath = [
-    "../../common",
-    "../../msgq_repo",
-    "../../msgq_repo/visionipc",
-    "../../third_party/json11",
-    "../../third_party/libyuv/x86_64/lib",
-    "../../third_party/acados/x86_64/lib",
-    "../../third_party/mapbox-gl-native-qt/x86_64",
-    "../../selfdrive/cereal",  # <- cereal 静态库路径
-]
-
-# ----------------------------
-# 链接库顺序（顺序重要）
-# ----------------------------
-libs = [
-    "json11",        # json11 静态库
-    "common",        # common 的日志、swaglog
-    "visionipc",     # vision ipc 客户端/服务端
-    "msgq",          # messaging 库
-    "zmq",           # zmq
-    "cereal",        # cereal 静态库
+# 链接库列表
+# common: [_common, 'json11', 'zmq']
+# messaging: [socketmaster, msgq, 'capnp', 'kj']
+# visionipc & cereal: 构建生成的目标对象/库
+libs = [visionipc, cereal] + messaging + common + [
     "OpenCL",
     "opencv_core",
     "opencv_imgproc",
@@ -55,32 +20,9 @@ libs = [
     "pthread",
 ]
 
-# ----------------------------
 # 生成目标
-# ----------------------------
-env.Program(
-    target="selfdrive/carrot/laned",
+senv.Program(
+    target="laned",
     source=src,
-    CPPPATH=inc,
-    LIBPATH=libpath,
     LIBS=libs,
-    CPPFLAGS=[
-        "-std=c++17",
-        "-O2",
-        "-fPIC",
-        "-D_REENTRANT",
-        "-Wunused",
-        "-Werror",
-        "-Wshadow",
-        "-Wno-unknown-warning-option",
-        "-Wno-inconsistent-missing-override",
-        "-Wno-c99-designator",
-        "-Wno-reorder-init-list",
-        "-Wno-vla-cxx-extension",
-        "-DENABLE_MAPS",
-    ],
-    LINKFLAGS=[
-        "-Wl,--as-needed",
-        "-Wl,--no-undefined",
-    ],
-)
+)
