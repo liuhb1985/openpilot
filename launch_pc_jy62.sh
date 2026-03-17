@@ -28,32 +28,24 @@ SCREEN_HEIGHT=${SCREEN_HEIGHT:-1080}
 #  ├─────────────────────────────────┤
 #  │          All Cameras            │  ← 占下方 1/3 (约 33%)
 #  └─────────────────────────────────┘
-# 布局设计 (高度优化)：
+# 布局设计 (PIP 模式 - 画中画)：
 #  ┌─────────────────────────────────┐
-#  │          openpilot UI           │  ← 650px (约 60%, 保证 UI 元素完整)
-#  ├─────────────────────────────────┤
-#  │          All Cameras            │  ← 430px (约 40%, 匹配摄像头 4:3 比例)
+#  │ [BSM View] (640x320) @ (0,0)    │  ← 缩小并移动到左上角
+#  │                                 │
+#  │          openpilot UI           │  ← 恢复全屏高度，背景显示
+#  │                                 │
 #  └─────────────────────────────────┘
-UI_H=650
-CAM_H=$((SCREEN_HEIGHT - UI_H))
-CAM_Y=$UI_H
-
-# 对 BSM 窗口宽度进行优化，使其符合 1280:480 的比例，减少两侧白边
-# 理想宽度 = 高度 * (1280/480) = 高度 * 2.66
-CAM_W_IDEAL=$((CAM_H * 266 / 100))
-# 如果理想宽度超过屏幕，则取屏幕宽
-if [ $CAM_W_IDEAL -gt $SCREEN_WIDTH ]; then
-    CAM_W_IDEAL=$SCREEN_WIDTH
-fi
-CAM_X_OFF=$(((SCREEN_WIDTH - CAM_W_IDEAL) / 2))
+UI_H=$SCREEN_HEIGHT
+CAM_W_SMALL=640
+CAM_H_SMALL=320
 
 # ========================================================
 # 方案：通过环境变量直接传递给 cam_blindspot 进程，由其内部调用 cv::moveWindow
 # ========================================================
-export CAM_X=$CAM_X_OFF
-export CAM_Y=$CAM_Y
-export CAM_W=$CAM_W_IDEAL
-export CAM_H=$CAM_H
+export CAM_X=0
+export CAM_Y=0
+export CAM_W=$CAM_W_SMALL
+export CAM_H=$CAM_H_SMALL
 
 # 终极健壮的窗口定位函数 (仅用于 UI，摄像头现在自定位)
 robust_place() {
