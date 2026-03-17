@@ -5,6 +5,7 @@
 #include <string>
 #include <atomic>
 #include <chrono>
+#include <algorithm>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/prctl.h>

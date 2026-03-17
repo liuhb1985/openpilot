@@ -26,15 +26,15 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
   main_layout->addWidget(experimental_btn, 0, Qt::AlignTop | Qt::AlignRight);
 
   record_timer = std::make_shared<QTimer>();
-	QObject::connect(record_timer.get(), &QTimer::timeout, [=]() {
+  QObject::connect(record_timer.get(), &QTimer::timeout, [=]() {
     if(recorder) {
       recorder->update_screen();
     }
   });
-	record_timer->start(1000/UI_FREQ);
+  record_timer->start(1000/UI_FREQ);
 
-	recorder = new ScreenRecoder(this);
-	main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight);
+  recorder = new ScreenRecoder(this);
+  main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight);
 
 }
 
