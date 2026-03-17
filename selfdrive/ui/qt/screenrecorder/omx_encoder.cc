@@ -754,23 +754,14 @@ OmxEncoder::~OmxEncoder() {
 }
 
 #ifdef WSL2
+// These are the only actual C functions exported by libOmxCore.so.
+// The rest (OMX_GetParameter, etc.) are just macros that call function pointers on the component handle.
 extern "C" {
-#undef OMX_GetParameter
-#undef OMX_SetParameter
-#undef OMX_SendCommand
-#undef OMX_AllocateBuffer
-#undef OMX_FreeBuffer
-#undef OMX_EmptyThisBuffer
-#undef OMX_FillThisBuffer
-
-OMX_ERRORTYPE OMX_GetHandle(OMX_HANDLETYPE* pHandle, OMX_STRING cComponentName, OMX_PTR pAppData, OMX_CALLBACKTYPE* pCallBacks) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_FreeHandle(OMX_HANDLETYPE hComponent) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_GetParameter(OMX_HANDLETYPE hComponent, OMX_INDEXTYPE nParamIndex, OMX_PTR pComponentParameterStructure) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_SetParameter(OMX_HANDLETYPE hComponent, OMX_INDEXTYPE nIndex, OMX_PTR pComponentParameterStructure) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_SendCommand(OMX_HANDLETYPE hComponent, OMX_COMMANDTYPE Cmd, OMX_U32 nParam1, OMX_PTR pCmdData) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_AllocateBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE** ppBuffer, OMX_U32 nPortIndex, OMX_PTR pAppPrivate, OMX_U32 nSizeBytes) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_FreeBuffer(OMX_HANDLETYPE hComponent, OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_EmptyThisBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
-OMX_ERRORTYPE OMX_FillThisBuffer(OMX_HANDLETYPE hComponent, OMX_BUFFERHEADERTYPE* pBuffer) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init(void) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Deinit(void) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_ComponentNameEnum(OMX_OUT OMX_STRING cComponentName, OMX_IN OMX_U32 nNameLength, OMX_IN OMX_U32 nIndex) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(OMX_OUT OMX_HANDLETYPE* pHandle, OMX_IN OMX_STRING cComponentName, OMX_IN OMX_PTR pAppData, OMX_IN OMX_CALLBACKTYPE* pCallBacks) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(OMX_IN OMX_HANDLETYPE hComponent) { return OMX_ErrorNotImplemented; }
+OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_SetupTunnel(OMX_IN OMX_HANDLETYPE hOutput, OMX_IN OMX_U32 nPortOutput, OMX_IN OMX_HANDLETYPE hInput, OMX_IN OMX_U32 nPortInput) { return OMX_ErrorNotImplemented; }
 }
 #endif
