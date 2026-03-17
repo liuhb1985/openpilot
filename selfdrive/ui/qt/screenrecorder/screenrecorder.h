@@ -7,18 +7,6 @@
 #include <thread>
 #include <chrono>
 
-#ifdef WSL2
-class ScreenRecoder : public QPushButton {
-public:
-    ScreenRecoder(QWidget* parent = nullptr) {}
-    virtual ~ScreenRecoder() {}
-
-    void update_screen() {}
-    void toggle() {}
-    void start() {}
-    void stop() {}
-};
-#else
 #include "omx_encoder.h"
 #include "blocking_queue.h"
 #include "selfdrive/ui/ui.h"
@@ -62,4 +50,3 @@ public:
     void update_screen();
 
 };
-#endif
