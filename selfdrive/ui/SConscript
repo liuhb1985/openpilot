@@ -56,8 +56,8 @@ def is_running_on_wsl2():
 
 if is_running_on_wsl2():
   qt_env.Append(CXXFLAGS=['-DWSL2'])
-  if 'OmxCore' in base_libs:
-    base_libs.remove('OmxCore')
+  if 'OmxCore' in qt_libs:
+    qt_libs.remove('OmxCore')
 
 # build translation files
 with open(File("translations/languages.json").abspath) as f:
