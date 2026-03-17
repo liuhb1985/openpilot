@@ -327,8 +327,9 @@ OmxEncoder::OmxEncoder(const char* path, int width, int height, int fps, int bit
   int err = OMX_GetHandle(&this->handle, component, this, &omx_callbacks);
   if (err != OMX_ErrorNone) {
     LOGE("error getting codec: %x", err);
+    this->handle = nullptr;
+    return;
   }
-  assert(err == OMX_ErrorNone);
   // printf("handle: %p\n", this->handle);
 
   // setup input port
@@ -548,6 +549,9 @@ void OmxEncoder::handle_out_buf(OmxEncoder *e, OMX_BUFFERHEADERTYPE *out_buf) {
 }
 
 int OmxEncoder::encode_frame_rgba(const uint8_t *ptr, int in_width, int in_height, uint64_t ts) {
+  if (!this->handle) {
+    return -1; // Codec not available
+  }
   int err;
   if (!this->is_open) {
     return -1;
@@ -623,6 +627,7 @@ int OmxEncoder::encode_frame_rgba(const uint8_t *ptr, int in_width, int in_heigh
 }
 
 void OmxEncoder::encoder_open(const char* filename) {
+  if (!this->handle) { return; }
   int err;
 
   struct stat st = {0};
@@ -679,6 +684,7 @@ void OmxEncoder::encoder_open(const char* filename) {
 }
 
 void OmxEncoder::encoder_close() {
+  if (!this->handle) { return; }
   if (this->is_open) {
     if (this->dirty) {
       // drain output only if there could be frames in the encoder
@@ -718,6 +724,14 @@ void OmxEncoder::encoder_close() {
 }
 
 OmxEncoder::~OmxEncoder() {
+  if (!this->handle) {
+    if (this->codec_config) free(this->codec_config);
+    if (this->downscale) {
+      free(this->y_ptr2); free(this->u_ptr2); free(this->v_ptr2);
+    }
+    return;
+  }
+
   assert(!this->is_open);
 
   OMX_CHECK(OMX_SendCommand(this->handle, OMX_CommandStateSet, OMX_StateIdle, NULL));
