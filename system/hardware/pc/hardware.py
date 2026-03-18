@@ -8,6 +8,10 @@ from openpilot.system.hardware.base import HardwareBase, ThermalConfig
 NetworkType = log.DeviceState.NetworkType
 NetworkStrength = log.DeviceState.NetworkStrength
 
+# PC Webcam Configuration
+WEBCAM_W = int(os.getenv("WEBCAM_W", "1920"))
+WEBCAM_H = int(os.getenv("WEBCAM_H", "1080"))
+WEBCAM_FOCAL = int(os.getenv("WEBCAM_FOCAL", "2520")) # Default for many standard webcams
 
 class Pc(HardwareBase):
   def get_os_version(self):

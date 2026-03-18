@@ -187,8 +187,8 @@ def main():
     frame_id = sm["roadCameraState"].frameId
     if sm.updated["liveCalibration"]:
       device_from_calib_euler = np.array(sm["liveCalibration"].rpyCalib, dtype=np.float32)
-      model_transform_main = get_warp_matrix(device_from_calib_euler, main_wide_camera, False).astype(np.float32)
-      model_transform_extra = get_warp_matrix(device_from_calib_euler, True, True).astype(np.float32)
+      model_transform_main = get_warp_matrix(device_from_calib_euler, main_wide_camera, False, pc_webcam=True).astype(np.float32)
+      model_transform_extra = get_warp_matrix(device_from_calib_euler, True, True, pc_webcam=True).astype(np.float32)
       live_calib_seen = True
 
     traffic_convention = np.zeros(2)
