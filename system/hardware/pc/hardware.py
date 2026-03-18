@@ -1,4 +1,6 @@
+import os
 import random
+import subprocess
 
 from cereal import log
 from openpilot.system.hardware.base import HardwareBase, ThermalConfig
@@ -9,7 +11,7 @@ NetworkStrength = log.DeviceState.NetworkStrength
 
 class Pc(HardwareBase):
   def get_os_version(self):
-    return None
+    return subprocess.check_output(["uname", "-rv"], encoding='utf8').strip()
 
   def get_device_type(self):
     return "pc"
@@ -18,7 +20,8 @@ class Pc(HardwareBase):
     return True
 
   def reboot(self, reason=None):
-    print("REBOOT!")
+    print(f"REBOOT! reason: {reason}")
+    # os.system("sudo reboot")
 
   def uninstall(self):
     print("uninstall")
@@ -58,26 +61,46 @@ class Pc(HardwareBase):
 
   def shutdown(self):
     print("SHUTDOWN!")
+    # os.system("sudo shutdown -h now")
 
   def get_thermal_config(self):
-    return ThermalConfig(cpu=((None,), 1), gpu=((None,), 1), mem=(None, 1), bat=(None, 1), ambient=(None, 1), pmic=((None,), 1))
+    # Try to find CPU temperature from hwmon
+    cpu_temp = 0
+    try:
+      for i in range(10):
+        path = f"/sys/class/hwmon/hwmon{i}/temp1_input"
+        if os.path.exists(path):
+          with open(path, "r") as f:
+            cpu_temp = int(f.read().strip()) / 1000.0
+            break
+    except Exception:
+      pass
+
+    return ThermalConfig(cpu=((cpu_temp,), 1), gpu=((0,), 1), mem=(0, 1), bat=(0, 1), ambient=(0, 1), pmic=((0,), 1))
 
   def set_screen_brightness(self, percentage):
     pass
 
   def get_screen_brightness(self):
-    return 0
+    return 100
 
   def set_power_save(self, powersave_enabled):
     pass
 
   def get_gpu_usage_percent(self):
+    # Try nvidia-smi for NVIDIA GPUs
+    try:
+      val = subprocess.check_output(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"], encoding='utf8')
+      return int(val.strip())
+    except Exception:
+      pass
     return 0
 
   def get_modem_temperatures(self):
     return []
 
   def get_nvme_temperatures(self):
+    # Try to read NVMe temp if smartctl is available and we have permission
     return []
 
   def initialize_hardware(self):

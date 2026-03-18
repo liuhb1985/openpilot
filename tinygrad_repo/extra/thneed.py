@@ -266,6 +266,12 @@ class Thneed:
       f.write(b''.join(weights))
       f.write(b''.join(binaries))
 
+  def set_input_cl(self, name, cl_mem):
+    old_cl_mem = self.inputs[name]
+    self.inputs[name] = cl_mem
+    for i in range(len(self.cl_cache)):
+      self.cl_cache[i] = (self.cl_cache[i][0], [x if x is not old_cl_mem else cl_mem for x in self.cl_cache[i][1]])
+
   def run(self):
     events = []
     st = time.monotonic()

@@ -13,7 +13,10 @@ class ModelRunner(RunModel):
 
   def __new__(cls, paths, *args, **kwargs):
     if ModelRunner.THNEED in paths and USE_THNEED:
-      from openpilot.selfdrive.modeld.runners.thneedmodel_pyx import ThneedModel as Runner
+      if not TICI:
+        from openpilot.selfdrive.modeld.runners.tinygrad_model import TinygradModel as Runner
+      else:
+        from openpilot.selfdrive.modeld.runners.thneedmodel_pyx import ThneedModel as Runner
       runner_type = ModelRunner.THNEED
     elif ModelRunner.SNPE in paths and USE_SNPE:
       from openpilot.selfdrive.modeld.runners.snpemodel_pyx import SNPEModel as Runner

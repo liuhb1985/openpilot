@@ -34,10 +34,18 @@ cdef class ModelFrame:
   def __dealloc__(self):
     del self.frame
 
-  def prepare(self, VisionBuf buf, float[:] projection, CLMem output):
+  def prepare(self, VisionBuf buf, float[:] projection, output):
     cdef mat3 cprojection
     memcpy(cprojection.v, &projection[0], 9*sizeof(float))
-    cdef float * data = self.frame.prepare(buf.buf.buf_cl, buf.width, buf.height, buf.stride, buf.uv_offset, cprojection, output.mem)
+    cdef cl_mem * out_mem = NULL
+    if output is not None:
+      if isinstance(output, CLMem):
+        out_mem = (<CLMem>output).mem
+      else:
+        # Assume it's a pyopencl.Buffer or similar with .int_ptr
+        out_mem = <cl_mem*>output.int_ptr
+
+    cdef float * data = self.frame.prepare(buf.buf.buf_cl, buf.width, buf.height, buf.stride, buf.uv_offset, cprojection, out_mem)
     if not data:
       return None
     return np.asarray(<cnp.float32_t[:self.frame.buf_size]> data)

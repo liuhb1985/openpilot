@@ -50,7 +50,21 @@ driving_lib = lenv.Library('driving', ['models/driving.cc'])
 lenvCython.Program('runners/runmodel_pyx.so', 'runners/runmodel_pyx.pyx', LIBS=cython_libs, FRAMEWORKS=frameworks)
 lenvCython.Program('runners/snpemodel_pyx.so', 'runners/snpemodel_pyx.pyx', LIBS=[snpemodel_lib, snpe_lib, *cython_libs], FRAMEWORKS=frameworks, RPATH=snpe_rpath)
 lenvCython.Program('models/commonmodel_pyx.so', 'models/commonmodel_pyx.pyx', LIBS=[commonmodel_lib, *cython_libs], FRAMEWORKS=frameworks)
-lenvCython.Program('models/driving_pyx.so', 'models/driving_pyx.pyx', LIBS=[driving_lib, commonmodel_lib, *cython_libs], FRAMEWORKS=frameworks)
+
+driving_src = ['models/driving.cc']
+driving_obj = env.Object(driving_src)
+fast_parser_pyx = env.Cython('models/fast_parser.pyx')
+fast_parser_obj = env.Object(fast_parser_pyx, CXXFLAGS=env['CXXFLAGS'] + ['-Iselfdrive/modeld'])
+
+env.PyExtension('models/driving_pyx', [
+  'models/driving_pyx.pyx',
+  driving_obj,
+], LIBS=libs)
+
+env.PyExtension('models/fast_parser', [
+  fast_parser_pyx,
+  driving_obj,
+], LIBS=libs)
 
 # Build thneed model
 if arch == "larch64" or GetOption('pc_thneed'):

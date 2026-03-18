@@ -14,10 +14,12 @@ from openpilot.common.realtime import config_realtime_process
 from openpilot.common.transformations.model import get_warp_matrix
 from openpilot.selfdrive.modeld.runners import ModelRunner, Runtime
 from openpilot.selfdrive.modeld.models.commonmodel_pyx import ModelFrame, CLContext
+from openpilot.selfdrive.modeld.models.fast_parser import FastParser
 from openpilot.selfdrive.modeld.models.driving_pyx import (
   PublishState, create_model_msg, create_pose_msg,
   FEATURE_LEN, HISTORY_BUFFER_LEN, DESIRE_LEN, TRAFFIC_CONVENTION_LEN, NAV_FEATURE_LEN, NAV_INSTRUCTION_LEN,
   OUTPUT_SIZE, NET_OUTPUT_SIZE, MODEL_FREQ)
+
 
 MODEL_PATHS = {
   ModelRunner.THNEED: Path(__file__).parent / 'models/supercombo.thneed',
@@ -53,6 +55,7 @@ class ModelState:
       'features_buffer': np.zeros(HISTORY_BUFFER_LEN * FEATURE_LEN, dtype=np.float32),
     }
 
+    self.parser = FastParser()
     self.model = ModelRunner(MODEL_PATHS, self.output, Runtime.GPU, False, context)
     self.model.addInput("input_imgs", None)
     self.model.addInput("big_input_imgs", None)
@@ -73,9 +76,11 @@ class ModelState:
     # self.inputs['driving_style'][:] = inputs['driving_style']
 
     # if getCLBuffer is not None, frame will be None
-    self.model.setInputBuffer("input_imgs", self.frame.prepare(buf, transform.flatten(), self.model.getCLBuffer("input_imgs")))
+    cl_buf = self.model.getCLBuffer("input_imgs")
+    self.model.setInputBuffer("input_imgs", self.frame.prepare(buf, transform.flatten(), cl_buf))
     if wbuf is not None:
-      self.model.setInputBuffer("big_input_imgs", self.wide_frame.prepare(wbuf, transform_wide.flatten(), self.model.getCLBuffer("big_input_imgs")))
+      cl_wbuf = self.model.getCLBuffer("big_input_imgs")
+      self.model.setInputBuffer("big_input_imgs", self.wide_frame.prepare(wbuf, transform_wide.flatten(), cl_wbuf))
 
     if prepare_only:
       return None
@@ -244,8 +249,8 @@ def main():
     model_execution_time = mt2 - mt1
 
     if model_output is not None:
-      pm.send("modelV2", create_model_msg(model_output, state, meta_main.frame_id, meta_extra.frame_id, frame_id, frame_drop_ratio,
-                                          meta_main.timestamp_eof, timestamp_llk, model_execution_time, nav_enabled, live_calib_seen))
+      pm.send("modelV2", model.parser.parse_and_serialize(model_output, state.state, meta_main.frame_id, meta_extra.frame_id, frame_id, frame_drop_ratio,
+                                                         meta_main.timestamp_eof, timestamp_llk, model_execution_time, nav_enabled, live_calib_seen))
       pm.send("cameraOdometry", create_pose_msg(model_output, meta_main.frame_id, vipc_dropped_frames, meta_main.timestamp_eof, live_calib_seen))
 
     # print("model process: %.2fms, from last %.2fms, vipc_frame_id %u, frame_id, %u, frame_drop %.3f" %

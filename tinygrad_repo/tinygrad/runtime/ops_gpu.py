@@ -30,16 +30,22 @@ class CLBuffer(RawBufferCopyInOut):
   # TODO: this can be in RawBuffer generically
   BUFFER_CACHE : ClassVar[Dict[int, List[cl.Buffer]]] = defaultdict(list)
 
-  def __init__(self, size):
+  def __init__(self, size, cl_mem=None):
     self.size = size
-    if len(CLBuffer.BUFFER_CACHE[size]) > 0:
+    if cl_mem is not None:
+      self._cl = cl_mem
+      self.dont_cache = True
+    elif len(CLBuffer.BUFFER_CACHE[size]) > 0:
       self._cl = CLBuffer.BUFFER_CACHE[size].pop()
+      self.dont_cache = False
     else:
       # TODO: on GPU OOM, clear the cache
       self._cl = cl.Buffer(CL.cl_ctx, cl.mem_flags.READ_WRITE, size)
       GlobalCounters.mem_used += self._cl.size
+      self.dont_cache = False
 
   def __del__(self):
+    if getattr(self, 'dont_cache', False): return
     if CLCACHE: CLBuffer.BUFFER_CACHE[self._cl.size].append(self._cl)
     else: GlobalCounters.mem_used -= self._cl.size
 
