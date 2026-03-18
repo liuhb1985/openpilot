@@ -11,7 +11,10 @@ NetworkStrength = log.DeviceState.NetworkStrength
 # PC Webcam Configuration
 WEBCAM_W = int(os.getenv("WEBCAM_W", "1920"))
 WEBCAM_H = int(os.getenv("WEBCAM_H", "1080"))
-WEBCAM_FOCAL = int(os.getenv("WEBCAM_FOCAL", "2520")) # Default for many standard webcams
+WEBCAM_FOCAL = int(os.getenv("WEBCAM_FOCAL", "2520")) # Road camera
+WEBCAM_WIDE_FOCAL = int(os.getenv("WEBCAM_WIDE_FOCAL", "1150")) # Wide road camera
+WEBCAM_DEVICE = os.getenv("V4L2_DEVICE", "/dev/video0")
+WEBCAM_WIDE_DEVICE = os.getenv("V4L2_WIDE_DEVICE", "/dev/video1")
 
 class Pc(HardwareBase):
   def get_os_version(self):

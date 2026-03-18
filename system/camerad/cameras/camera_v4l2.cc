@@ -23,10 +23,24 @@ void CameraState::camera_open(MultiCameraState *multi_cam_state, int camera_num,
 
   // Try to find the webcam
   const char* video_dev = nullptr;
-  if (camera_num == 0) video_dev = "/dev/video0";
-  else if (camera_num == 1) video_dev = "/dev/video1";
-  else video_dev = "/dev/video2";
+  const char* v4l_dev_env = getenv("V4L2_DEVICE");
+  const char* v4l_wide_dev_env = getenv("V4L2_WIDE_DEVICE");
+  const char* v4l_driver_dev_env = getenv("V4L2_DRIVER_DEVICE");
 
+  if (camera_num == RoadCam) {
+    video_dev = v4l_dev_env ? v4l_dev_env : "/dev/video0";
+  } else if (camera_num == WideRoadCam) {
+    video_dev = v4l_wide_dev_env ? v4l_wide_dev_env : "/dev/video1";
+  } else if (camera_num == DriverCam) {
+    video_dev = v4l_driver_dev_env ? v4l_driver_dev_env : "/dev/video2";
+  }
+
+  if (video_dev == nullptr) {
+    this->enabled = false;
+    return;
+  }
+
+  printf("camera_open: opening %s for camera %d\n", video_dev, camera_num);
   v4l_fd.reset(open(video_dev, O_RDWR | O_NONBLOCK));
   if (v4l_fd < 0) {
     LOGE("failed to open %s: %s", video_dev, strerror(errno));
@@ -145,24 +159,29 @@ static void* v4l2_thread(MultiCameraState *s, CameraState *c) {
 
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
   s->road_cam.camera_init(v, RoadCam, 20, device_id, ctx, VisionStreamType::VISION_STREAM_ROAD);
+  s->wide_road_cam.camera_init(v, WideRoadCam, 20, device_id, ctx, VisionStreamType::VISION_STREAM_WIDE_ROAD);
   s->driver_cam.camera_init(v, DriverCam, 20, device_id, ctx, VisionStreamType::VISION_STREAM_DRIVER);
 }
 
 void cameras_open(MultiCameraState *s) {
-  s->road_cam.camera_open(s, 0, true);
-  s->driver_cam.camera_open(s, 1, false); // Default off
+  s->road_cam.camera_open(s, RoadCam, true);
+  s->wide_road_cam.camera_open(s, WideRoadCam, true);
+  s->driver_cam.camera_open(s, DriverCam, false); // Default off
 }
 
 void cameras_run(MultiCameraState *s) {
-  std::thread road_cam_thread, driver_cam_thread;
+  std::thread road_cam_thread, wide_road_cam_thread, driver_cam_thread;
   if (s->road_cam.enabled) road_cam_thread = std::thread(v4l2_thread, s, &s->road_cam);
+  if (s->wide_road_cam.enabled) wide_road_cam_thread = std::thread(v4l2_thread, s, &s->wide_road_cam);
   if (s->driver_cam.enabled) driver_cam_thread = std::thread(v4l2_thread, s, &s->driver_cam);
 
   if (road_cam_thread.joinable()) road_cam_thread.join();
+  if (wide_road_cam_thread.joinable()) wide_road_cam_thread.join();
   if (driver_cam_thread.joinable()) driver_cam_thread.join();
 }
 
 void cameras_close(MultiCameraState *s) {
   s->road_cam.camera_close();
+  s->wide_road_cam.camera_close();
   s->driver_cam.camera_close();
 }

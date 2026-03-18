@@ -65,10 +65,11 @@ calib_from_sbigmodel = np.linalg.inv(sbigmodel_frame_from_calib_frame[:, :3])
 # This function is verified to give similar results to xx.uncommon.utils.transform_img
 def get_warp_matrix(device_from_calib_euler: np.ndarray, wide_camera: bool = False, bigmodel_frame: bool = False, tici: bool = True, pc_webcam: bool = False) -> np.ndarray:
   if pc_webcam:
-    from openpilot.system.hardware.pc.hardware import WEBCAM_W, WEBCAM_H, WEBCAM_FOCAL
+    from openpilot.system.hardware.pc.hardware import WEBCAM_W, WEBCAM_H, WEBCAM_FOCAL, WEBCAM_WIDE_FOCAL
+    focal = WEBCAM_WIDE_FOCAL if wide_camera else WEBCAM_FOCAL
     cam_intrinsics = np.array([
-      [float(WEBCAM_FOCAL),  0.0,  float(WEBCAM_W)/2],
-      [0.0,  float(WEBCAM_FOCAL),  float(WEBCAM_H)/2],
+      [float(focal),  0.0,  float(WEBCAM_W)/2],
+      [0.0,  float(focal),  float(WEBCAM_H)/2],
       [0.0,  0.0,                                1.0]])
   elif tici and wide_camera:
     cam_intrinsics = tici_ecam_intrinsics
