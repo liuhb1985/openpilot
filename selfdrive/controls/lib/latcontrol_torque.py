@@ -27,8 +27,8 @@ from openpilot.common.params import Params
 # move it at all, this is compensated for too.
 
 LOW_SPEED_X = [0, 10, 20, 30]
-LOW_SPEED_Y = [15, 13, 10, 5]
-LOW_SPEED_Y_NN = [12, 3, 1, 0]
+LOW_SPEED_Y = [7, 5, 3, 1]              # 大幅降低低速增益，防止摆动 (原值: [15, 13, 10, 5])
+LOW_SPEED_Y_NN = [6, 2, 1, 0]           # 同步降低 NN 补偿 (原值: [12, 3, 1, 0])
 
 LAT_PLAN_MIN_IDX = 5
 
