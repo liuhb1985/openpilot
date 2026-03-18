@@ -415,9 +415,10 @@ def main() -> None:
   for brand in brands:
     values_py = os.path.join(OPENPILOT_ROOT, "opendbc", "car", brand, "values.py")
     output_file = os.path.join(supported_path, f"SupportedCars_{brand}" if brand != "hyundai" else "SupportedCars")
-    if os.path.isfile(values_py):
+    # 优化：如果文件已存在则跳过生成，避免每次启动都执行 7 个 python 进程
+    if os.path.isfile(values_py) and not os.path.exists(output_file):
       os.system(f"python {values_py} > {output_file}")
-    else:
+    elif not os.path.isfile(values_py):
       print(f"WARNING: {values_py} not found, skipping.")
 
   if os.getenv("PREPAREONLY") is not None:

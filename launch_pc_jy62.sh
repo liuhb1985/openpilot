@@ -1,22 +1,24 @@
 #!/bin/bash
-# 重新加载 udev 规则并触发设备扫描
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-sudo chmod 777 /dev/bus/usb/*
+# 禁用脚本开头的冗余硬件刷新 (如果设备没变，sudo udevadm 会拖慢启动)
+# sudo udevadm control --reload-rules && sudo udevadm trigger
+# sudo chmod 777 /dev/bus/usb/* &>/dev/null
 
+export FINGERPRINT="HYUNDAI_SANTA_FE"
+export SKIP_FW_QUERY="1"
 export USE_NATIVE_LANE=1
+
+# 屏蔽无关后台进程以实现“秒开”
+BLOCK_PROCS="manage_athenad,uploader,statsd,logcatd,proclogd,deleter,loggerd,tombstoned"
+
 #sleep 1
 # 运行op
-#cd /home/$LOGNAME/openpilot &&
 cd /home/$LOGNAME/openpilot &&
-export FINGERPRINT="HYUNDAI_SANTA_FE" &&
-export SKIP_FW_QUERY="1" &&
 source .venv/bin/activate &&
 #USE_WEBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=1 system/manager/manager.py  #使用locationd_jy62
 #USE_USBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用locationd_jy62
 # 获取屏幕尺寸 (manager 启动前先算好)
-SCREEN_WIDTH=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f1)
-SCREEN_HEIGHT=$(xrandr | grep '*' | awk '{print $1}' | head -n1 | cut -d'x' -f2)
+SCREEN_WIDTH=$(xwininfo -root | grep 'Width:' | awk '{print $2}')
+SCREEN_HEIGHT=$(xwininfo -root | grep 'Height:' | awk '{print $2}')
 SCREEN_WIDTH=${SCREEN_WIDTH:-1920}
 SCREEN_HEIGHT=${SCREEN_HEIGHT:-1080}
 
@@ -54,30 +56,29 @@ robust_place() {
     local x=$3 y=$4 w=$5 h=$6
     (
         local wid=""
-        echo "[wait] Searching for window ($key / class: $class_key) ..."
+        # echo "[wait] Searching for window ($key / class: $class_key) ..."
 
-        for i in {1..80}; do
-            # 先尝试类名匹配 (最稳)
+        for i in {1..100}; do
+            # 缩短采样间隔，快速响应
             if [ -n "$class_key" ]; then
-                wid=$(xdotool search --class "$class_key" 2>/dev/null | tail -n1)
+                wid=$(xdotool search --onlyvisible --class "$class_key" 2>/dev/null | tail -n1)
             fi
-
-            # 再尝试标题匹配
             if [ -z "$wid" ]; then
-                wid=$(xdotool search --name "$key" 2>/dev/null | tail -n1)
+                wid=$(xdotool search --onlyvisible --name "$key" 2>/dev/null | tail -n1)
             fi
 
             if [ -n "$wid" ]; then
-                echo "[info] OK: Found window '$key' (WID: $wid), stacking..."
-                for j in {1..40}; do
+                # echo "[info] Found window '$key', positioning..."
+                # 连续锁定次数减少到 15 次 (约 3 秒)，足以让窗口稳定
+                for j in {1..15}; do
                     wmctrl -i -r "$wid" -b remove,maximized_vert,maximized_horz 2>/dev/null
                     xdotool windowmove "$wid" $x $y
                     xdotool windowsize "$wid" $w $h
-                    sleep 0.5
+                    sleep 0.2
                 done
                 return
             fi
-            sleep 0.5
+            sleep 0.1
         done
 
         echo "[error] TIMEOUT: Could not find '$key' or class '$class_key'"
@@ -86,13 +87,13 @@ robust_place() {
     ) &
 }
 
-# 监控 openpilot UI (类名是 ui)
+# 监控 openpilot UI
 robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 
 # 监控摄像头窗口 (现在已通过 CAM_X/Y 变量由进程内部自定位，脚本无需再找)
 # robust_place "BS_VIEW" "OpenPILOT_BS_VIEW" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
 
-# 在前台启动 manager
-USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 system/manager/manager.py
+# 在前台启动 manager (开启精简模式)
+USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 BLOCK=$BLOCK_PROCS system/manager/manager.py
 
 # 等待监控任务完成
