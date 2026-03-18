@@ -20,6 +20,8 @@ class TinygradModel:
 
   def setInputBuffer(self, name, buffer):
     # For zero-copy, we expect a cl_mem or VisionBuf here if name is an image input
+    if buffer is None:
+      return
     if hasattr(buffer, 'cl_mem'): # VisionBuf
       self.thneed.set_input_cl(name, buffer.cl_mem)
     elif isinstance(buffer, cl.MemoryObject):
