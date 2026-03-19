@@ -68,6 +68,7 @@ class LanePlanner:
     self.lane_width_left_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
     self.lane_width_right_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
     self.lane_offset_filtered = FirstOrderFilter(0.0, 2.0, DT_MDL)
+    self.lane_offset_lead_filtered = FirstOrderFilter(0.0, 1.0, DT_MDL)
 
     self.lanefull_mode = False
     self.d_prob_count = 0
@@ -102,7 +103,7 @@ class LanePlanner:
       self.l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
       self.r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
 
-  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed):
+  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed, radarState=None):
     #if v_ego > 0.1:
     #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
     # Reduce reliance on lanelines that are too far apart or
@@ -208,10 +209,24 @@ class LanePlanner:
       diff_center = 0.0
     #print("center = {:.2f}={:.2f}-{:.2f}, lanefull={}".format(diff_center, lane_path_y_center, path_xyz_y_center, self.lanefull_mode))
     #diff_center = lane_path_y[5] - path_xyz[:,1][5] if not self.lanefull_mode else 0.0
+    self.offset_lead = 0.0
+    if radarState is not None and radarState.leadOne.status:
+      lead = radarState.leadOne
+      # 前车避让避让逻辑 (Lead avoidance nudge)
+      # 距离在 40m 内，且前车横向偏离中心小于 1.4m (Lead within 40m, lateral offset < 1.4m)
+      if 2.0 < lead.dRel < 40.0 and abs(lead.yRel) < 1.4:
+        # 根据前车横向位置，产生反向偏移 (Nudge in opposite direction of lead)
+        self.offset_lead = np.interp(abs(lead.yRel), [0.0, 1.4], [0.5, 0.0]) * -np.sign(lead.yRel)
+        # 距离因子：5-30m 效果最明显 (Dist factor: most effective between 5-30m)
+        dist_factor = np.interp(lead.dRel, [2, 5, 30, 40], [0.0, 1.0, 1.0, 0.0])
+        self.offset_lead *= dist_factor
+    
+    self.lane_offset_lead_filtered.update(self.offset_lead)
+
     if offset_curve * offset_lane < 0:
-      offset_total = np.clip(offset_curve + offset_lane + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+      offset_total = np.clip(offset_curve + offset_lane + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
     else:
-      offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+      offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
 
     ## self.d_prob = 0 if lane_changing
     self.d_prob *= self.lane_change_multiplier  ## 变更车道期间关闭.

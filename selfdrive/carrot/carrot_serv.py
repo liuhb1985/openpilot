@@ -1543,13 +1543,17 @@ class CarrotServ:
       return
 
     v_ego_kph = v_ego * 3.6
-    if v_ego_kph < 60: # 仅在高速场景（>60km/h）
+    # 低速避让阈值优化: 非高速路段允许更低速度触发
+    min_v_ego = 20 if self.roadcate > 1 else 60
+    min_v_cruise = 30 if self.roadcate > 1 else 70
+
+    if v_ego_kph < min_v_ego:
       self.overtake_wait_count = 0
       return
 
     # 获取巡航速度
     v_cruise_kph = sm['carState'].vCruise
-    if v_cruise_kph < 70: # 如果定速太低，也不触发自动超车
+    if v_cruise_kph < min_v_cruise:
       self.overtake_wait_count = 0
       return
 
@@ -1582,8 +1586,12 @@ class CarrotServ:
       return
 
     # 动态触发阈值 (Dynamic Threshold)
-    # 根据自车速度决定所需的速度差：越快所需的百分比差异可以越小
-    needed_diff = np.interp(v_ego_kph, [60, 100, 120], [self.autoOvertakeSpeedDiff, self.autoOvertakeSpeedDiff * 0.8, self.autoOvertakeSpeedDiff * 0.6])
+    # 根据自车速度决定所需的速度差
+    needed_diff = np.interp(v_ego_kph, [20, 60, 100, 120], [5.0, self.autoOvertakeSpeedDiff, self.autoOvertakeSpeedDiff * 0.8, self.autoOvertakeSpeedDiff * 0.6])
+
+    # 动态等待时间优化: 相对速度越大，等待时间越短
+    v_rel_kph = v_ego_kph - v_lead_kph
+    dynamic_wait_time = np.interp(v_rel_kph, [5, 20, 40], [5.0, 2.5, 1.0])
 
     # 触发条件检查
     if v_lead_kph < v_cruise_kph - needed_diff and d_lead < 100:
@@ -1592,8 +1600,8 @@ class CarrotServ:
       self.overtake_wait_count = 0
       return
 
-    # 持续检测 (DT_NAV 为 0.1s, 5s 即 50次)
-    if self.overtake_wait_count < int(5.0 / DT_NAV):
+    # 持续检测
+    if self.overtake_wait_count < int(dynamic_wait_time / DT_NAV):
       return
 
     # 避开即将到来的导航转向/分叉 (500米内)

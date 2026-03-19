@@ -73,6 +73,7 @@ class LateralPlanner:
     self.curve_speed = 0
     self.lanemode_possible_count = 0
     self.laneless_only = True
+    self.lane_change_multiplier_filter = FirstOrderFilter(1.0, 0.5, DT_MDL)
 
   def reset_mpc(self, x0=None):
     if x0 is None:
@@ -133,17 +134,17 @@ class LateralPlanner:
     # Turn off lanes during lane change
     #if self.DH.desire == log.Desire.laneChangeRight or self.DH.desire == log.Desire.laneChangeLeft:
 
-    if md.meta.desire != log.Desire.none or carrot.atc_active:
-      self.LP.lane_change_multiplier = 0.0 #md.meta.laneChangeProb
-    else:
-      self.LP.lane_change_multiplier = 1.0
+    # 变道过程中的平滑过渡 (Smooth transition during lane change)
+    target_multiplier = 0.0 if (md.meta.desire != log.Desire.none or carrot.atc_active) else 1.0
+    self.lane_change_multiplier_filter.update(target_multiplier)
+    self.LP.lane_change_multiplier = self.lane_change_multiplier_filter.x
 
     # lanelines calculation?
     self.LP.lanefull_mode = self.useLaneLineMode
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
     self.LP.curvature = measured_curvature
-    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed)
+    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed, sm['radarState'])
 
     #if self.LP.lanefull_mode:
     #  self.plan_yaw, self.plan_yaw_rate = self.LP.calculate_plan_yaw_and_yaw_rate(self.path_xyz)

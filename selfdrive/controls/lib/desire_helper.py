@@ -1000,7 +1000,8 @@ class DesireHelper:
             print(f"---[{time.strftime('%H:%M:%S')}]Pre:ext_blinker prepare state:{blinker_val_pre},driver_desire_enabled={driver_desire_enabled},"
                   f"stockBlinkerCtrl={self.stockBlinkerCtrl},turn_cnt={self.atc_turn_cnt},carrot_blinker_state={self.carrot_blinker_state}")
           #此处根据条件决定是否进入开始变道或转弯的流程，lane_change_available为真时表示旁边车道或者路沿的宽度稳定大于2.5米
-          if lane_change_available and self.lane_change_delay == 0: #允许变道并且没有延时时间要求
+          # 如果用户施加了扭矩，则忽略延迟立即开始 (If torque applied, ignore delay and start immediately)
+          if lane_change_available and (self.lane_change_delay == 0 or torque_applied): 
             self.lane_change_delay_start = False
             if (self.blindspot_detected_counter > 0 or side_object_detected) and not ignore_bsd:  # 有盲区（包括后盲区，侧盲区，前盲区）
               if torque_applied and not block_lanechange_bsd: #没有设置有盲区轻方向盘不允许变道
@@ -1137,8 +1138,8 @@ class DesireHelper:
 
       # =============LaneChangeState.laneChangeStarting=============
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
-        # fade out over .5s
-        self.lane_change_ll_prob = max(self.lane_change_ll_prob - 2 * DT_MDL, 0.0)
+        # fade out over 1.25s (Slowed down from 0.5s for smoothness)
+        self.lane_change_ll_prob = max(self.lane_change_ll_prob - 0.8 * DT_MDL, 0.0)
 
         # 98% certainty
         if lane_change_prob < 0.02 and self.lane_change_ll_prob < 0.01:
