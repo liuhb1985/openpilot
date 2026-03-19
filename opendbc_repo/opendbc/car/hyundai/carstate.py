@@ -160,7 +160,7 @@ class CarState(CarStateBase):
 
     self.cp_bsm = None
     self.time_zone = "UTC"
-    
+
     self.controls_ready_count = 0
 
     #ESCC
@@ -417,6 +417,7 @@ class CarState(CarStateBase):
 
     if prev_main_buttons == 0 and self.main_buttons[-1] != 0:
       self.main_enabled = not self.main_enabled
+    print(f"Car IMU (Standard) - YawRate: {ret.yawRate:.4f}, WheelSpeeds: {ret.wheelSpeeds.fl:.2f}, {ret.wheelSpeeds.fr:.2f}")
 
     return ret
 
@@ -682,6 +683,7 @@ class CarState(CarStateBase):
       ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
     if 0x140 in cp.vl:
       ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
+    print(f"Car IMU (CAN FD) - YawRate: {ret.yawRate:.4f}, LatAccel: {ret.lateralAcceleration:.4f}, LongAccel: {ret.longitudinalAcceleration:.4f}")
 
     return ret
 

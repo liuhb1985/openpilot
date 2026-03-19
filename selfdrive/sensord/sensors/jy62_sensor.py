@@ -148,6 +148,7 @@ class JY62Sensor:
 
         # 发布消息
         self.pm.send('accelerometer', dat)
+        print(f"JY62 Accel: {data['ax']:.4f}, {data['ay']:.4f}, {data['az']:.4f}")
 
       elif msg_type == 'gyroscope':
         # 创建陀螺仪消息
@@ -164,6 +165,7 @@ class JY62Sensor:
 
         # 发布消息
         self.pm.send('gyroscope', dat)
+        print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
 
       # 移除已处理的数据包
       buffer = buffer[11:]
