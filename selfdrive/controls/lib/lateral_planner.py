@@ -10,6 +10,7 @@ import cereal.messaging as messaging
 from cereal import log
 
 from openpilot.common.params import Params
+from openpilot.common.filter_simple import FirstOrderFilter
 #from openpilot.selfdrive.controls.lib.lane_planner import LanePlanner
 from openpilot.selfdrive.controls.lib.lane_planner_2 import LanePlanner
 from collections import deque
