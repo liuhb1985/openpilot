@@ -372,7 +372,7 @@ class Panda:
               if len(serial) == 24:
                 ret.append(serial)
               else:
-                logger.warning(f"found device with panda descriptors but invalid serial: {serial}", RuntimeWarning)
+                logger.warning(f"found device with panda descriptors but invalid serial: {serial}")
             except Exception:
               logger.exception("error connecting to panda")
     except Exception:
