@@ -837,8 +837,7 @@ void display_loop() {
                 cv::imwrite("/dev/shm/bsm_frame_tmp.jpg", combined, {cv::IMWRITE_JPEG_QUALITY, 70});
                 rename("/dev/shm/bsm_frame_tmp.jpg", "/dev/shm/bsm_frame.jpg"); // 原子替换
             }
-        }
-        else {
+            else {
                 for (int i = 0; i < shared_images.size(); ++i) {
                     if (shared_images[i].empty()) continue;
                     std::string window_name = "Camera " + std::to_string(i);
