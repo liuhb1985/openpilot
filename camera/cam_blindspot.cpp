@@ -75,11 +75,14 @@ std::vector<std::unique_ptr<std::condition_variable>> queue_conds(MAX_CAM);
 const int LOCAL_SEND_PORT = 4120;
 const int LOCAL_RECV_PORT = 4210;
 const int REMOTE_PORT = 4211;
+const int VIDEO_SEND_PORT = 4212; // 新增：视频流发送端口
 
 struct UDPComm {
     int recv_sock = -1;
     int send_sock = -1;
+    int video_sock = -1; // 新增：视频流 socket
     sockaddr_in remote_addr{};
+    sockaddr_in video_addr{};  // 新增：视频流地址
     string last_ip;
     int last_port = 0;
     steady_clock::time_point last_recv_time;
@@ -829,6 +832,13 @@ void display_loop() {
                     single_window_roi_ids[1] = g_current_roi_idx;
                     cv::setMouseCallback("OpenPILOT_BS_VIEW", mouse_callback, single_window_roi_ids.data());
                 }
+
+                    cv::setMouseCallback("OpenPILOT_BS_VIEW", mouse_callback, single_window_roi_ids.data());
+                }
+
+                // 直接保存到共享内存文件 (用于 UI 融合，性能更佳)
+                cv::imwrite("/dev/shm/bsm_frame_tmp.jpg", combined, {cv::IMWRITE_JPEG_QUALITY, 70});
+                rename("/dev/shm/bsm_frame_tmp.jpg", "/dev/shm/bsm_frame.jpg"); // 原子替换
             }
             else {
                 for (int i = 0; i < shared_images.size(); ++i) {
@@ -1098,6 +1108,15 @@ bool udp_comm_init(UDPComm &comm) {
     }
 
     comm.last_recv_time = steady_clock::now();
+
+    // 初始化视频流 socket
+    comm.video_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (comm.video_sock >= 0) {
+        comm.video_addr.sin_family = AF_INET;
+        comm.video_addr.sin_port = htons(VIDEO_SEND_PORT);
+        comm.video_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // 发送到本地 UI
+    }
+
     return true;
 }
 

@@ -17,6 +17,47 @@
 #include "selfdrive/ui/qt/maps/map_helpers.h"
 #include "selfdrive/ui/qt/maps/map_panel.h"
 #endif
+#include <QFile>
+#include <QFileInfo>
+
+BlindSpotWidget::BlindSpotWidget(QWidget* parent) : QWidget(parent) {
+  timer = new QTimer(this);
+  connect(timer, &QTimer::timeout, this, &BlindSpotWidget::updateImage);
+  timer->start(50); // 20Hz
+}
+
+void BlindSpotWidget::updateImage() {
+  if (isVisible()) {
+    QFileInfo check_file("/dev/shm/bsm_frame.jpg");
+    if (check_file.exists() && check_file.lastModified().toMSecsSinceEpoch() > last_frame_id) {
+       QFile file("/dev/shm/bsm_frame.jpg");
+       if (file.open(QIODevice::ReadOnly)) {
+         QByteArray data = file.readAll();
+         bsm_img.loadFromData(data, "JPG");
+         last_frame_id = check_file.lastModified().toMSecsSinceEpoch();
+         update();
+       }
+    }
+  }
+}
+
+void BlindSpotWidget::paintEvent(QPaintEvent* event) {
+  QPainter p(this);
+  p.setRenderHint(QPainter::Antialiasing);
+  
+  if (!bsm_img.isNull()) {
+    // 保持比例绘制或是直接填充
+    p.drawImage(rect(), bsm_img);
+  } else {
+    p.fillRect(rect(), QColor(30, 30, 30, 200));
+    p.setPen(Qt::white);
+    p.drawText(rect(), Qt::AlignCenter, "等待盲区监控画面...");
+  }
+  
+  // 绘制边框增强融合感
+  p.setPen(QPen(Qt::white, 2));
+  p.drawRect(rect().adjusted(1,1,-1,-1));
+}
 
 
 OnroadWindow::OnroadWindow(QWidget *parent) : QOpenGLWidget(parent) {
@@ -29,12 +70,15 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QOpenGLWidget(parent) {
   main_layout->addLayout(stacked_layout);
 
   nvg = new AnnotatedCameraWidget(VISION_STREAM_ROAD, this);
+  bsm_widget = new BlindSpotWidget(this);
+  bsm_widget->setVisible(false);
 
   QWidget * split_wrapper = new QWidget;
   split = new QHBoxLayout(split_wrapper);
   split->setContentsMargins(0, 0, 0, 0);
   split->setSpacing(0);
   split->addWidget(nvg);
+  split->insertWidget(0, bsm_widget);
 
   if (getenv("DUAL_CAMERA_VIEW")) {
     CameraWidget *arCam = new CameraWidget("camerad", VISION_STREAM_ROAD, this);
@@ -180,7 +224,34 @@ void OnroadWindow::updateState(const UIState &s) {
               map->setFixedWidth(topWidget(this)->width() - UI_BORDER_SIZE);
           }
           break;
+      case 5: // blindspot
+          if (map != nullptr) map->setVisible(false);
+          bsm_widget->setVisible(true);
+          bsm_widget->setFixedWidth(topWidget(this)->width() / 2 - UI_BORDER_SIZE);
+          break;
       }
+
+      // 自动切换逻辑优化：如果打转向灯且盲区检测到车辆，自动临时开启盲区显示
+      bool auto_bsm = false;
+      if (sm.alive("carrotMan") && sm.alive("carState")) {
+          const auto& carrot = sm["carrotMan"].getCarrotMan();
+          const auto& car_state = sm["carState"].getCarState();
+          bool left_blinker = car_state.getLeftBlinker();
+          bool right_blinker = car_state.getRightBlinker();
+          bool bsm_active = (carrot.getLeftBlind() & 1) || (carrot.getRightBlind() & 1); // 简单判断位 0
+
+          if ((left_blinker || right_blinker) && bsm_active) {
+              auto_bsm = true;
+          }
+      }
+
+      if (auto_bsm) {
+          bsm_widget->setVisible(true);
+          bsm_widget->setFixedWidth(topWidget(this)->width() / 2 - UI_BORDER_SIZE);
+      } else if (ss->scene._current_carrot_display != 5) {
+          bsm_widget->setVisible(false);
+      }
+
       ss->scene._current_carrot_display_prev = ss->scene._current_carrot_display;
   }
   
@@ -237,7 +308,7 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
     }
     
     UIState* s = uiState();
-    s->scene._current_carrot_display = (s->scene._current_carrot_display % 3) + 1;  // 4번: full map은 안보여줌.
+    s->scene._current_carrot_display = (s->scene._current_carrot_display % 5) + 1; // 增加到循环 5 (含盲区)
     printf("_current_carrot_display1=%d\n", s->scene._current_carrot_display);
     QWidget::mousePressEvent(e);
   }
