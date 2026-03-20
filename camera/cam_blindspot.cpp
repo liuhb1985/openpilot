@@ -833,14 +833,12 @@ void display_loop() {
                     cv::setMouseCallback("OpenPILOT_BS_VIEW", mouse_callback, single_window_roi_ids.data());
                 }
 
-                    cv::setMouseCallback("OpenPILOT_BS_VIEW", mouse_callback, single_window_roi_ids.data());
-                }
-
                 // 直接保存到共享内存文件 (用于 UI 融合，性能更佳)
                 cv::imwrite("/dev/shm/bsm_frame_tmp.jpg", combined, {cv::IMWRITE_JPEG_QUALITY, 70});
                 rename("/dev/shm/bsm_frame_tmp.jpg", "/dev/shm/bsm_frame.jpg"); // 原子替换
             }
-            else {
+        }
+        else {
                 for (int i = 0; i < shared_images.size(); ++i) {
                     if (shared_images[i].empty()) continue;
                     std::string window_name = "Camera " + std::to_string(i);

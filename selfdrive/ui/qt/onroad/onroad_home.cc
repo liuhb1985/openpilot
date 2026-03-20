@@ -235,7 +235,6 @@ void OnroadWindow::updateState(const UIState &s) {
       bool auto_bsm = false;
       if (sm.alive("carrotMan") && sm.alive("carState")) {
           const auto& carrot = sm["carrotMan"].getCarrotMan();
-          const auto& car_state = sm["carState"].getCarState();
           bool left_blinker = car_state.getLeftBlinker();
           bool right_blinker = car_state.getRightBlinker();
           bool bsm_active = (carrot.getLeftBlind() & 1) || (carrot.getRightBlind() & 1); // 简单判断位 0
