@@ -1,7 +1,10 @@
 import math
 import numpy as np
 from cereal import log
-from openpilot.common.filter_simple import FirstOrderFilter
+try:
+  from openpilot.common.filter_simple import FirstOrderFilter
+except ImportError:
+  from common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
 # from openpilot.common.swaglog import cloudlog
 # from openpilot.common.logger import sLogger
@@ -9,7 +12,7 @@ from openpilot.common.params import Params
 
 TRAJECTORY_SIZE = 33
 # positive numbers go right
-CAMERA_OFFSET = 0 #0.08
+CAMERA_OFFSET = 0.04 # Match lateral_planner.py
 MIN_LANE_DISTANCE = 2.6
 MAX_LANE_DISTANCE = 3.7
 MAX_LANE_CENTERING_AWAY = 1.85
@@ -165,17 +168,11 @@ class LanePlanner:
     ADJUST_OFFSET_LIMIT = 0.4 #max(self.adjustLaneOffset, self.adjustCurveOffset)
     offset_curve = 0.0
     ## curve offset
-    offset_curve = np.interp(abs(curve_speed), [50, 200], [self.adjustCurveOffset, 0.0]) * np.sign(curve_speed)
+    offset_curve = np.interp(abs(curve_speed), [40, 50, 200, 250], [0.0, self.adjustCurveOffset, 0.0, 0.0]) * np.sign(curve_speed)
 
-    offset_lane = 0.0
-    if self.lane_width_left_filtered.x > 2.2 and self.lane_width_right_filtered.x > 2.2: #两侧车道都有余量的情况
-      offset_lane = 0.0
-    elif self.lane_width_left_filtered.x < 2.0 and self.lane_width_right_filtered.x < 2.0: #两侧车道都没有余量的情况
-      offset_lane = 0.0
-    elif self.lane_width_left_filtered.x > self.lane_width_right_filtered.x:
-      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, self.adjustLaneOffset]) # 车道窄时不执行..
-    else:
-      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, -self.adjustLaneOffset]) # 车道窄时不执行..
+    diff_width = self.lane_width_left_filtered.x - self.lane_width_right_filtered.x
+    offset_lane = np.interp(diff_width, [-0.4, 0.4], [-self.adjustLaneOffset, self.adjustLaneOffset])
+    offset_lane *= np.interp(self.lane_width, [2.5, 2.9], [0.0, 1.0])
 
     #select lane path
     # 车道变窄时，优先沿道路边界一侧的车道行驶.
@@ -226,7 +223,7 @@ class LanePlanner:
     if offset_curve * offset_lane < 0:
       offset_total = np.clip(offset_curve + offset_lane + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
     else:
-      offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+      offset_total = np.clip(max_abs(offset_curve, offset_lane) + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
 
     ## self.d_prob = 0 if lane_changing
     self.d_prob *= self.lane_change_multiplier  ## 变更车道期间关闭.

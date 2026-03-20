@@ -8,7 +8,10 @@ import copy
 
 import capnp
 from cereal import messaging, log, car
-from openpilot.common.filter_simple import FirstOrderFilter
+try:
+  from openpilot.common.filter_simple import FirstOrderFilter
+except ImportError:
+  from common.filter_simple import FirstOrderFilter
 from openpilot.common.params import Params
 #from openpilot.selfdrive.carrot.config import UnifiedParams
 from openpilot.common.realtime import DT_MDL, Priority, config_realtime_process

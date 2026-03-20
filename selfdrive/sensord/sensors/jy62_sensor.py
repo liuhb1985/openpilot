@@ -139,7 +139,8 @@ class JY62Sensor:
         dat.accelerometer = {
           'timestamp': int(data['timestamp'] * 1e9),
           'source': log.SensorEventData.SensorSource.jy62,
-          'type': 1,
+          'sensor': 1, # SENSOR_ACCELEROMETER
+          'type': 1,   # SENSOR_TYPE_ACCELEROMETER
           'acceleration': {
             'v': [data['az'], data['ay'], -data['ax']],
             'status': 0
@@ -156,7 +157,8 @@ class JY62Sensor:
         dat.gyroscope = {
           'timestamp': int(data['timestamp'] * 1e9),
           'source': log.SensorEventData.SensorSource.jy62,
-          'type': 2,
+          'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
+          'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
           'gyroUncalibrated': {
             'v': [data['wz'], data['wy'], -data['wx']],
             'status': 0

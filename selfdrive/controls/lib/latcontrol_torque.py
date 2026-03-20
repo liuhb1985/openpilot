@@ -4,7 +4,10 @@ import math
 import numpy as np
 
 from cereal import log
-from openpilot.common.filter_simple import FirstOrderFilter
+try:
+  from openpilot.common.filter_simple import FirstOrderFilter
+except ImportError:
+  from common.filter_simple import FirstOrderFilter
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
 

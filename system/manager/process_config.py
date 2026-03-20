@@ -104,7 +104,8 @@ procs = [
   #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
   NativeProcess("sensord", "system/sensord", ["./sensord"], only_onroad, enabled=not PC),
   #使用支持jy62的sendord时开启同时打开sensord_jy62,屏蔽带有jy62参数的locationd进程，不然会串口占用冲突
-  NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=(PC and JY62==1)),
+  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", enabled=(PC and JY62==1), only_onroad=True),
+  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=(PC and JY62==0)),
   NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=(JY62!=2)),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
