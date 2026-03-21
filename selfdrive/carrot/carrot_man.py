@@ -815,7 +815,8 @@ class CarrotMan:
       if self.show_panda_debug:
         self.show_panda_debug = False
         try:
-          subprocess.run("/data/openpilot/selfdrive/debug/debug_console_carrot.py", shell=True)
+          ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+          subprocess.run(os.path.join(ROOT, "selfdrive/debug/debug_console_carrot.py"), shell=True)
         except Exception as e:
           print(f"debug_console error: {e}")
           time.sleep(2)

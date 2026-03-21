@@ -9,7 +9,7 @@
 #define CAM_HEIGHT 1080//1944//1080
 #define CAM_FPS 20
 
-const char *PATH_VIDEOS = "/home/op/videos/"; // Save record videos.
+const char *PATH_VIDEOS = "./videos/"; // Save record videos.
 
 int mac();
 
