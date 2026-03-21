@@ -417,7 +417,11 @@ class CarState(CarStateBase):
 
     if prev_main_buttons == 0 and self.main_buttons[-1] != 0:
       self.main_enabled = not self.main_enabled
-    #print(f"Car IMU (Standard) - YawRate: {ret.yawRate:.4f}, WheelSpeeds: {ret.wheelSpeeds.fl:.2f}, {ret.wheelSpeeds.fr:.2f}")
+    if "YRS11" in cp.vl:
+      ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
+      ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+    if "YRS12" in cp.vl:
+      ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
 
     return ret
 
