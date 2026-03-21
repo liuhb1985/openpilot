@@ -259,7 +259,7 @@ void Localizer::handle_sensor(double current_time, const cereal::SensorEventData
     auto v = log.getGyroUncalibrated().getV();
     auto meas = Vector3d(-v[2], -v[1], -v[0]);
 
-    if((0 == (this->gyro_data_cnt % 10)) && (this->gyro_data_cnt < 1000)){
+    if((0 == (this->gyro_data_cnt % 20)) && (current_time - this->first_valid_log_time < 120.0)){
       printf("[%u]Gyro: v[0]=%.3f,v[1]=%.3f,v[2]=%.3f\n", this->gyro_data_cnt,v[0],v[1],v[2]);
     }
     this->gyro_data_cnt++;
@@ -286,7 +286,7 @@ void Localizer::handle_sensor(double current_time, const cereal::SensorEventData
     // 40m/s**2 is a good filter for falling detection, no false positives in 20k minutes of driving
     // this->device_fell |= (floatlist2vector(v) - Vector3d(10.0, 0.0, 0.0)).norm() > 40.0;
 
-    if((0 == (this->accel_data_cnt % 10)) && (this->accel_data_cnt < 1000)){
+    if((0 == (this->accel_data_cnt % 20)) && (current_time - this->first_valid_log_time < 120.0)){
       printf("[%u]Accel: v[0]=%.3f,v[1]=%.3f,v[2]=%.3f\n", this->accel_data_cnt,v[0],v[1],v[2]);
     }
     this->accel_data_cnt++;

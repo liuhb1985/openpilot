@@ -755,9 +755,13 @@ class CarrotMan:
 
   def make_tmux_data(self):
     try:
-      subprocess.run("rm /data/media/tmux.log; tmux capture-pane -pq -S-1000 > /data/media/tmux.log", shell=True, capture_output=True, text=False)
-      subprocess.run("/data/openpilot/selfdrive/apilot.py", shell=True, capture_output=True, text=False)
+      # Use a portable path for tmux.log
+      log_path = os.path.expanduser("~/.comma/carrot_tmux.log")
+      os.makedirs(os.path.dirname(log_path), exist_ok=True)
+      subprocess.run(f"rm {log_path}; tmux capture-pane -pq -S-1000 > {log_path}", shell=True, capture_output=True, text=False)
+      #subprocess.run("/data/openpilot/selfdrive/apilot.py", shell=True, capture_output=True, text=False)
     except Exception as e:
+      print(f"TMUX creation error: {e}")
       print(f"TMUX creation error: {e}")
       return
 
@@ -789,11 +793,13 @@ class CarrotMan:
     try:
       ftp.mkd(directory)
     except Exception as e:
-      print(f"Directory creation failed: {e}")
+      if "File exists" not in str(e) and "550" not in str(e):
+        print(f"Directory creation failed: {e}")
     ftp.cwd(directory)
 
     try:
-      with open("/data/media/tmux.log", "rb") as file:
+      log_path = os.path.expanduser("~/.comma/carrot_tmux.log")
+      with open(log_path, "rb") as file:
         ftp.storbinary(f'STOR {filename}', file)
     except Exception as e:
       print(f"ftp sending error...: {e}")
@@ -802,7 +808,8 @@ class CarrotMan:
       self.save_toggle_values()
       try:
         #with open("/data/backup_params.json", "rb") as file:
-        with open("/data/toggle_values.json", "rb") as file:
+        toggle_path = os.path.expanduser("~/.comma/carrot_toggle_values.json")
+        with open(toggle_path, "rb") as file:
           ftp.storbinary(f'STOR toggles-{current_time}.json', file)
       except Exception as e:
         print(f"ftp params sending error...: {e}")
@@ -828,7 +835,8 @@ class CarrotMan:
       import openpilot.selfdrive.frogpilot.fleetmanager.helpers as fleet
 
       toggle_values = fleet.get_all_toggle_values()
-      file_path = os.path.join('/data', 'toggle_values.json')
+      file_path = os.path.expanduser("~/.comma/carrot_toggle_values.json")
+      os.makedirs(os.path.dirname(file_path), exist_ok=True)
       with open(file_path, 'w') as file:
         json.dump(toggle_values, file, indent=2)
     except Exception as e:
