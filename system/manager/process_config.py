@@ -104,7 +104,7 @@ procs = [
   #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
   NativeProcess("sensord", "system/sensord", ["./sensord"], only_onroad, enabled=not PC),
   #使用支持jy62的sendord时开启同时打开sensord_jy62,屏蔽带有jy62参数的locationd进程，不然会串口占用冲突
-  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", enabled=(PC and JY62==1), only_onroad=True),
+  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", only_onroad, enabled=(PC and JY62==1)),
   PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=(PC and JY62==0)),
   NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=(JY62!=2)),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
@@ -140,7 +140,7 @@ procs = [
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
-  NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
+  NativeProcess("cam_blindspot", "camera", ["env", "LD_LIBRARY_PATH=../third_party/onnxruntime/lib", "./cam_blindspot"], always_run, enabled=PC),
   PythonProcess("webrtcd", "system.webrtc.webrtcd", notcar),
   PythonProcess("webjoystick", "tools.bodyteleop.web", notcar),
   PythonProcess("joystick", "tools.joystick.joystick_control", and_(joystick, iscar)),

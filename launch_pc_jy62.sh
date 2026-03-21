@@ -8,7 +8,7 @@ export SKIP_FW_QUERY="1"
 export USE_NATIVE_LANE=1
 
 # 屏蔽无关后台进程以实现“秒开”
-BLOCK_PROCS="manage_athenad,uploader,statsd,logcatd,proclogd,deleter,loggerd,tombstoned"
+BLOCK_PROCS="manage_athenad,uploader,statsd,logcatd,proclogd,deleter,loggerd,tombstoned,bootlog"
 
 #sleep 1
 # 运行op

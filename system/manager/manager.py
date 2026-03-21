@@ -255,7 +255,8 @@ def get_default_params_key():
   return all_keys
 
 def manager_init() -> None:
-  save_bootlog()
+  if "bootlog" not in os.getenv("BLOCK", "").split(","):
+    save_bootlog()
 
   build_metadata = get_build_metadata()
 
