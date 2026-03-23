@@ -130,7 +130,7 @@ def create_lfahda_mfc(packer, CC, blinking_signal):
     "HDA_Icon_State": hda_icon,
     "HDA_VSetReq": 0, #set_speed_in_units if activeCarrot >= 2 else 0,
     "HDA_USM" : 2,
-    "HDA_Icon_Wheel" : 1 if CC.latActive else 0,
+    "HDA_Icon_Wheel" : 1 if CC.latActive and hda_active == 1 else 0,
     #"HDA_Chime" : 1 if CC.latActive else 0, # comment for K9 chime,
     "HDA_SysWarning": 0,
   }

@@ -1047,7 +1047,7 @@ class CarrotMan:
     return self.vturn_speed(sm['carState'], sm)
 
   def vturn_speed(self, CS, sm):
-    TARGET_LAT_A = 1.2  # m/s^2 (Reduced from 1.5 to prevent wide turns and ensure safer deceleration)
+    TARGET_LAT_A = 1.0  # m/s^2 (Reduced from 1.2 to prevent wide turns and ensure safer deceleration)
 
     modelData = sm['modelV2']
     v_ego = max(CS.vEgo, 0.1)
