@@ -16,6 +16,10 @@ int main(int argc, char *argv[]) {
 
   QTranslator translator;
   QString translation_file = QString::fromStdString(Params().get("LanguageSetting"));
+  if (translation_file.isEmpty()) {
+    translation_file = "main_zh-CHS";
+  }
+
   if (!translator.load(QString(":/%1").arg(translation_file)) && translation_file.length()) {
     qCritical() << "Failed to load translation file:" << translation_file;
   }

@@ -42,7 +42,7 @@ NetworkType = log.DeviceState.NetworkType
 #V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./15.]
 #V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 45, 35, 30]
 V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./25.]
-V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 40, 15, 5]
+V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 55, 35, 12, 10, 5]
 
 # Haversine formula to calculate distance between two GPS coordinates
 #haversine_cache = {}
@@ -1047,7 +1047,7 @@ class CarrotMan:
     return self.vturn_speed(sm['carState'], sm)
 
   def vturn_speed(self, CS, sm):
-    TARGET_LAT_A = 1.5  # m/s^2 (Reduced from 1.9 to prevent wide turns and ensure safer deceleration)
+    TARGET_LAT_A = 1.2  # m/s^2 (Reduced from 1.5 to prevent wide turns and ensure safer deceleration)
 
     modelData = sm['modelV2']
     v_ego = max(CS.vEgo, 0.1)

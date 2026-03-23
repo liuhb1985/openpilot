@@ -431,53 +431,53 @@ protected:
             data[0] = a_ego;
             data[1] = accel;
             data[2] = accel_out;
-            sprintf(title, "1.Accel (Y:a_ego, G:a_target, O:a_out)");
+            sprintf(title, "1.加速度 (黄:车速, 绿:目标, 橙:输出)");
             break;
         case 2:
             data[0] = speeds_0;
             data[1] = v_ego;
             data[2] = a_ego;
-            sprintf(title, "2.Speed/Accel(Y:speed_0, G:v_ego, O:a_ego)");
+            sprintf(title, "2.速度/加速度 (黄:计划, 绿:车速, 橙:加速度)");
             break;
         case 3:
             data[0] = position.getX()[32];
             data[1] = velocity.getX()[32];
             data[2] = velocity.getX()[0];
-            sprintf(title, "3.Model(Y:pos_32, G:vel_32, O:vel_0)");
+            sprintf(title, "3.模型 (黄:位置32, 绿:速度32, 橙:当前速)");
 			      break;
         case 4:
             data[0] = accel;
             data[1] = lead_radar.getALeadK();
             data[2] = lead_radar.getVRel();
-            sprintf(title, "4.Lead(Y:accel, G:a_lead, O:v_rel)");
+            sprintf(title, "4.前车 (黄:加速度, 绿:前加速度, 橙:相对速)");
             break;
         case 5:
             data[0] = a_ego;
             data[1] = lead_radar.getALead();
             data[2] = lead_radar.getJLead();
-            sprintf(title, "5.Lead(Y:a_ego, G:a_lead, O:j_lead)");
+            sprintf(title, "5.前车 (黄:加速度, 绿:前加速度, 橙:加加速度)");
             break;
         case 6:
             data[0] = torque_state.getActualLateralAccel() * 10.0;
             data[1] = torque_state.getDesiredLateralAccel() * 10.0;
             data[2] = torque_state.getOutput() * 10.0;
-            sprintf(title, "6.Steer(Y:actual, G:desire, O:output)");
+            sprintf(title, "6.转向 (黄:实际, 绿:预期, 橙:输出)");
             break;
         case 7:
             data[0] = car_state.getSteeringAngleDeg();
             data[1] = car_control.getActuators().getSteeringAngleDeg();
             data[2] = live_params.getAngleOffsetDeg() * 10.0;
-            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset*10)");
+            sprintf(title, "7.转向角 (黄:实际, 绿:目标, 橙:偏置*10)");
             break;
         case 8:
             data[0] = car_control.getActuators().getCurvature()*10000;
             data[1] = car_control.getActuators().getCurvature()*10000;
             data[2] = car_control.getActuators().getCurvature()*10000;
-            sprintf(title, "8.SteerA (Y:Actual, G:Target, O:Offset*10)");
+            sprintf(title, "8.曲率 (黄:实际, 绿:目标, 橙:偏置*10)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
-            sprintf(title, "no data");
+            sprintf(title, "无数据");
             break;
         }
         if (show_plot_mode != show_plot_mode_prev) {
@@ -815,7 +815,7 @@ public:
         bool draw_dist = false;
         float disp_size = 50;
         if (softHoldActive || brakeHoldActive || carrotCruise) {
-            sprintf(str, "%s", (brakeHoldActive) ? "AUTOHOLD" : (softHoldActive) ? "SOFTHOLD": "CARROT");
+            sprintf(str, "%s", (brakeHoldActive) ? "自动驻车" : (softHoldActive) ? "待机驻车": "乐萝卜");
             ui_draw_text(s, x, disp_y, str, disp_size, COLOR_WHITE, BOLD);
         }
         else if (longActive) {
@@ -1199,13 +1199,12 @@ protected:
             if (xSpdDist > 0) {
 
                 if (s->scene.is_metric) {
-                    if (xSpdDist < 1000) sprintf(str, "%d m", xSpdDist);
-                    else  sprintf(str, "%.1f km", xSpdDist / 1000.f);
+                    if (xSpdDist < 1000) sprintf(str, "%d 米", xSpdDist);
+                    else  sprintf(str, "%.1f 公里", xSpdDist / 1000.f);
                 }
                 else {
-                    // 1 미터 = 3.28084 피트로 계산
-                    if (xSpdDist < 1609) sprintf(str, "%d ft", (int)(xSpdDist * 3.28084)); // 1609m(1마일)보다 작으면 피트로 표시
-                    else sprintf(str, "%.1f mi", xSpdDist / 1609.34f); // 1609m 이상이면 마일로 표시
+                    if (xSpdDist < 1609) sprintf(str, "%d 英尺", (int)(xSpdDist * 3.28084)); 
+                    else sprintf(str, "%.1f 英里", xSpdDist / 1609.34f); 
                 }
                 ui_draw_text(s, bx, by + 120 * scale, str, 40 * scale, COLOR_WHITE, BOLD);
             }
@@ -1281,7 +1280,7 @@ protected:
             case 3: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_lane_change_l", 1.0f); break;
             case 4: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_lane_change_r", 1.0f); break;
             case 7: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_turn_u", 1.0f); break;
-            case 6: ui_draw_text(s, bx, by + 20, "TG", 35, COLOR_WHITE, BOLD); break;
+            case 6: ui_draw_text(s, bx, by + 20, "收费站", 35, COLOR_WHITE, BOLD); break;
             case 8: ui_draw_text(s, bx, by + 20, "目的地", 35, COLOR_WHITE, BOLD); break;
             default:
                 sprintf(str, "减速:%d", xTurnInfo);
@@ -1289,12 +1288,12 @@ protected:
                 break;
             }
             if (s->scene.is_metric) {
-              if (xDistToTurn < 1000) sprintf(str, "%d m", xDistToTurn);
-              else  sprintf(str, "%.1f km", xDistToTurn / 1000.f);
+              if (xDistToTurn < 1000) sprintf(str, "%d 米", xDistToTurn);
+              else  sprintf(str, "%.1f 公里", xDistToTurn / 1000.f);
             }
             else {
-              if (xDistToTurn < 1609) sprintf(str, "%d ft", (int)(xDistToTurn * 3.28084));
-              else sprintf(str, "%.1f mi", xDistToTurn / 1609.344f);
+              if (xDistToTurn < 1609) sprintf(str, "%d 英尺", (int)(xDistToTurn * 3.28084));
+              else sprintf(str, "%.1f 英里", xDistToTurn / 1609.344f);
             }
             ui_draw_text(s, bx, by + 120, str, 40, COLOR_WHITE, BOLD);
         }
@@ -1319,9 +1318,9 @@ protected:
             int remaining_minutes = (int)nGoPosTime / 60;
             local->tm_min += remaining_minutes;
             mktime(local);
-            sprintf(str, "到达: %.1f分(%02d:%02d)", (float)nGoPosTime / 60., local->tm_hour, local->tm_min);
+            sprintf(str, "到达时间: %.1f分(%02d:%02d)", (float)nGoPosTime / 60., local->tm_hour, local->tm_min);
             ui_draw_text(s, tbt_x + 190, tbt_y + 80, str, 50, COLOR_WHITE, BOLD);
-            sprintf(str, "%.1f%s", nGoPosDist / 1000. * ((s->scene.is_metric)?1:KM_TO_MILE), (s->scene.is_metric) ? "km" : "mile");
+            sprintf(str, "%.1f%s", nGoPosDist / 1000. * ((s->scene.is_metric)?1:KM_TO_MILE), (s->scene.is_metric) ? "公里" : "英里");
             ui_draw_text(s, tbt_x + 190 + 120, tbt_y + 130, str, 50, COLOR_WHITE, BOLD);
         }
         return 0;
@@ -2054,7 +2053,7 @@ public:
         if (!make_data(s)) return;
         int temp = (int)car_state.getUseLaneLineSpeed();
         if (temp != use_lane_line_speed_apply) {
-            ui_draw_text_a(s, 0, 0, (temp>0)?"LaneMode":"Laneless", 30, (temp>0)?COLOR_GREEN:COLOR_YELLOW, BOLD);
+            ui_draw_text_a(s, 0, 0, (temp>0)?"车道线模式":"无车道线模式", 30, (temp>0)?COLOR_GREEN:COLOR_YELLOW, BOLD);
             use_lane_line_speed_apply = temp;
         }
         static bool forward = true;

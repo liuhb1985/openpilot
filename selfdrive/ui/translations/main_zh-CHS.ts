@@ -91,35 +91,35 @@
     <name>CarrotPanel</name>
     <message>
         <source>开始</source>
-        <translation type="unfinished"></translation>
+        <translation>开始</translation>
     </message>
     <message>
         <source>巡航</source>
-        <translation type="unfinished"></translation>
+        <translation>巡航</translation>
     </message>
     <message>
         <source>导航</source>
-        <translation type="unfinished"></translation>
+        <translation>导航</translation>
     </message>
     <message>
         <source>速度</source>
-        <translation type="unfinished"></translation>
+        <translation>速度</translation>
     </message>
     <message>
         <source>调节</source>
-        <translation type="unfinished"></translation>
+        <translation>调节</translation>
     </message>
     <message>
         <source>显示</source>
-        <translation type="unfinished"></translation>
+        <translation>显示</translation>
     </message>
     <message>
         <source>轨迹</source>
-        <translation type="unfinished"></translation>
+        <translation>轨迹</translation>
     </message>
     <message>
         <source>选择您的车辆</source>
-        <translation type="unfinished"></translation>
+        <translation>选择您的车辆</translation>
     </message>
 </context>
 <context>
@@ -152,27 +152,27 @@
     <name>DestinationWidget</name>
     <message>
         <source>Home</source>
-        <translation type="unfinished"></translation>
+        <translation>家</translation>
     </message>
     <message>
         <source>Work</source>
-        <translation type="unfinished"></translation>
+        <translation>公司</translation>
     </message>
     <message>
         <source>No destination set</source>
-        <translation type="unfinished"></translation>
+        <translation>未设置目的地</translation>
     </message>
     <message>
         <source>home</source>
-        <translation type="unfinished"></translation>
+        <translation>家</translation>
     </message>
     <message>
         <source>work</source>
-        <translation type="unfinished"></translation>
+        <translation>公司</translation>
     </message>
     <message>
         <source>No %1 location set</source>
-        <translation type="unfinished"></translation>
+        <translation>未设置 %1 位置</translation>
     </message>
 </context>
 <context>
@@ -838,7 +838,7 @@ Firehose Mode allows you to maximize your training data uploads to improve openp
     </message>
     <message>
         <source>carrotpilot</source>
-        <translation type="unfinished"></translation>
+        <translation>乐萝卜</translation>
     </message>
 </context>
 <context>
