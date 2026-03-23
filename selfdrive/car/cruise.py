@@ -751,8 +751,6 @@ class VCruiseCarrot:
 
 
       if self._gas_pressed_count > self._gas_tok_timer:
-        #if CS.aEgo < -0.5:
-        #  self._cruise_control(-1, 5.0, "Cruise off (gas pressed while braking)")
         if self.v_ego_kph_set > v_cruise_kph and self.autoGasSyncSpeed:
           v_cruise_kph = self.v_ego_kph_set
 
@@ -763,7 +761,11 @@ class VCruiseCarrot:
       elif self._brake_pressed_count == 1:
         self._pause_auto_speed_up = True
 
-      return self._auto_speed_up(v_cruise_kph)
+      v_cruise_kph = self._auto_speed_up(v_cruise_kph)
+      if self._gas_pressed_count > self._gas_tok_timer and self.autoGasSyncSpeed:
+        v_cruise_kph = max(v_cruise_kph, self.v_ego_kph_set)
+
+      return v_cruise_kph
 
   def _prepare_brake_gas(self, CS, CC):
     if CS.gasPressed:
