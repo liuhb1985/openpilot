@@ -56,7 +56,7 @@ def get_default_params():
     ("ShowPathModeLane", "0"),
     ("ShowPathColorLane", "13"),
     ("ShowPlotMode", "0"),
-    ("AutoCruiseControl", "0"),
+    ("AutoCruiseControl", "1"),
     ("CruiseEcoControl", "0"),
     ("CarrotCruiseDecel", "-1"),
     ("CarrotCruiseAtcDecel", "-1"),
