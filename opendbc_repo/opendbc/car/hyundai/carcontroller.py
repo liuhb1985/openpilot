@@ -150,12 +150,20 @@ class CarController(CarControllerBase):
     actuators = CC.actuators
     hud_control = CC.hudControl
 
+    # Dynamic steer rate scaling
+    # High speed (> 80 KPH): scale down to 70%
+    # Low speed (< 30 KPH): 100%
+    steer_rate_scale = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [30, 80], [1.0, 0.7])
+
     if hud_control.modelDesire in [3,4]: # 3 4为变道，1 2为转弯，0表示没有请求
-      self.params.STEER_DELTA_UP = self.steerDeltaUpLC
-      self.params.STEER_DELTA_DOWN = self.steerDeltaDownLC
+      self.params.STEER_DELTA_UP = int(self.steerDeltaUpLC * steer_rate_scale)
+      self.params.STEER_DELTA_DOWN = int(self.steerDeltaDownLC * steer_rate_scale)
     else:
-      self.params.STEER_DELTA_UP = self.steerDeltaUp
-      self.params.STEER_DELTA_DOWN = self.steerDeltaDown
+      self.params.STEER_DELTA_UP = int(self.steerDeltaUp * steer_rate_scale)
+      self.params.STEER_DELTA_DOWN = int(self.steerDeltaDown * steer_rate_scale)
+
+    self.params.STEER_DELTA_UP = max(self.params.STEER_DELTA_UP, 1)
+    self.params.STEER_DELTA_DOWN = max(self.params.STEER_DELTA_DOWN, 1)
 
     angle_control = self.CP.flags & HyundaiFlags.ANGLE_CONTROL
 
@@ -224,7 +232,14 @@ class CarController(CarControllerBase):
 
     # accel + longitudinal
     accel = float(np.clip(actuators.accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX))
+    # Smooth stopping transition
     stopping = actuators.longControlState == LongCtrlState.stopping
+    v_ego_kph = CS.out.vEgo * CV.MS_TO_KPH
+    if stopping and v_ego_kph < 1.0:
+      # Gradually reduce accel towards 0 as we stop to avoid "head nod"
+      accel_fade = np.interp(v_ego_kph, [0.0, 1.0], [0.0, 1.0])
+      accel *= accel_fade
+
     set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
 
     # HUD messages
@@ -583,13 +598,17 @@ class HyundaiJerk:
       self.jerk_l = jerk_max_l
       self.cb_upper = self.cb_lower = 0.0
     else:
+      # Adaptive Jerk Control
+      # Scale jerk limits based on speed for more comfort in city driving
+      jerk_scale = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 40, 80], [0.5, 0.8, 1.0])
+
       if CP.flags & HyundaiFlags.CANFD:
-        self.jerk_u = min(max(self.jerk_u_min, self.jerk * 2.0), jerk_max_u)
-        self.jerk_l = min(max(1.0, -self.jerk * 4.0), jerk_max_l)
+        self.jerk_u = min(max(self.jerk_u_min, self.jerk * 2.0 * jerk_scale), jerk_max_u)
+        self.jerk_l = min(max(1.0, -self.jerk * 4.0 * jerk_scale), jerk_max_l)
         self.cb_upper = self.cb_lower = 0.0
       else:
-        self.jerk_u = min(max(self.jerk_u_min, self.jerk * 2.0), jerk_max_u)
-        self.jerk_l = min(max(1.0, -self.jerk * 2.0), jerk_max_l)
+        self.jerk_u = min(max(self.jerk_u_min, self.jerk * 2.0 * jerk_scale), jerk_max_u)
+        self.jerk_l = min(max(1.0, -self.jerk * 2.0 * jerk_scale), jerk_max_l)
         self.cb_upper = np.clip(0.9 + accel * 0.2, 0, 1.2)
         self.cb_lower = np.clip(0.8 + accel * 0.2, 0, 1.2)
 
