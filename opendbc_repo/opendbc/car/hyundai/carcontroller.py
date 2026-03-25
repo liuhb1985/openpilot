@@ -192,11 +192,10 @@ class CarController(CarControllerBase):
 
         curve_scale = np.clip(curv / curvature_threshold, 0.0, 1.0)
         torque_pts = [
-          (1 - curve_scale) * self.angle_max_torque + curve_scale * 25,
-          (1 - curve_scale) * self.angle_max_torque + curve_scale * 50,
+          (1 - curve_scale) * self.angle_max_torque + curve_scale * 100,
+          (1 - curve_scale) * self.angle_max_torque + curve_scale * 150,
           self.angle_max_torque
         ]
-        #base_max_torque = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 30, 60], torque_pts)
         base_max_torque = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 20, 30], torque_pts)
 
       target_torque = np.interp(abs(actuators.curvature), [0.0, 0.003, 0.006], [0.5 * base_max_torque, 0.75 * base_max_torque, base_max_torque])
@@ -357,7 +356,7 @@ class CarController(CarControllerBase):
 
       # 20 Hz LFA MFA message
       # if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
-      if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE,)):
+      if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022, CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
         can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal))
 
       # 5 Hz ACC options
