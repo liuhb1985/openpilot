@@ -876,7 +876,10 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
 
   startToggles->addItem(selectCarBtn);
 
-  QPushButton* selectModelBtn = new QPushButton(tr("选择驾驶模型"));
+  QString currentModelName = QString::fromStdString(Params().get("DrivingModelName"));
+  if (currentModelName.isEmpty()) currentModelName = "driving";
+
+  QPushButton* selectModelBtn = new QPushButton(tr("模型: ") + currentModelName);
   selectModelBtn->setObjectName("selectModelBtn");
   selectModelBtn->setStyleSheet(R"(
     QPushButton {
@@ -891,7 +894,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     QString currentModel = QString::fromStdString(Params().get("DrivingModelName"));
     if (currentModel.isEmpty()) currentModel = "driving";
 
-    QDir modelDir("../selfdrive/modeld/models");
+    QDir modelDir("../modeld/models");
     QStringList models;
     models << "driving"; // 默认模型
 
@@ -916,6 +919,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     QString selected = MultiOptionDialog::getSelection(tr("选择驾驶模型"), models, currentModel, this);
     if (!selected.isEmpty() && selected != currentModel) {
       Params().put("DrivingModelName", selected.toStdString());
+      selectModelBtn->setText(tr("模型: ") + selected);
       if (ConfirmationDialog::confirm(tr("模型已更改，需要软重启生效。立即重启？"), tr("重启"), this)) {
         Params().putInt("SoftRestartTriggered", 1);
       }
