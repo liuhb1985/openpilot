@@ -215,11 +215,29 @@ class ModelState:
     self.policy_output = np.zeros(policy_output_size, dtype=np.float32)
     self.parser = Parser()
 
-    with open(VISION_PKL_PATH, "rb") as f:
-      self.vision_run = pickle.load(f)
+    try:
+      with open(VISION_PKL_PATH, "rb") as f:
+        self.vision_run = pickle.load(f)
 
-    with open(POLICY_PKL_PATH, "rb") as f:
-      self.policy_run = pickle.load(f)
+      with open(POLICY_PKL_PATH, "rb") as f:
+        self.policy_run = pickle.load(f)
+    except Exception as e:
+      cloudlog.warning(f"Failed to load model from {VISION_PKL_PATH.parent}, likely compiled for a different device: {e}")
+      cloudlog.warning("Falling back to default model...")
+      
+      base_path = Path(__file__).parent / 'models'
+      vision_path = base_path / 'default' / 'driving_vision_tinygrad.pkl'
+      policy_path = base_path / 'default' / 'driving_policy_tinygrad.pkl'
+      
+      with open(vision_path, "rb") as f:
+        self.vision_run = pickle.load(f)
+
+      with open(policy_path, "rb") as f:
+        self.policy_run = pickle.load(f)
+      
+      # Clear parametric model name to prevent future loops
+      from openpilot.common.params import Params
+      Params().remove("DrivingModelName")
 
   def slice_outputs(self, model_outputs: np.ndarray, output_slices: dict[str, slice]) -> dict[str, np.ndarray]:
     parsed_model_outputs = {k: model_outputs[np.newaxis, v] for k,v in output_slices.items()}
