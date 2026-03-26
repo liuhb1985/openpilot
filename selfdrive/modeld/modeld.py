@@ -43,10 +43,27 @@ from openpilot.selfdrive.modeld.runners.tinygrad_helpers import qcom_tensor_from
 PROCESS_NAME = "selfdrive.modeld.modeld"
 SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 
-VISION_PKL_PATH = Path(__file__).parent / 'models/driving_vision_tinygrad.pkl'
-POLICY_PKL_PATH = Path(__file__).parent / 'models/driving_policy_tinygrad.pkl'
-VISION_METADATA_PATH = Path(__file__).parent / 'models/driving_vision_metadata.pkl'
-POLICY_METADATA_PATH = Path(__file__).parent / 'models/driving_policy_metadata.pkl'
+def get_model_paths():
+  params = Params()
+  model_name = params.get("DrivingModelName", encoding='utf-8')
+  if not model_name:
+    model_name = "driving"
+
+  base_path = Path(__file__).parent / 'models'
+  vision_path = base_path / f'{model_name}_vision_tinygrad.pkl'
+
+  if not vision_path.exists():
+    model_name = "driving"
+    vision_path = base_path / 'driving_vision_tinygrad.pkl'
+
+  return (
+    vision_path,
+    base_path / f'{model_name}_policy_tinygrad.pkl',
+    base_path / f'{model_name}_vision_metadata.pkl',
+    base_path / f'{model_name}_policy_metadata.pkl'
+  )
+
+VISION_PKL_PATH, POLICY_PKL_PATH, VISION_METADATA_PATH, POLICY_METADATA_PATH = get_model_paths()
 
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3

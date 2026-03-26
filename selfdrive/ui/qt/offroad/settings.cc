@@ -875,6 +875,45 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
 
 
   startToggles->addItem(selectCarBtn);
+
+  QPushButton* selectModelBtn = new QPushButton(tr("选择驾驶模型"));
+  selectModelBtn->setObjectName("selectModelBtn");
+  selectModelBtn->setStyleSheet(R"(
+    QPushButton {
+      margin-top: 20px; margin-bottom: 20px; padding: 10px; height: 120px; border-radius: 15px;
+      color: #FFFFFF; background-color: #33ab4c;
+    }
+    QPushButton:pressed {
+      background-color: #2c8c3e;
+    }
+  )");
+  connect(selectModelBtn, &QPushButton::clicked, [=]() {
+    QString currentModel = QString::fromStdString(Params().get("DrivingModelName"));
+    if (currentModel.isEmpty()) currentModel = "driving";
+
+    QDir modelDir("../selfdrive/modeld/models");
+    QStringList filters;
+    filters << "*_vision_tinygrad.pkl";
+    QStringList modelFiles = modelDir.entryList(filters, QDir::Files);
+
+    QStringList models;
+    models << "driving";
+    for (const QString& file : modelFiles) {
+      QString name = file;
+      name.replace("_vision_tinygrad.pkl", "");
+      if (name != "driving") models << name;
+    }
+
+    QString selected = MultiOptionDialog::getSelection(tr("选择驾驶模型"), models, currentModel, this);
+    if (!selected.isEmpty() && selected != currentModel) {
+      Params().put("DrivingModelName", selected.toStdString());
+      if (ConfirmationDialog::confirm(tr("模型已更改，需要软重启生效。立即重启？"), tr("重启"), this)) {
+        Params().putInt("SoftRestartTriggered", 1);
+      }
+    }
+  });
+  startToggles->addItem(selectModelBtn);
+
   startToggles->addItem(new CValueControl("HyundaiCameraSCC", "现代: 摄像头SCC(0)", "1:连接SCC的CAN线到摄像头, 2:同步定速状态, 3:原厂长控，不是用摄像头实现SCC的均设置为0", 0, 3, 1));
   startToggles->addItem(new CValueControl("CanfdHDA2", "CANFD: HDA2 模式", "1:HDA2, 2:HDA2+盲点监测, 一般非CanFD车型设置为0", 0, 2, 1));
   startToggles->addItem(new CValueControl("EnableRadarTracks", "启用雷达追踪(1)", "1:启用雷达追踪, -1,2:禁用 (始终使用HKG SCC雷达)，胜达设置为1, 改变值后需要重启车辆", -1, 3, 1));
