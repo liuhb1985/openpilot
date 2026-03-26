@@ -297,6 +297,7 @@ class CarrotServ:
     self.atc_speed_delta_new = None
     #new
     self.atcType = "none"
+    self.v_cruise_max = None
 
     self.update_params()
 
@@ -1256,10 +1257,24 @@ class CarrotServ:
       if CS.speedLimit > 0 and self.active_carrot <= 1:
         self.nRoadLimitSpeed = CS.speedLimit
         cs_speed_limit = True
+
+      # [Optimization] 巡航目标自愈 (Speed Recovery) 与 油门接管恢复 (Gas Override)
+      # 初始化最高期望速度
+      if self.v_cruise_max is None:
+        self.v_cruise_max = v_cruise_kph
+      
+      # 捕捉用户手动调速：如果当前设定速度物理调高了，更新最高期望速度
+      if v_cruise_kph > self.v_cruise_max:
+        self.v_cruise_max = v_cruise_kph
+      
+      # 踏板接管恢复：踩油门时，将期望速度同步至当前行驶速度
+      if CS.gasPressed:
+        self.v_cruise_max = max(self.v_cruise_max, v_ego_kph)
     else:
       v_ego = v_ego_kph = 0
       delta_dist = 0
       CS = None
+      self.v_cruise_max = None
 
     road_speed_limit_changed = True if self.nRoadLimitSpeed != self.nRoadLimitSpeed_last else False
     self.nRoadLimitSpeed_last = self.nRoadLimitSpeed
@@ -1376,11 +1391,15 @@ class CarrotServ:
       and self.autoSpeedUptoRoadSpeedLimit > 0 and not cs_speed_limit):          # 未设置巡航速度跟随道路限速/无车辆自带限速时，把巡航速度作为道路限速
       self.nRoadLimitSpeed = v_cruise_kph
 
+    # [Optimization] 使用 v_cruise_max 而非当前设定速度作为测算基准，实现自动恢复
+    v_cruise_target = self.v_cruise_max if self.v_cruise_max is not None else v_cruise_kph
+
     speed_n_sources = [
       (atc_desired, "atc"),
       (atc_desired_next, "atc2"),
       (sdi_speed, "hda" if hda_active else "bump" if self.xSpdType == 22 else "section" if self.xSpdType == 4 else "police" if self.xSpdType == 100 else "waze" if self.xSpdType == 101 else "cam"),
       (limit_speed, "road"),
+      (v_cruise_target, "user"), # 增加 user 期望速度源
     ]
     if self.turnSpeedControlMode in [1,2]: #模式1和2均有视觉转弯控速,autoCurveSpeedLowerLimit为用户设置的最小转弯速度，vturn_speed这视觉计算的限速
       speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
