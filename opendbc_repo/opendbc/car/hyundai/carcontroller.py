@@ -153,7 +153,10 @@ class CarController(CarControllerBase):
     # Dynamic steer rate scaling
     # High speed (> 80 KPH): scale down to 70%
     # Low speed (< 30 KPH): 100%
-    steer_rate_scale = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [30, 80], [1.0, 0.7])
+    # [Optimization] 大弯道补偿：在曲率较大时恢复响应速度
+    curve_factor = np.interp(abs(actuators.curvature), [0.002, 0.005], [1.0, 1.4])
+    steer_rate_scale = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [30, 80], [1.0, 0.7]) * curve_factor
+    steer_rate_scale = np.clip(steer_rate_scale, 0.7, 1.0)
 
     if hud_control.modelDesire in [3,4]: # 3 4为变道，1 2为转弯，0表示没有请求
       self.params.STEER_DELTA_UP = int(self.steerDeltaUpLC * steer_rate_scale)
@@ -206,7 +209,8 @@ class CarController(CarControllerBase):
         ]
         base_max_torque = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 20, 30], torque_pts)
 
-      target_torque = np.interp(abs(actuators.curvature), [0.0, 0.003, 0.006], [0.5 * base_max_torque, 0.75 * base_max_torque, base_max_torque])
+      # [Optimization] 大弯道力矩提升：在曲率增加时更早放开力矩限制
+      target_torque = np.interp(abs(actuators.curvature), [0.0, 0.002, 0.0045], [0.5 * base_max_torque, 0.85 * base_max_torque, base_max_torque])
 
       max_steering_tq = self.params.STEER_DRIVER_ALLOWANCE * 0.7
       rate_ratio = max(20, max_steering_tq - abs(CS.out.steeringTorque)) / max_steering_tq
