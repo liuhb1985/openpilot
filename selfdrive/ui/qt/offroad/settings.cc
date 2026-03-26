@@ -877,7 +877,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   startToggles->addItem(selectCarBtn);
 
   QString currentModelName = QString::fromStdString(Params().get("DrivingModelName"));
-  if (currentModelName.isEmpty()) currentModelName = "driving";
+  if (currentModelName.isEmpty()) currentModelName = "default";
 
   QPushButton* selectModelBtn = new QPushButton(tr("模型: ") + currentModelName);
   selectModelBtn->setObjectName("selectModelBtn");
@@ -892,17 +892,17 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   )");
   connect(selectModelBtn, &QPushButton::clicked, [=]() {
     QString currentModel = QString::fromStdString(Params().get("DrivingModelName"));
-    if (currentModel.isEmpty()) currentModel = "driving";
+    if (currentModel.isEmpty()) currentModel = "default";
 
     QDir modelDir("../modeld/models");
     QStringList models;
-    models << "driving"; // 默认模型
+    models << "default"; // 默认模型
 
     // 1. 扫描子目录 (新格式: models/[model_name]/driving_vision_tinygrad.pkl)
     QStringList subDirs = modelDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     for (const QString& d : subDirs) {
       if (QFile::exists(modelDir.absoluteFilePath(d + "/driving_vision_tinygrad.pkl"))) {
-        if (d != "driving") models << d;
+        if (d != "default") models << d;
       }
     }
 
@@ -913,7 +913,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     for (const QString& file : modelFiles) {
       QString name = file;
       name.replace("_vision_tinygrad.pkl", "");
-      if (name != "driving" && !models.contains(name)) models << name;
+      if (name != "default" && !models.contains(name)) models << name;
     }
 
     QString selected = MultiOptionDialog::getSelection(tr("选择驾驶模型"), models, currentModel, this);
