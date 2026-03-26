@@ -80,6 +80,7 @@ def get_model_paths():
   )
 
 VISION_PKL_PATH, POLICY_PKL_PATH, VISION_METADATA_PATH, POLICY_METADATA_PATH = get_model_paths()
+cloudlog.warning(f"Modeld loading: {VISION_PKL_PATH.parent.name if VISION_PKL_PATH.parent.name != 'models' else 'default'} ({VISION_PKL_PATH.name})")
 
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
