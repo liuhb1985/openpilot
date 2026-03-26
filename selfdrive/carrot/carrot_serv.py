@@ -1392,13 +1392,30 @@ class CarrotServ:
         v_lead = model_v2.leadsV3[0]
         if v_lead.prob > 0.5: # 概率大于0.5
           v_lead_x = v_lead.x[0] # 距离
-          v_lead_v = v_lead.v[0] # 速度 (m/s)
-          # 设置视觉前车的安全速度为前车速度的一定比例或其绝对值，这里我们尝试计算一个平滑减速的速度
-          # 使用 calculate_current_speed，将前车速度作为安全速度，并预留一定的安全距离(safe_sec)
+          # 强化型前车减速预判: 如果前车正在减速（v_lead_v < 0），则使用更激进的减速因子
           v_lead_kph = (v_ego + v_lead_v) * 3.6
-          vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, 1.5, self.vision_lead_decel_rate)
+          v_lead_a = v_lead.a[0] if hasattr(v_lead, 'a') else 0
+
+          # 如果前车比自车慢很多，或者距离在快速缩短，降低安全时间(safe_sec)或增加减速率
+          dynamic_safe_sec = np.interp(v_lead_v, [-5, -1], [1.0, 1.5])
+
+          # [Optimization] 利用视觉预测的加速度进行超前预判
+          # 如果前车急刹（a < -1.5），缩短安全探测距离并引入额外的降速偏移
+          if v_lead_a < -1.5:
+            dynamic_safe_sec *= np.interp(v_lead_a, [-4, -1.5], [0.5, 1.0])
+            # 直接在目标时速上减去一个偏移量（例如 5-10 KPH），强制原车 ACC 尽早进入制动
+            v_lead_kph -= np.interp(v_lead_a, [-4, -1.5], [10, 0])
+
+          vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, dynamic_safe_sec, self.vision_lead_decel_rate)
           speed_n_sources.append((vision_speed, "vlead"))
-          self.debugText += f" v_l={v_lead_x:.1f}m,{v_lead_v*3.6:.1f}k"
+          self.debugText += f" v_l={v_lead_x:.1f}m,{v_lead_v*3.6:.1f}k,a={v_lead_a:.1f}"
+
+    # 红绿灯辅助 (Traffic Light Assist): 如果识别到红灯且前方无近距离障碍
+    if self.traffic_state == 1: # Red light
+      # 如果距离停止线较近，或者认为应该停止，将目标速度设为最低设定速度
+      # 注意：原车 ACC 通常最低只能设到 30 KPH (或 20 MPH)
+      traffic_limit_speed = 30 if self.is_metric else 20 * CV.MPH_TO_KPH
+      speed_n_sources.append((traffic_limit_speed, "traffic"))
 
     route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
     if self.turnSpeedControlMode == 2:

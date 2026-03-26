@@ -521,6 +521,16 @@ class CarController(CarControllerBase):
         send_button = Buttons.RES_ACCEL
         activate_cruise = True
 
+    # Adaptive button_wait based on speed error
+    # If error is large (> 5 KPH), button_wait should be smaller (faster)
+    # If error is small (< 1 KPH), we don't send buttons to avoid jitter
+    error = abs(target - current)
+    if error < 1:
+      return 0
+
+    dynamic_button_wait = np.interp(error, [1, 5, 10], [self.button_spam2, 10, 5])
+    self.button_wait = min(self.button_wait, dynamic_button_wait)
+
     if CS.out.brakePressed or CS.out.gasPressed:
       self.activateCruise = 0
 
@@ -537,19 +547,16 @@ class CarController(CarControllerBase):
       self.button_spamming_count = 0
     elif abs(self.button_spamming_count) >= spamming_max or abs(speed_diff) > 0:
       self.last_button_frame = self.frame
-      self.button_wait = self.button_spam2 if abs(self.button_spamming_count) >= spamming_max else 7
+      # If speed changed, we can continue spamming with a shorter wait
+      self.button_wait = 7 if abs(speed_diff) > 0 else self.button_spam2
       self.button_spamming_count = 0
 
     self.prev_clu_speed = current
     send_button_allowed = (self.frame - self.last_button_frame) > self.button_wait
-    #CC.debugTextCC = "{} speed_diff={:.1f},{:.0f}/{:.0f}, button={}, button_wait={}, count={}".format(
-    #  send_button_allowed, speed_diff, target, current, send_button, self.button_wait, self.button_spamming_count)
 
     if send_button_allowed or activate_cruise or (CC.cruiseControl.resume and self.frame % 2 == 0):
       self.button_spamming_count = self.button_spamming_count + 1 if send_button == Buttons.RES_ACCEL else self.button_spamming_count - 1
       return send_button
-    else:
-      self.button_spamming_count = 0
     return 0
 
 from openpilot.common.filter_simple import MyMovingAverage
