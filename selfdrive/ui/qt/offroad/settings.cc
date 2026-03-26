@@ -892,16 +892,25 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     if (currentModel.isEmpty()) currentModel = "driving";
 
     QDir modelDir("../selfdrive/modeld/models");
+    QStringList models;
+    models << "driving"; // 默认模型
+
+    // 1. 扫描子目录 (新格式: models/[model_name]/driving_vision_tinygrad.pkl)
+    QStringList subDirs = modelDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& d : subDirs) {
+      if (QFile::exists(modelDir.absoluteFilePath(d + "/driving_vision_tinygrad.pkl"))) {
+        if (d != "driving") models << d;
+      }
+    }
+
+    // 2. 扫描根目录文件 (旧格式: models/[model_name]_vision_tinygrad.pkl)
     QStringList filters;
     filters << "*_vision_tinygrad.pkl";
     QStringList modelFiles = modelDir.entryList(filters, QDir::Files);
-
-    QStringList models;
-    models << "driving";
     for (const QString& file : modelFiles) {
       QString name = file;
       name.replace("_vision_tinygrad.pkl", "");
-      if (name != "driving") models << name;
+      if (name != "driving" && !models.contains(name)) models << name;
     }
 
     QString selected = MultiOptionDialog::getSelection(tr("选择驾驶模型"), models, currentModel, this);

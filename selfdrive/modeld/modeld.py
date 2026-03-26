@@ -50,17 +50,33 @@ def get_model_paths():
     model_name = "driving"
 
   base_path = Path(__file__).parent / 'models'
+
+  # 1. 检查子目录格式: models/[model_name]/driving_vision_tinygrad.pkl
+  vision_path = base_path / model_name / 'driving_vision_tinygrad.pkl'
+  if vision_path.exists():
+    return (
+      vision_path,
+      base_path / model_name / 'driving_policy_tinygrad.pkl',
+      base_path / model_name / 'driving_vision_metadata.pkl',
+      base_path / model_name / 'driving_policy_metadata.pkl'
+    )
+
+  # 2. 检查旧格式: models/[model_name]_vision_tinygrad.pkl
   vision_path = base_path / f'{model_name}_vision_tinygrad.pkl'
+  if vision_path.exists():
+    return (
+      vision_path,
+      base_path / f'{model_name}_policy_tinygrad.pkl',
+      base_path / f'{model_name}_vision_metadata.pkl',
+      base_path / f'{model_name}_policy_metadata.pkl'
+    )
 
-  if not vision_path.exists():
-    model_name = "driving"
-    vision_path = base_path / 'driving_vision_tinygrad.pkl'
-
+  # 3. 兜底默认格式: models/driving_vision_tinygrad.pkl
   return (
-    vision_path,
-    base_path / f'{model_name}_policy_tinygrad.pkl',
-    base_path / f'{model_name}_vision_metadata.pkl',
-    base_path / f'{model_name}_policy_metadata.pkl'
+    base_path / 'driving_vision_tinygrad.pkl',
+    base_path / 'driving_policy_tinygrad.pkl',
+    base_path / 'driving_vision_metadata.pkl',
+    base_path / 'driving_policy_metadata.pkl'
   )
 
 VISION_PKL_PATH, POLICY_PKL_PATH, VISION_METADATA_PATH, POLICY_METADATA_PATH = get_model_paths()
