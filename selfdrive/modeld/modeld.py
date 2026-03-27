@@ -389,7 +389,12 @@ def main(demo=False):
       cloudlog.debug("vipc_client_main no frame")
       continue
 
-    if use_extra_client:
+    v_ego = max(sm["carState"].vEgo, 0.)
+    # Low speed wide-angle camera logic
+    # Use extra wide camera only if speed is below 30 km/h (8.33 m/s)
+    use_extra_for_model = use_extra_client and v_ego < 8.33
+
+    if use_extra_for_model:
       # Keep receiving extra frames until frame id matches main camera
       while True:
         buf_extra = vipc_client_extra.recv()

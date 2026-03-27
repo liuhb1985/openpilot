@@ -11,7 +11,28 @@ export USE_NATIVE_LANE=1
 BLOCK_PROCS="manage_athenad,uploader,statsd,logcatd,proclogd,deleter,loggerd,tombstoned,bootlog"
 
 #sleep 1
-# 运行op
+# 运行准备
+export GPU=1
+export FORCE_GPU_BACKEND="OPENCL"
+
+# -----------------------------------------------------------------------------
+# 摄像头自愈与预检查函数
+# -----------------------------------------------------------------------------
+wait_for_device() {
+    local dev="$1"
+    local name="$2"
+    echo "[WAIT] Waiting for $name ($dev) ..."
+    for i in {1..15}; do
+        if [ -e "$dev" ]; then
+            echo "[OK] $name found."
+            return 0
+        fi
+        sleep 0.5
+    done
+    echo "[WARN] $name ($dev) not found after timeout."
+    return 1
+}
+
 cd /home/$LOGNAME/openpilot &&
 source .venv/bin/activate &&
 #USE_WEBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=1 system/manager/manager.py  #使用locationd_jy62
@@ -90,8 +111,26 @@ robust_place() {
 # 监控 openpilot UI
 robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 
-# 监控摄像头窗口 (现在已通过 CAM_X/Y 变量由进程内部自定位，脚本无需再找)
-# robust_place "BS_VIEW" "OpenPILOT_BS_VIEW" 0 $CAM_Y $SCREEN_WIDTH $CAM_H
+# -----------------------------------------------------------------------------
+# 摄像头动态注册与预检查
+# -----------------------------------------------------------------------------
+# 路面摄像头 (建议在此处添加您的路面摄像头持久化路径)
+# ROAD_PATH="/dev/v4l/by-path/your-road-cam-path"
+# if [ -L "$ROAD_PATH" ]; then ROAD_DEV=$(readlink -f "$ROAD_PATH"); export ROAD_CAM=${ROAD_DEV#/dev/video}; fi
+export ROAD_CAM=${ROAD_CAM:-2} 
+
+WIDE_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1:1.0-video-index0"
+if [ -L "$WIDE_PATH" ]; then
+    WIDE_DEV=$(readlink -f "$WIDE_PATH")
+    export WIDE_CAM=${WIDE_DEV#/dev/video}
+    echo "[INFO] Detected wide-angle camera at index: $WIDE_CAM"
+else
+    echo "[WARN] Wide-angle camera path $WIDE_PATH not found"
+fi
+
+# 启动前硬件预检查，防止进程频繁崩溃重启
+wait_for_device "/dev/video$ROAD_CAM" "Road Camera"
+[ -n "$WIDE_CAM" ] && wait_for_device "/dev/video$WIDE_CAM" "Wide Camera"
 
 # 在前台启动 manager (开启精简模式)
 USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 BLOCK=$BLOCK_PROCS system/manager/manager.py

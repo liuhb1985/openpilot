@@ -29,6 +29,9 @@
 #include <cstring>
 #include <sstream>
 
+#include "msgq/visionipc/visionipc_client.h"
+#include "msgq/visionipc/visionbuf.h"
+
 using namespace std;
 using namespace json11;
 using namespace chrono;
@@ -62,6 +65,7 @@ std::mutex frame_mutex;
 std::mutex lane_mutex;
 std::vector<cv::Mat> shared_images;
 std::atomic<bool> running(true);
+std::atomic<float> v_ego_kph{0.0f};
 
 // 每个摄像头一个队列
 int cam_max_num = 2;
@@ -332,63 +336,35 @@ bool is_in_any_roi(const cv::Rect& box, const std::vector<CameraROI>& sub_rois) 
 
 // ---------------- 摄像头捕获线程 ----------------
 void capture_from_camera(const std::string& device, int cam_id) {
-    int fd = open(device.c_str(), O_RDWR);
-    if (fd == -1) { std::cerr << "Failed to open " << device << std::endl; return; }
+    // We subscribe to WIDE_ROAD stream because the wide-angle cam is registered as WIDE_CAM
+    VisionStreamType stream_type = VISION_STREAM_WIDE_ROAD;
+    
+    std::unique_ptr<VisionIpcClient> vipc_client = std::make_unique<VisionIpcClient>("camerad", stream_type, false);
+    
+    while (running && !vipc_client->connect(false)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    
+    if (!running) return;
 
-    struct v4l2_format fmt;
-    memset(&fmt, 0, sizeof(fmt));
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = 640;
-    fmt.fmt.pix.height = 480;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
-    if (ioctl(fd, VIDIOC_S_FMT, &fmt) == -1) { std::cerr << "Failed set fmt " << device << std::endl; close(fd); return; }
-
-    struct v4l2_requestbuffers req;
-    memset(&req, 0, sizeof(req));
-    req.count = 4; req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; req.memory = V4L2_MEMORY_MMAP;
-    if (ioctl(fd, VIDIOC_REQBUFS, &req) == -1) { std::cerr << "Reqbuf failed " << device << std::endl; close(fd); return; }
-
-    struct v4l2_buffer buf;
-    memset(&buf, 0, sizeof(buf));
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; buf.memory = V4L2_MEMORY_MMAP; buf.index = 0;
-    if (ioctl(fd, VIDIOC_QUERYBUF, &buf) == -1) { std::cerr << "Querybuf failed " << device << std::endl; close(fd); return; }
-
-    void* buffer = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
-    if (buffer == MAP_FAILED) { std::cerr << "mmap failed " << device << std::endl; close(fd); return; }
-
-    if (ioctl(fd, VIDIOC_STREAMON, &buf.type) == -1) { std::cerr << "streamon failed " << device << std::endl; close(fd); return; }
-
-    // ================== 新增：跳帧控制 ==================
-    auto last_time = std::chrono::steady_clock::now();
-    const double target_fps = 20.0;
-    const double frame_interval_ms = 1000.0 / target_fps;
+    std::cout << "[VisionIpc] Connected to camerad stream " << stream_type << std::endl;
 
     while (running) {
-        if (ioctl(fd, VIDIOC_QBUF, &buf) == -1 || ioctl(fd, VIDIOC_DQBUF, &buf) == -1) continue;
+        VisionBuf* buf = vipc_client->recv();
+        if (buf == nullptr) continue;
 
-        // 跳帧逻辑
-        auto now = std::chrono::steady_clock::now();
-        double elapsed = std::chrono::duration<double, std::milli>(now - last_time).count();
-        if (elapsed < frame_interval_ms) continue; // 跳帧
-        last_time = now;
-
-        unsigned char* data = (unsigned char*)buffer;
-        if (data[0] != 0xFF || data[1] != 0xD8) continue;
-
-        std::vector<uchar> jpeg_data(data, data + buf.bytesused);
-        cv::Mat img = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
+        // Convert NV12 to BGR for OpenCV
+        // NV12 format: Y plane followed by interleaved UV plane
+        cv::Mat yuv(buf->height + buf->height / 2, buf->width, CV_8UC1, buf->addr);
+        cv::Mat bgr;
+        cv::cvtColor(yuv, bgr, cv::COLOR_YUV2BGR_NV12);
 
         {
             std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
-            frame_queues[cam_id].push({img, cam_id});
+            frame_queues[cam_id].push({bgr, cam_id});
         }
         queue_conds[cam_id]->notify_one();
     }
-
-    ioctl(fd, VIDIOC_STREAMOFF, &buf.type);
-    munmap(buffer, buf.length);
-    close(fd);
 }
 
 // 推理线程函数
@@ -412,7 +388,16 @@ void inference_thread(int cam_id) {
             continue;
         }
 
-        if (car_detect[cam_id] > 0) {
+        static bool bsm_active = false;
+        float speed = v_ego_kph.load();
+        
+        if (speed > 60.0f) {
+            bsm_active = true;
+        } else if (speed < 30.0f) {
+            bsm_active = false;
+        }
+
+        if (car_detect[cam_id] > 0 && bsm_active) {
             try {
                 // ---------------- YOLO 推理 + ROI ----------------
                 auto result = detect_cars(img);
@@ -1175,6 +1160,11 @@ void udp_comm_thread(UDPComm &comm) {
 
                     dcout << "[UDP] Update remote -> " << comm.last_ip << ":" << comm.last_port << endl;
                 }
+                
+                // Parse v_ego_kph
+                if (j["v_ego_kph"].is_number()) {
+                    v_ego_kph = (float)j["v_ego_kph"].number_value();
+                }
             }
         }
 
@@ -1407,8 +1397,8 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
         return false;
     };
 
-    const int timeout_sec = 60;
-    const int interval_ms = 3000;
+    const int timeout_sec = 2; // 缩短超时时间，脚本已完成预检查
+    const int interval_ms = 500;
 
     auto start = std::chrono::steady_clock::now();
 
