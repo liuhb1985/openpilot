@@ -1366,7 +1366,7 @@ class CarrotServ:
       # )
       #self.debugText = "" #f" {self.nSdiType}/{self.nSdiSpeedLimit}/{self.nSdiDist},BLOCK:{self.nSdiBlockType}/{self.nSdiBlockSpeed}/{self.nSdiBlockDist}, PLUS:{self.nSdiPlusType}/{self.nSdiPlusSpeedLimit}/{self.nSdiPlusDist}"
     #elif self.nGoPosDist > 0 and self.active_carrot > 1:
-    #  self.debugText = " 목적지:{:.1f}km/{:.1f}분 남음".format(self.nGoPosDist/1000., self.nGoPosTime / 60)
+    #  self.debugText = " 目的地:{:.1f}km/还剩 {:.1f} 分钟".format(self.nGoPosDist/1000., self.nGoPosTime / 60)
     else:
       #self.debugText = ""
       pass

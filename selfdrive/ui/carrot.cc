@@ -398,8 +398,8 @@ protected:
 
     }
     Params  params;
-    std::deque<float> minDeque[3];  // 최소값을 유지하는 덱
-    std::deque<float> maxDeque[3];  // 최대값을 유지하는 덱
+    std::deque<float> minDeque[3];  // 保持最小值的 deque
+    std::deque<float> maxDeque[3];  // 保持最大值的 deque
     void	makePlotData(const UIState* s, float data[], char* title) {
 
         SubMaster& sm = *(s->sm);
@@ -494,11 +494,11 @@ protected:
     }
 
     void updatePlotQueue(float plot_data[3]) {
-        // plotIndex 업데이트
+        // 更新 plotIndex
         plotIndex = (plotIndex + 1) % PLOT_MAX;
 
         for (int i = 0; i < 3; i++) {
-            // 오래된 값이 덱의 최솟값/최댓값에 해당하면 제거
+            // 如果旧值对应于 deque 的最小值/最大值，则将其移除
             if (plotSize == PLOT_MAX) {
                 if (!minDeque[i].empty() && minDeque[i].front() == plotQueue[i][plotIndex]) {
                     minDeque[i].pop_front();
@@ -508,28 +508,28 @@ protected:
                 }
             }
 
-            // 새 값을 큐에 추가
+            // 将新值添加到队列
             plotQueue[i][plotIndex] = plot_data[i];
 
-            // minDeque 업데이트
+            // 更新 minDeque
             while (!minDeque[i].empty() && minDeque[i].back() > plot_data[i]) {
                 minDeque[i].pop_back();
             }
             minDeque[i].push_back(plot_data[i]);
 
-            // maxDeque 업데이트
+            // 更新 maxDeque
             while (!maxDeque[i].empty() && maxDeque[i].back() < plot_data[i]) {
                 maxDeque[i].pop_back();
             }
             maxDeque[i].push_back(plot_data[i]);
         }
 
-        // 큐 크기 증가
+        // 增加队列大小
         if (plotSize < PLOT_MAX) {
             plotSize++;
         }
 
-        // 전체 최소값 및 최대값 계산
+        // 计算全局最小值和最大值
         plotMin = std::numeric_limits<double>::max();
         plotMax = std::numeric_limits<double>::lowest();
         for (int i = 0; i < 3; i++) {
@@ -537,7 +537,7 @@ protected:
             plotMax = std::max(plotMax, maxDeque[i].front());
         }
 
-        // plotMin 및 plotMax 범위 제한
+        // 限制 plotMin 和 plotMax 范围
         if (plotMin > -2.0) plotMin = -2.0;
         if (plotMax < 2.0) plotMax = 2.0;
     }
@@ -1299,7 +1299,7 @@ protected:
         }
         nvgTextAlign(s->vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
         if (szSdiDescr.length() > 0) {
-            float bounds[4];  // [xmin, ymin, xmax, ymax]를 저장하는 배열
+            float bounds[4];  // 存储 [xmin, ymin, xmax, ymax] 的数组
             nvgFontSize(s->vg, 40);
             nvgTextBounds(s->vg, tbt_x + 200, tbt_y + 200, szSdiDescr.toStdString().c_str(), NULL, bounds);
             float text_width = bounds[2] - bounds[0];
@@ -2388,7 +2388,7 @@ public:
               int max_z = lane_lines[2].getZ().size();
               float z_offset = 0.0;
               foreach(const QString & pair, pairs) {
-                QStringList xy = pair.split(",");  // ","로 x와 y 구분
+                QStringList xy = pair.split(",");  // 用 "," 分隔 x 和 y
                 if (xy.size() == 3) {
                   //printf("coords = x: %.1f, y: %.1f, d:%.1f\n", xy[0].toFloat(), xy[1].toFloat(), xy[2].toFloat());
                   float x = xy[0].toFloat();
@@ -2482,12 +2482,12 @@ public:
             QPointF side, a_side;
             float x, y, z, ax, ay;
             float v, v_lat, y_rel;
-            float t = radar_lat_factor;   // 예측 시간
+            float t = radar_lat_factor;   // 预测时间
             float model_prob = 0.0f;
             //float score = 0.0f;
             float dRel = l.getDRel();
 
-            // 현재점 투영
+            // 当前点投影
             z = lane_lines[2].getZ()[get_path_length_idx(lane_lines[2], l.getDRel())] - 0.61f;
             if (dRel > 2.5 && _model->mapToScreen(dRel, -l.getYRel(), z, &side)) {
               x = side.x();
@@ -2501,7 +2501,7 @@ public:
               model_prob = l.getModelProb();
               //score = l.getScore();
 
-              // 속도 크기/표시값 (v_ego 없이 간단 처리)
+              // 速度大小/显示值 (无 v_ego 的简单处理)
               float v_abs = std::sqrt(v * v + v_lat * v_lat);
               float v_sum = (v >= 0.f) ? v_abs : -v_abs;
 
@@ -2512,13 +2512,13 @@ public:
               nvgFill(s->vg);
 
               if (v_abs > 0.1f) {
-                // 미래점(월드) 계산
+                // 未来点 (世界坐标) 计算
                 float a_dRel = dRel + v * t;
                 if (a_dRel < 2.0f) a_dRel = 2.0f;
                 float a_yRel = y_rel + v_lat * t;
 
-                // 미래점 투영 (y는 기존과 동일하게 부호 반전)
-                if (std::fabs(v) > 0.1f && _model->mapToScreen(a_dRel, -a_yRel, z, &a_side)) {  // (필요시 z를 a_dRel로 재계산 권장)
+                // 未来点投影 (y 与之前相同，符号反转)
+                if (std::fabs(v) > 0.1f && _model->mapToScreen(a_dRel, -a_yRel, z, &a_side)) {  // (如有必要，建议针对 a_dRel 重新计算 z)
                   ax = a_side.x();
                   ay = a_side.y();
 
@@ -2532,7 +2532,7 @@ public:
                   nvgFill(s->vg);
                 }
 
-                // 속도 텍스트/박스
+                // 速度文本/框
                 sprintf(str, "%.0f", (s->scene.is_metric) ? v_sum * MS_TO_KPH : v_sum * MS_TO_MPH);
                 wStr = 35 * (int)strlen(str);
                 ui_fill_rect(s->vg,
@@ -2741,7 +2741,7 @@ public:
 
         if (apply_source.length()) {
             sprintf(apply_speed_str, "%d", (int)((s->scene.is_metric)?apply_speed:apply_speed * KM_TO_MILE + 0.5));
-            textColor = COLOR_OCHRE;    // apply speed가 작동되면... 색을 바꾸자.
+            textColor = COLOR_OCHRE;    // 当应用速度激活时... 改变颜色。
             ui_draw_text(s, apply_x, apply_y, apply_speed_str, 50, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
             ui_draw_text(s, apply_x, apply_y - 50, apply_source.toStdString().c_str(), 30, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
         }
@@ -2926,7 +2926,7 @@ public:
     }
     void drawDateTime(const UIState* s) {
         char str[128];
-        // 시간표시
+        // 时间显示
         int show_datetime = params.getInt("ShowDateTime");
         if (show_datetime) {
             time_t now = time(nullptr);
@@ -2945,8 +2945,8 @@ public:
             if (show_datetime == 1 || show_datetime == 3) {
                 //strftime(str, sizeof(str), "%m-%d-%a", local);
                 const char* weekdays_ko[] = { "日", "一", "二", "三", "四", "五", "六" };
-                strftime(str, sizeof(str), "%m-%d", local); // 날짜만 가져옴
-                int weekday_index = local->tm_wday; // tm_wday: 0=일, 1=월, ..., 6=토
+                strftime(str, sizeof(str), "%m-%d", local); // 仅获取日期
+                int weekday_index = local->tm_wday; // tm_wday: 0=日, 1=一, ..., 6=六
                 snprintf(str + strlen(str), sizeof(str) - strlen(str), "(%s)", weekdays_ko[weekday_index]);
 
                 ui_draw_text(s, x, y + 70, str, 60, COLOR_WHITE, BOLD, 3.0f, 8.0f);
@@ -3109,7 +3109,7 @@ public:
 #include "msgq/visionipc/visionipc_server.h"
 #include <QImage>
 #include <QPainter>
-#include <QPainterPath> // 추가
+#include <QPainterPath> // 添加
 
 class MapRenderer {
 public:
@@ -3124,15 +3124,15 @@ public:
     }
 
     void render(QPointF nav_path_vertex_xy[], int vertex_count) {
-        // QImage 생성 및 초기화
-        QImage image(WIDTH, HEIGHT, QImage::Format_RGBA8888); // RGBA 형식
-        image.fill(Qt::black); // 검정 배경
+        // QImage 创建并初始化
+        QImage image(WIDTH, HEIGHT, QImage::Format_RGBA8888); // RGBA 格式
+        image.fill(Qt::black); // 黑色背景
 
         QPainter painter(&image);
-        painter.setPen(QPen(Qt::white, 15)); // 경로 색상 및 두께 설정
+        painter.setPen(QPen(Qt::white, 15)); // 设置路径颜色和粗细
         painter.setRenderHint(QPainter::Antialiasing, true);
 
-        // 경로 그리기
+        // 绘制路径
         if (vertex_count > 2) {
             QPainterPath path;
             path.moveTo(nav_path_vertex_xy[0].x() * pixels_per_meter + WIDTH / 2.0,
@@ -3145,8 +3145,8 @@ public:
         }
         painter.end();
 
-        // QImage 데이터를 NanoVG에 전달
-        memcpy(image_data.data(), image.bits(), WIDTH * HEIGHT * 4); // RGBA 크기
+        // 将 QImage 数据传递给 NanoVG
+        memcpy(image_data.data(), image.bits(), WIDTH * HEIGHT * 4); // RGBA 大小
     }
 
     bool publish() {
@@ -3154,14 +3154,14 @@ public:
         if (cur_t > vipc_sent_t + 500) {
             vipc_sent_t = cur_t;
 
-            // Vision IPC 버퍼에 데이터 전송
+            // 向 Vision IPC 缓冲区发送数据
             VisionBuf* buf = vipc_server->get_buffer(VisionStreamType::VISION_STREAM_MAP);
 
             uint8_t* dst = (uint8_t*)buf->addr;
-            memset(dst, 128, buf->len); // 초기화
+            memset(dst, 128, buf->len); // 初始化
 
             for (int i = 0; i < WIDTH * HEIGHT; i++) {
-                dst[i] = image_data[i * 4]; // R 값을 사용하여 grayscale 변환
+                dst[i] = image_data[i * 4]; // 使用 R 值进行灰度转换
             }
 
             VisionIpcBufExtra extra = {
@@ -3178,21 +3178,21 @@ public:
     }
 
     void test_draw(NVGcontext* vg) {
-        static int tex_id = -1; // 텍스처 ID 저장
+        static int tex_id = -1; // 存储纹理 ID
         if (tex_id == -1) {
             tex_id = nvgCreateImageRGBA(vg, WIDTH, HEIGHT, 0, image_data.data());
         }
         else {
-            // 텍스처 업데이트
+            // 更新纹理
             nvgUpdateImage(vg, tex_id, image_data.data());
         }
 
-        // 텍스처를 화면에 그리기
+        // 在屏幕上绘制纹理
         float x_offset = 200;
         float y_offset = 200;
         NVGpaint img_paint = nvgImagePattern(vg, x_offset, y_offset, WIDTH, HEIGHT, 0, tex_id, 1.0f);
         nvgBeginPath(vg);
-        nvgRect(vg, x_offset, y_offset, WIDTH, HEIGHT); // 텍스처를 그릴 영역
+        nvgRect(vg, x_offset, y_offset, WIDTH, HEIGHT); // 绘制纹理的区域
         nvgFillPaint(vg, img_paint);
         nvgFill(vg);
     }
@@ -3201,7 +3201,7 @@ private:
     std::unique_ptr<VisionIpcServer> vipc_server;
     uint32_t frame_id = 0;
     double vipc_sent_t = 0.0;
-    float pixels_per_meter = 0.5f; // 픽셀 단위 조정
+    float pixels_per_meter = 0.5f; // 像素单位调整
     const int HEIGHT = 256, WIDTH = 256;
     std::vector<unsigned char> image_data;
 };

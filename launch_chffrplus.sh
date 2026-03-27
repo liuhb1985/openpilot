@@ -94,7 +94,7 @@ function launch {
   LANG=$(cat /data/params/d/LanguageSetting)
   EVENTSTAT=$(git status)
 
-  # events.py 한글로 변경 및 파일이 교체된 상태인지 확인
+  # 将 events.py 替换为中文版本并检查文件状态
   if [ "${LANG}" = "main_ko" ] && [[ ! "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
     cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
     cp -f $DIR/scripts/add/events_ko.py $DIR/selfdrive/selfdrived/events.py

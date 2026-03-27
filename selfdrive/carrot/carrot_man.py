@@ -709,9 +709,9 @@ class CarrotMan:
           while True:
             try:
               #self.remote_addr = None
-              # 데이터 수신 (UDP는 recvfrom 사용)
+              # 接收数据 (UDP 使用 recvfrom)
               try:
-                data, remote_addr = sock.recvfrom(4096)  # 최대 4096 바이트 수신
+                data, remote_addr = sock.recvfrom(4096)  # 最大接收 4096 字节
                 #print(f"Received data from {self.remote_addr}")
 
                 if not data:

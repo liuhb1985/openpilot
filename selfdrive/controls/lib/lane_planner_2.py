@@ -267,19 +267,19 @@ class LanePlanner:
 
   def calculate_plan_yaw_and_yaw_rate(self, path_xyz):
     if path_xyz.shape[0] < 3:
-        # 너무 짧으면 직진 가정
+        # 如果太短，假设直行
         N = path_xyz.shape[0]
         return np.zeros(N), np.zeros(N)
 
-    # x, y 추출
+    # 提取 x, y
     x = path_xyz[:, 0]
     y = path_xyz[:, 1]
 
-    # 모두 동일한 점인지 확인
+    # 确认是否所有点都相同
     if np.allclose(x, x[0]) and np.allclose(y, y[0]):
         return np.zeros(len(x)), np.zeros(len(x))
 
-    # 안전한 diff 계산
+    # 安全的 diff 计算
     dx = np.diff(x)
     dy = np.diff(y)
     mask = (dx == 0) & (dy == 0)
@@ -295,7 +295,7 @@ class LanePlanner:
     yaw_rate = np.append(yaw_rate, yaw_rate[-1])
     yaw_rate = np.append(yaw_rate, 0.0)
 
-    # NaN/Inf 방어
+    # NaN/Inf 防御
     if np.any(np.isnan(yaw_rate)) or np.any(np.isinf(yaw_rate)):
         yaw_rate = np.zeros_like(yaw_rate)
     if np.any(np.isnan(yaw)) or np.any(np.isinf(yaw)):
