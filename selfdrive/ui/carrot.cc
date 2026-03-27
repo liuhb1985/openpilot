@@ -2505,14 +2505,20 @@ public:
               float v_abs = std::sqrt(v * v + v_lat * v_lat);
               float v_sum = (v >= 0.f) ? v_abs : -v_abs;
 
-              if (v_abs > 3.0f) {
+              // Always draw a small circle if detected
+              nvgBeginPath(s->vg);
+              nvgCircle(s->vg, x, y, 6);
+              nvgFillColor(s->vg, (!radar) ? COLOR_BLUE_ALPHA(150) : (v_sum > 0.f) ? COLOR_GREEN_ALPHA(150) : COLOR_RED_ALPHA(150));
+              nvgFill(s->vg);
+
+              if (v_abs > 0.1f) {
                 // 미래점(월드) 계산
                 float a_dRel = dRel + v * t;
                 if (a_dRel < 2.0f) a_dRel = 2.0f;
                 float a_yRel = y_rel + v_lat * t;
 
                 // 미래점 투영 (y는 기존과 동일하게 부호 반전)
-                if (std::fabs(v) > 3.0f && _model->mapToScreen(a_dRel, -a_yRel, z, &a_side)) {  // (필요시 z를 a_dRel로 재계산 권장)
+                if (std::fabs(v) > 0.1f && _model->mapToScreen(a_dRel, -a_yRel, z, &a_side)) {  // (필요시 z를 a_dRel로 재계산 권장)
                   ax = a_side.x();
                   ay = a_side.y();
 
@@ -2543,9 +2549,12 @@ public:
                   ui_draw_text(s, x, y + 30, str, 30, COLOR_WHITE, BOLD);
                 }
               }
-              else if (show_radar_info >= 3) {
-                strcpy(str, "*");
-                ui_draw_text(s, x, y, str, 40, COLOR_WHITE, BOLD);
+              else if (show_radar_info >= 1) {
+                // For very slow/static objects, just draw a small dot if not already handled
+                nvgBeginPath(s->vg);
+                nvgCircle(s->vg, x, y, 4);
+                nvgFillColor(s->vg, nvgreyRGBA(200, 200, 200, 100));
+                nvgFill(s->vg);
               }
             }
           }
