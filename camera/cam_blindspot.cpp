@@ -1477,6 +1477,7 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
     // ---------------------------------------------------
     // 尝试等待直到所有摄像头都可用或超时
     // ---------------------------------------------------
+    bool any_ok = false;
     while (true) {
         bool all_ok = true;
 
@@ -1493,8 +1494,12 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
             }
         }
 
-        if (all_ok || (any_ok && elapsed >= 500)) break; // 如果有 OK 的且已经等了 500ms，也直接开始
-        if (elapsed >= timeout_sec) break;
+        // 检查是否已经等了足够长的时间 (毫秒)
+        auto now = std::chrono::steady_clock::now();
+        int elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+
+        if (all_ok || (any_ok && elapsed_ms >= 500)) break; // 如果有 OK 的且已经等了 500ms，也直接开始
+        if (elapsed_ms >= timeout_sec * 1000) break;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         std::cout << "[INFO] Retrying camera detection..." << std::endl;
