@@ -844,8 +844,23 @@ void display_loop() {
                         int x_off = (win_w - new_w) / 2;
                         int y_off = (win_h - new_h) / 2;
                         resized.copyTo(canvas(cv::Rect(x_off, y_off, new_w, new_h)));
+
+                        // 更新全局窗口映射参数，用于鼠标回调坐标转换
+                        g_win_map.scale = scale;
+                        g_win_map.x_off = x_off;
+                        g_win_map.y_off = y_off;
+                        g_win_map.frame_w = width;
+                        g_win_map.frame_h = height;
+                        g_win_map.cols = cols;
                     } else {
                         canvas = combined;
+                        // 默认映射
+                        g_win_map.scale = 1.0;
+                        g_win_map.x_off = 0;
+                        g_win_map.y_off = 0;
+                        g_win_map.frame_w = combined.cols;
+                        g_win_map.frame_h = combined.rows;
+                        g_win_map.cols = 1;
                     }
 
                     cv::imshow("OpenPILOT_BS_VIEW", canvas);
