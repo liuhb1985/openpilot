@@ -128,6 +128,17 @@ std::vector<CameraROI> camera_rois;
 std::vector<int> camera_car;
 std::vector<int> lane_safe(2,-1);
 
+// ---------------- 坐标转换 (用于 UI 鼠标点击) ----------------
+struct WinMapping {
+    double scale = 1.0;
+    int x_off = 0;
+    int y_off = 0;
+    int cols = 1;
+    int frame_w = 0;
+    int frame_h = 0;
+};
+WinMapping g_win_map;
+
 // ---------------- ONNX Runtime ----------------
 Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "YOLO");
 Ort::Session* session = nullptr;
@@ -605,6 +616,27 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
 
     auto& roi = camera_rois[cam_id].sub_rois[roi_idx];
 
+    // --- 坐标映射：将窗口点击坐标 (x,y) 转换回原始图像坐标 (real_x, real_y) ---
+    int real_x = x;
+    int real_y = y;
+
+    if (single_window) {
+        // 1. 除去居中黑边偏移
+        double map_x = (x - g_win_map.x_off) / g_win_map.scale;
+        double map_y = (y - g_win_map.y_off) / g_win_map.scale;
+
+        // 2. 根据网格布局计算对应的 cam_id 和局部坐标
+        int grid_c = (int)map_x / g_win_map.frame_w;
+        int grid_r = (int)map_y / g_win_map.frame_h;
+        int clicked_cam_id = grid_r * g_win_map.cols + grid_c;
+
+        // 只有点击的是当前编辑的摄像头区域才处理
+        if (clicked_cam_id != cam_id) return;
+
+        real_x = (int)map_x % g_win_map.frame_w;
+        real_y = (int)map_y % g_win_map.frame_h;
+    }
+
     auto distance = [](cv::Point a, cv::Point b) { return std::sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)); };
     const int select_radius = 10;
     const int drag_threshold = 5;   // ⭐ 新增拖动阈值
@@ -618,9 +650,9 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         // 选择最近顶点拖动
         roi.selected_idx = -1;
         for (int i = 0; i < roi.polygon.size(); i++) {
-            if (distance(roi.polygon[i], cv::Point(x, y)) < select_radius) {
+            if (distance(roi.polygon[i], cv::Point(real_x, real_y)) < select_radius) {
                 roi.selected_idx = i;
-                drag_start = cv::Point(x, y);
+                drag_start = cv::Point(real_x, real_y);
                 dragging = true;
                 return;
             }
@@ -628,23 +660,21 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         // 没有选中顶点，新增顶点
         // ⭐ 只有按住 Ctrl 才允许新增点
         if (flags & cv::EVENT_FLAG_CTRLKEY) {
-            roi.polygon.push_back(cv::Point(x, y));
+            roi.polygon.push_back(cv::Point(real_x, real_y));
             changed = true;
         }
-        // roi.polygon.push_back(cv::Point(x, y));
-        // changed = true;
     }
     else if (event == cv::EVENT_MOUSEMOVE) {
         if (dragging && roi.selected_idx != -1 &&
             (flags & cv::EVENT_FLAG_LBUTTON)) {
 
-            int dx = std::abs(x - drag_start.x);
-            int dy = std::abs(y - drag_start.y);
+            int dx = std::abs(real_x - drag_start.x);
+            int dy = std::abs(real_y - drag_start.y);
 
             // ⭐ 超过阈值才更新
             if (dx > drag_threshold || dy > drag_threshold) {
-                roi.polygon[roi.selected_idx] = cv::Point(x, y);
-                drag_start = cv::Point(x, y);
+                roi.polygon[roi.selected_idx] = cv::Point(real_x, real_y);
+                drag_start = cv::Point(real_x, real_y);
                 changed = true;
             }
         }
@@ -662,7 +692,7 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
             float min_dist = select_radius;
 
             for (int i = 0; i < roi.polygon.size(); i++) {
-                float d = distance(roi.polygon[i], cv::Point(x, y));
+                float d = distance(roi.polygon[i], cv::Point(real_x, real_y));
                 if (d < min_dist) { min_dist = d; idx = i; }
             }
 
