@@ -621,13 +621,23 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
     int real_y = y;
 
     if (single_window) {
+        // 安全检查：防止未初始化时的除零错误或非法访问
+        if (g_win_map.scale < 1e-4 || g_win_map.frame_w <= 0 || g_win_map.frame_h <= 0) return;
+
         // 1. 除去居中黑边偏移
         double map_x = (x - g_win_map.x_off) / g_win_map.scale;
         double map_y = (y - g_win_map.y_off) / g_win_map.scale;
 
-        // 2. 根据网格布局计算对应的 cam_id 和局部坐标
+        // 2. 忽略点击黑边或超出图像范围的情况
+        if (map_x < 0 || map_y < 0) return;
+
+        // 3. 根据网格布局计算对应的 cam_id 和局部坐标
         int grid_c = (int)map_x / g_win_map.frame_w;
         int grid_r = (int)map_y / g_win_map.frame_h;
+        
+        // 确保点击的列数在合法范围内
+        if (grid_c >= g_win_map.cols) return;
+
         int clicked_cam_id = grid_r * g_win_map.cols + grid_c;
 
         // 只有点击的是当前编辑的摄像头区域才处理
