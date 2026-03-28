@@ -553,36 +553,32 @@ void load_rois(const std::string& filename){
         }
     }
 
-    // 确保至少有 cam_max_num 个摄像头
+    // 确保有 cam_max_num 个摄像头
     if(camera_rois.size() < cam_max_num) {
         camera_rois.resize(cam_max_num);
     }
 
-    // 每两个ROI组成一个摄像头的左右盲区
-    for (size_t cam_idx = 0; cam_idx < temp_polygons.size() / 2; cam_idx++) {
-        if(cam_idx >= camera_rois.size()) {
-            camera_rois.resize(cam_idx + 1);
+    // 鲁棒加载：按行依次填充每个摄像头的 sub_rois
+    size_t current_cam = 0;
+    size_t current_sub = 0;
+    for (const auto& poly : temp_polygons) {
+        if (current_cam >= camera_rois.size()) break;
+        
+        if (camera_rois[current_cam].sub_rois.size() <= current_sub) {
+            camera_rois[current_cam].sub_rois.resize(current_sub + 1);
         }
-
-        // 确保该摄像头有至少2个子ROI
-        if(camera_rois[cam_idx].sub_rois.size() < 2) {
-            camera_rois[cam_idx].sub_rois.resize(2);
-        }
-
-        // 更新左盲区 (索引0)
-        size_t poly_idx = cam_idx * 2;
-        if(poly_idx < temp_polygons.size()) {
-            camera_rois[cam_idx].sub_rois[0].polygon = temp_polygons[poly_idx];
-        }
-
-        // 更新右盲区 (索引1)
-        poly_idx = cam_idx * 2 + 1;
-        if(poly_idx < temp_polygons.size()) {
-            camera_rois[cam_idx].sub_rois[1].polygon = temp_polygons[poly_idx];
+        
+        camera_rois[current_cam].sub_rois[current_sub].polygon = poly;
+        
+        // 循环填充：0=左, 1=右, 之后以此类推或固定为2个
+        current_sub++;
+        if (current_sub >= 2) {
+            current_sub = 0;
+            current_cam++;
         }
     }
 
-    std::cout << "[ROI] Loaded " << temp_polygons.size() / 2 << " cameras from rois.txt" << std::endl;
+    std::cout << "[ROI] Loaded " << temp_polygons.size() << " ROIs from rois.txt" << std::endl;
 }
 
 // ---------------- ROI 鼠标回调 ----------------
@@ -650,8 +646,8 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         double local_y = (int)map_y % g_win_map.frame_h;
 
         if (cam_id < MAX_CAM && g_orig_w[cam_id] > 0 && g_orig_h[cam_id] > 0) {
-            real_x = (int)(local_x * g_orig_w[cam_id] / g_win_map.frame_w);
-            real_y = (int)(local_y * g_orig_h[cam_id] / g_win_map.frame_h);
+            real_x = (int)round(local_x * (double)g_orig_w[cam_id] / g_win_map.frame_w);
+            real_y = (int)round(local_y * (double)g_orig_h[cam_id] / g_win_map.frame_h);
         } else {
             real_x = (int)local_x;
             real_y = (int)local_y;
