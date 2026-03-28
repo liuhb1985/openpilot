@@ -138,6 +138,8 @@ struct WinMapping {
     int frame_h = 0;
 };
 WinMapping g_win_map;
+int g_orig_w[MAX_CAM] = {0};
+int g_orig_h[MAX_CAM] = {0};
 
 // ---------------- ONNX Runtime ----------------
 Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "YOLO");
@@ -643,8 +645,17 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
         // 只有点击的是当前编辑的摄像头区域才处理
         if (clicked_cam_id != cam_id) return;
 
-        real_x = (int)map_x % g_win_map.frame_w;
-        real_y = (int)map_y % g_win_map.frame_h;
+        // --- 核心修复：根据缩放比例还原坐标 ---
+        double local_x = (int)map_x % g_win_map.frame_w;
+        double local_y = (int)map_y % g_win_map.frame_h;
+
+        if (cam_id < MAX_CAM && g_orig_w[cam_id] > 0 && g_orig_h[cam_id] > 0) {
+            real_x = (int)(local_x * g_orig_w[cam_id] / g_win_map.frame_w);
+            real_y = (int)(local_y * g_orig_h[cam_id] / g_win_map.frame_h);
+        } else {
+            real_x = (int)local_x;
+            real_y = (int)local_y;
+        }
     }
 
     auto distance = [](cv::Point a, cv::Point b) { return std::sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)); };
@@ -802,6 +813,13 @@ void display_loop() {
                     if (img.channels() == 1) {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
                     }
+                    
+                    // 记录原始分辨率用于鼠标回调转换
+                    if (i < MAX_CAM) {
+                      g_orig_w[i] = img.cols;
+                      g_orig_h[i] = img.rows;
+                    }
+
                     if (img.cols != width || img.rows != height) {
                         cv::resize(img, img, cv::Size(width, height));
                     }
@@ -1466,19 +1484,17 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
             bool ok = probe_device(devices[i]);
             std::cout << "[CHECK] Camera " << devices[i]
                       << " => " << (ok ? "OK" : "FAIL") << std::endl;
-            if (!ok) all_ok = false;
+            if (ok) {
+                // 只要发现任意一个摄像头 OK，就记录状态并准备后续退出
+                // 这样可以加速启动
+                any_ok = true; 
+            } else {
+                all_ok = false;
+            }
         }
 
-        if (all_ok) break;
-
-        // 检查是否超时
-        auto now = std::chrono::steady_clock::now();
-        int elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-        if (elapsed >= timeout_sec) {
-            std::cerr << "[ERROR] Not all cameras detected within "
-                      << timeout_sec << " seconds.\n";
-            break;  // 跳出循环，开始 erase 不可用设备
-        }
+        if (all_ok || (any_ok && elapsed >= 500)) break; // 如果有 OK 的且已经等了 500ms，也直接开始
+        if (elapsed >= timeout_sec) break;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         std::cout << "[INFO] Retrying camera detection..." << std::endl;
