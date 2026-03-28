@@ -1585,15 +1585,7 @@ int main() {
         threads.emplace_back(inference_thread, i);
     }
 
-    // 创建摄像头采集和推理线程
-    std::vector<std::thread> threads;
-    for (int i = 0; i < cam_max_num; i++) {
-        threads.emplace_back(capture_from_camera, devices[i], i);
-        threads.emplace_back(inference_thread, i);
-    }
-
     std::thread lane_thread(lane_check_thread);
-    std::thread display_thread(display_loop);
     std::thread udp_thread(udp_comm_thread, std::ref(comm));
 
     // 等待显示线程结束
