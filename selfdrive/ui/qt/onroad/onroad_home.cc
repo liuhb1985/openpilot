@@ -325,7 +325,7 @@ void OnroadWindow::offroadTransition(bool offroad) {
 
       // hidden by default, made visible when navRoute is published
       m->setVisible(false);
-      uiState()->scene._current_carrot_display = 1;
+      uiState()->scene._current_carrot_display = 5;
     }
   }
 #endif
