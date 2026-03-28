@@ -1552,43 +1552,38 @@ int main() {
         return 1;
     }
 
-    if (!load_camera_config("camera_blindspot.json")) {
-        return -1;
-    }
-
-    // === 新增：自动过滤无效摄像头 ===
-    if (filter_unusable_cameras(devices, camera_sign, car_detect) == 0) {
-        return -1;  // 没有可用摄像头则退出
-    }
-
-    std::cout << "Loaded " << devices.size() << " cameras" << std::endl;
-    cam_max_num = devices.size();
-
-    // 初始化 mutex / condition_variable
-    for (size_t i = 0; i < cam_max_num; i++) {
-        queue_mutexes[i] = std::make_unique<std::mutex>();
-        queue_conds[i] = std::make_unique<std::condition_variable>();
-    }
-
+    // 初始化数据结构
+    cam_max_num = 2; 
     shared_images.resize(cam_max_num);
     camera_car_left.resize(cam_max_num, 0);
     camera_car_right.resize(cam_max_num, 0);
-    lane_safe[0] = lane_safe[1] = -1;
-
     camera_rois.resize(cam_max_num);
     for (int i = 0; i < cam_max_num; i++) {
-        // 为每个摄像头初始化两个子ROI（左盲区和右盲区）
-        CameraROI left_roi;
-        left_roi.polygon = {};  // 默认为空，加载文件时会填充
+        queue_mutexes[i] = std::make_unique<std::mutex>();
+        queue_conds[i] = std::make_unique<std::condition_variable>();
+        camera_rois[i].sub_rois.resize(2);
+    }
+    load_rois("rois.txt");
 
-        CameraROI right_roi;
-        right_roi.polygon = {};  // 默认为空，加载文件时会填充
+    // === 极速启动：先启动显示与采集线程，不等待探测循环 ===
+    std::thread display_thread(display_loop);
+    std::vector<std::thread> threads;
 
-        camera_rois[i].sub_rois.push_back(left_roi);
-        camera_rois[i].sub_rois.push_back(right_roi);
+    if (!load_camera_config("camera_blindspot.json")) {
+        // ... 继续使用默认 devices
     }
 
-    load_rois("rois.txt");
+    // 在后台过滤
+    filter_unusable_cameras(devices, camera_sign, car_detect);
+    
+    // 如果过滤后设备数变了，重新调整大小
+    cam_max_num = devices.size();
+    shared_images.resize(cam_max_num);
+
+    for (int i = 0; i < cam_max_num; i++) {
+        threads.emplace_back(capture_from_camera, devices[i], i);
+        threads.emplace_back(inference_thread, i);
+    }
 
     // 创建摄像头采集和推理线程
     std::vector<std::thread> threads;

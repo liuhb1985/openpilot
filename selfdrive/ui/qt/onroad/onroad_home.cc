@@ -99,6 +99,8 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QOpenGLWidget(parent) {
   // setup stacking order
   alerts->raise();
 
+  uiState()->scene._current_carrot_display = 5;
+
   setAttribute(Qt::WA_OpaquePaintEvent);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadWindow::updateState);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadWindow::offroadTransition);
