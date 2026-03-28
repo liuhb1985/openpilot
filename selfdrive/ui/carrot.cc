@@ -2553,7 +2553,7 @@ public:
                 // For very slow/static objects, just draw a small dot if not already handled
                 nvgBeginPath(s->vg);
                 nvgCircle(s->vg, x, y, 4);
-                nvgFillColor(s->vg, nvgreyRGBA(200, 200, 200, 100));
+                nvgFillColor(s->vg, nvgRGBA(200, 200, 200, 100));
                 nvgFill(s->vg);
               }
             }
