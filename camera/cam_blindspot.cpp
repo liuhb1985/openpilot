@@ -397,88 +397,87 @@ void inference_thread(int cam_id) {
             bsm_active = false;
         }
 
-        if (car_detect[cam_id] > 0 && bsm_active) {
-            try {
-                // ---------------- YOLO 推理 + ROI ----------------
-                auto result = detect_cars(img);
-                std::vector<cv::Rect> cars = result.raw_boxes;
-                std::vector<cv::Rect> cars_box = result.final_boxes;
-                std::vector<cv::Rect> cars_in_roi;
-                std::vector<cv::Rect> cars_box_in_roi;
+        if (car_detect[cam_id] > 0) {
+            // 始终绘制所有子ROI区域 (划线)
+            if (cam_id < camera_rois.size() && !camera_rois[cam_id].sub_rois.empty()) {
+                for (size_t roi_idx = 0; roi_idx < camera_rois[cam_id].sub_rois.size(); roi_idx++) {
+                    const auto& sub_roi = camera_rois[cam_id].sub_rois[roi_idx];
+                    if (!sub_roi.polygon.empty()) {
+                        if (roi_idx == 0) {
+                            // 左盲区用绿色
+                            cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(0,255,0), 2);
+                        } else if (roi_idx == 1) {
+                            // 右盲区用蓝色
+                            cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(255,0,0), 2);
+                        } else {
+                            // 其他区域用黄色
+                            cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(0,255,255), 2);
+                        }
+                    }
+                }
+            }
 
-                if (cam_id < camera_rois.size()) {
-                    // 初始化左右盲区检测标志
-                    int car_in_left = 0;
-                    int car_in_right = 0;
+            if (bsm_active) {
+                try {
+                    // ---------------- YOLO 推理 + ROI ----------------
+                    auto result = detect_cars(img);
+                    std::vector<cv::Rect> cars = result.raw_boxes;
+                    std::vector<cv::Rect> cars_box = result.final_boxes;
+                    std::vector<cv::Rect> cars_in_roi;
+                    std::vector<cv::Rect> cars_box_in_roi;
 
-                    for (auto &car : cars) {
-                        // 检查车辆是否在任何子ROI区域内，并标记对应的状态
-                        for (size_t roi_idx = 0; roi_idx < camera_rois[cam_id].sub_rois.size(); roi_idx++) {
-                            const auto& sub_roi = camera_rois[cam_id].sub_rois[roi_idx];
+                    if (cam_id < camera_rois.size()) {
+                        // 初始化左右盲区检测标志
+                        int car_in_left = 0;
+                        int car_in_right = 0;
 
-                            if (is_in_roi(car, sub_roi.polygon)) {
-                                cars_in_roi.push_back(car); // 只要在一个ROI内就加入显示列表
-                                if (roi_idx == 0) { // 左盲区
-                                    car_in_left = 1;
-                                } else if (roi_idx == 1) { // 右盲区
-                                    car_in_right = 1;
+                        for (auto &car : cars) {
+                            // 检查车辆是否在任何子ROI区域内，并标记对应的状态
+                            for (size_t roi_idx = 0; roi_idx < camera_rois[cam_id].sub_rois.size(); roi_idx++) {
+                                const auto& sub_roi = camera_rois[cam_id].sub_rois[roi_idx];
+
+                                if (is_in_roi(car, sub_roi.polygon)) {
+                                    cars_in_roi.push_back(car); // 只要在一个ROI内就加入显示列表
+                                    if (roi_idx == 0) { // 左盲区
+                                        car_in_left = 1;
+                                    } else if (roi_idx == 1) { // 右盲区
+                                        car_in_right = 1;
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    {
-                        std::lock_guard<std::mutex> lock(lane_mutex);
-                        camera_car_left[cam_id] = car_in_left;
-                        camera_car_right[cam_id] = car_in_right;
-                    }
-                } else {
-                    cars_in_roi = cars;
-                }
-
-                if (cam_id < camera_rois.size()) {
-                    for (auto &car : cars_box) {
-                        if (is_in_any_roi(car, camera_rois[cam_id].sub_rois)) {
-                            cars_box_in_roi.push_back(car);
+                        {
+                            std::lock_guard<std::mutex> lock(lane_mutex);
+                            camera_car_left[cam_id] = car_in_left;
+                            camera_car_right[cam_id] = car_in_right;
                         }
+                    } else {
+                        cars_in_roi = cars;
                     }
-                }
 
-                // 绘制所有子ROI区域
-                if (cam_id < camera_rois.size() && !camera_rois[cam_id].sub_rois.empty()) {
-                    for (size_t roi_idx = 0; roi_idx < camera_rois[cam_id].sub_rois.size(); roi_idx++) {
-                        const auto& sub_roi = camera_rois[cam_id].sub_rois[roi_idx];
-                        if (!sub_roi.polygon.empty()) {
-                            if (roi_idx == 0) {
-                                // 左盲区用绿色
-                                cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(0,255,0), 2);
-                            } else if (roi_idx == 1) {
-                                // 右盲区用蓝色
-                                cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(255,0,0), 2);
-                            } else {
-                                // 其他区域用黄色
-                                cv::polylines(img, std::vector<std::vector<cv::Point>>{sub_roi.polygon}, true, cv::Scalar(0,255,255), 2);
+                    if (cam_id < camera_rois.size()) {
+                        for (auto &car : cars_box) {
+                            if (is_in_any_roi(car, camera_rois[cam_id].sub_rois)) {
+                                cars_box_in_roi.push_back(car);
                             }
                         }
                     }
-                }
 
-                for (auto &car : cars_box_in_roi) {
-                    // 防止超出边界的矩形崩溃
-                    cv::Rect safe_rect = car & cv::Rect(0, 0, img.cols, img.rows);
-                    if (safe_rect.width > 0 && safe_rect.height > 0)
-                        cv::rectangle(img, safe_rect, cv::Scalar(0,0,255), 2);
-                }
+                    for (auto &car : cars_box_in_roi) {
+                        // 防止超出边界的矩形崩溃
+                        cv::Rect safe_rect = car & cv::Rect(0, 0, img.cols, img.rows);
+                        if (safe_rect.width > 0 && safe_rect.height > 0)
+                            cv::rectangle(img, safe_rect, cv::Scalar(0,0,255), 2);
+                    }
 
-            } catch (const cv::Exception &e) {
-                std::cerr << "[ERROR] Camera " << cam_id << ": OpenCV exception during inference: " << e.what() << std::endl;
-                continue;
-            } catch (const std::exception &e) {
-                std::cerr << "[ERROR] Camera " << cam_id << ": Exception during inference: " << e.what() << std::endl;
-                continue;
-            } catch (...) {
-                std::cerr << "[ERROR] Camera " << cam_id << ": Unknown error during inference" << std::endl;
-                continue;
+                } catch (const cv::Exception &e) {
+                    std::cerr << "[ERROR] Camera " << cam_id << ": OpenCV exception during inference: " << e.what() << std::endl;
+                } catch (const std::exception &e) {
+                    std::cerr << "[ERROR] Camera " << cam_id << ": Exception during inference: " << e.what() << std::endl;
+                } catch (...) {
+                    std::cerr << "[ERROR] Camera " << cam_id << ": Unknown error during inference" << std::endl;
+                }
             }
         }
 
