@@ -26,6 +26,7 @@ private:
 
   int skip_frame_count = 0;
   bool wide_cam_requested = false;
+  uint64_t last_switch_frame = 0;
 
 protected:
   void paintGL() override;
