@@ -1444,24 +1444,11 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
                             std::vector<int> &camera_sign,
                             std::vector<int> &car_detect) {
     auto probe_device = [&](const std::string &dev)->bool {
-        // 1. v4l2 ioctl 查询（最快最可靠）
-        int fd = open(dev.c_str(), O_RDWR | O_NONBLOCK);
-        if (fd >= 0) {
-            struct v4l2_capability cap_info;
-            if (ioctl(fd, VIDIOC_QUERYCAP, &cap_info) != -1) {
-                close(fd);
-                return true;
-            }
-            close(fd);
-        }
-
-        // 2. 再尝试用 OpenCV 打开
-        cv::VideoCapture cap(dev, cv::CAP_V4L2);
-        if (cap.isOpened()) {
-            cap.release();
+        // 1. Non-destructive check (file exists)
+        // We do not 'open' the device anymore to avoid competition with usbcamerad (Provider)
+        if (access(dev.c_str(), F_OK) == 0) {
             return true;
         }
-
         return false;
     };
 
