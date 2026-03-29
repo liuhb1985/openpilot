@@ -112,19 +112,28 @@ robust_place() {
 robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 
 # -----------------------------------------------------------------------------
-# 摄像头动态注册与预检查
+# 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
 # -----------------------------------------------------------------------------
-# 根据硬件布局：长焦固定在 index 2，广角使用持久化路径以防 index 偏移或指向元数据节点 (errno 25 Fix)
-export ROAD_CAM=2
+# 1. 长焦摄像头 (Long-focus, 原为 index 2)
+ROAD_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:2.3:1.0-video-index0"
+if [ -L "$ROAD_PATH" ]; then
+    ROAD_DEV=$(readlink -f "$ROAD_PATH")
+    export ROAD_CAM=${ROAD_DEV#/dev/video}
+    echo "[INFO] Identified Road Cam (Long-focus) at index: $ROAD_CAM"
+else
+    export ROAD_CAM=2
+    echo "[WARN] Road Cam path not found, using default index 2"
+fi
 
+# 2. 广角摄像头 (Wide-angle / BSM, 原为 index 0)
 WIDE_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1:1.0-video-index0"
 if [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
     export WIDE_CAM=${WIDE_DEV#/dev/video}
-    echo "[INFO] Detected Wide Camera at index: $WIDE_CAM"
+    echo "[INFO] Identified Wide Cam (BSM) at index: $WIDE_CAM"
 else
     export WIDE_CAM=0
-    echo "[WARN] Wide camera path not found, using default index 0"
+    echo "[WARN] Wide Cam path not found, using default index 0"
 fi
 
 # 启动前硬件预检查，防止进程频繁崩溃重启
