@@ -169,7 +169,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
 
     // Wide or narrow cam dependent on speed
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
-    if (has_wide_cam && sm.all_checks({"carState"})) {
+    if (has_wide_cam && sm.allAliveAndValid({"carState"})) {
       float v_ego = sm["carState"].getCarState().getVEgo();
       uint64_t cur_frame = sm.frame;
       if (cur_frame - last_switch_frame > 2 * UI_FREQ) {

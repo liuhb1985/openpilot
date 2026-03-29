@@ -114,9 +114,18 @@ robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 # -----------------------------------------------------------------------------
 # 摄像头动态注册与预检查
 # -----------------------------------------------------------------------------
-# 根据用户当前硬件配置：长焦在2上，广角在0上
+# 根据硬件布局：长焦固定在 index 2，广角使用持久化路径以防 index 偏移或指向元数据节点 (errno 25 Fix)
 export ROAD_CAM=2
-export WIDE_CAM=0
+
+WIDE_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1:1.0-video-index0"
+if [ -L "$WIDE_PATH" ]; then
+    WIDE_DEV=$(readlink -f "$WIDE_PATH")
+    export WIDE_CAM=${WIDE_DEV#/dev/video}
+    echo "[INFO] Detected Wide Camera at index: $WIDE_CAM"
+else
+    export WIDE_CAM=0
+    echo "[WARN] Wide camera path not found, using default index 0"
+fi
 
 # 启动前硬件预检查，防止进程频繁崩溃重启
 wait_for_device "/dev/video$ROAD_CAM" "Road Camera (Long-focus)"
