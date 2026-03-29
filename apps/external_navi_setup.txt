@@ -1,0 +1,24 @@
+非 Root 手机设置
+
+1. 在电脑上安装 adb。
+
+2. 在命令提示符 (Command Prompt) 窗口中输入以下命令：
+
+adb shell pm grant com.ajouatom.carrotman android.permission.READ_LOGS
+
+
+
+************ T-Map 设置...
+
+1. 允许所有权限。
+
+2. 开启黑匣子（行车记录仪）模式。
+
+3. 将黑匣子存储路径指向 Download 文件夹，并在此处创建 Carrot 文件夹。（必须在此处手动创建。）
+
+4. 授予该文件夹存储权限。
+
+5. 如果不打算使用行车记录仪功能，设置完成后可以再次关闭它。
+
+
+Root 手机可直接正常运行~

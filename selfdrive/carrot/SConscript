@@ -1,0 +1,49 @@
+# -*- coding: utf-8 -*-
+Import("env")
+
+senv = env.Clone()
+
+# 包含路径：使用 # 确保相对于项目根目录
+senv.Prepend(CPPPATH=[
+    "#",
+    "/usr/include/opencv4",
+    "/usr/include",
+])
+
+# 库搜索路径：明确指向各组件目录
+senv.Prepend(LIBPATH=[
+    "#common",
+    "#msgq_repo",
+    "#cereal",
+])
+
+# 宏定义
+senv.Append(CPPDEFINES=["WSL2"])
+
+src = ["laned.cc"]
+
+# 链接库：使用字符串名称，避免 Library 对象跨目录产生的路径解析问题
+# 顺序：由高层到底层
+libs = [
+    "visionipc",
+    "msgq",
+    "cereal",
+    "socketmaster",
+    "common",
+    "json11",
+    "zmq",
+    "capnp",
+    "kj",
+    "OpenCL",
+    "opencv_core",
+    "opencv_imgproc",
+    "opencv_imgcodecs",
+    "pthread",
+]
+
+# 生成目标
+senv.Program(
+    target="laned",
+    source=src,
+    LIBS=libs,
+)

@@ -1,0 +1,336 @@
+sudo apt-get update
+sudo apt-get install libopencv-dev -y #以后集成到tools/op.sh setup里进行安装
+sudo apt install git -y
+sudo apt install libturbojpeg-dev #安装turbojpeg开发库
+
+#创建路径
+cd /
+sudo mkdir data
+sudo chmod 777 data
+cd /data
+
+git clone -b cpv9-pc --single-branch https://jihulab.com/fishop/openpilot.git
+cd /data/openpilot
+tools/op.sh setup
+
+#========================================================
+＃安装显卡驱动
+#=============Intel==============
+cd /data/openpilot
+mkdir gpu && cd gpu
+mkdir intel && cd intel
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.20/intel-igc-core_1.0.17537.20_amd64.deb
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.20/intel-igc-opencl_1.0.17537.20_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.22/intel-level-zero-gpu-legacy1_1.3.30872.22_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.22/intel-level-zero-gpu_1.3.30872.22_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.22/intel-opencl-icd-legacy1_24.35.30872.22_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.22/intel-opencl-icd_24.35.30872.22_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.22/libigdgmm12_22.5.0_amd64.deb
+#安装软件包：
+sudo dpkg -i *.deb
+sudo apt install ocl-icd-libopencl1 clinfo darktable
+#检查opencl是否正确
+#可通过clinfo或darktable-cltest检查opencl是否正常
+#参考文档
+#https://github.com/intel/compute-runtime/releases
+
+#=============AMD==============
+cd /data/openpilot
+mkdir gpu && cd gpu
+mkdir amd && cd amd
+# 下载安装包:
+wget https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
+# 安装驱动:
+sudo dpkg -i amdgpu-install_6.4.60404-1_all.deb
+# usecase不要使用默认，避免导致显卡异常
+sudo amdgpu-install --usecase=opencl --accept-eula
+sudo apt install clinfo darktable
+# 增加当前用户到render和video组
+sudo usermod -a -G render $LOGNAME
+sudo usermod -a -G video $LOGNAME
+# 检查opencl是否正确
+clinfo -l
+Platform #0: AMD Accelerated Parallel Processing
+ -- Device #0: gfx90c:xnack+  #Device必须要看到有设备
+# 参考文档:https://amdgpu-install.readthedocs.io/en/latest/
+
+如果要重装，请先删除
+sudo amdgpu-install --uninstall
+
+可选安装其它版本
+wget https://repo.radeon.com/amdgpu-install/6.3.4/ubuntu/noble/amdgpu-install_6.3.60304-1_all.deb
+# 安装驱动:
+sudo dpkg -i amdgpu-install_6.3.60304-1_all.deb
+# usecase不要使用默认，避免导致显卡异常
+sudo amdgpu-install --usecase=opencl --accept-eula
+sudo apt install clinfo darktable
+# 增加当前用户到render和video组
+sudo usermod -a -G render $LOGNAME
+sudo usermod -a -G video $LOGNAME
+# 检查opencl是否正确
+clinfo -l
+Platform #0: AMD Accelerated Parallel Processing
+ -- Device #0: gfx90c:xnack+  #Device必须要看到有设备
+# 参考文档:https://amdgpu-install.readthedocs.io/en/latest/
+#========================================================
+#激活虚拟环境
+tools/op.sh venv
+
+#编译
+tools/op.sh build
+
+#如果编译报错，则按下面步骤操作
+#拷贝libicu*.so.66库到编译器路径
+cd /data/openpilot/x86_64_linux_gnu_lib
+sudo cp * /usr/lib/x86_64-linux-gnu/
+
+#再次编译
+cd /data/openpilot
+tools/op.sh build
+
+#========================================================
+#测试
+# 启动OP,ROAD_CAM指定摄像头,NO_DM驾驶监控开关(注意安全驾驶，关闭驾驶监控仅用测试，正常驾驶请打开驾驶监控功能)
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 system/manager/manager.py
+带JY62陀螺仪的启动方式
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用sensor_jy62
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=2 system/manager/manager.py  #使用locationd_jy62
+
+#通过C++的USB摄像头采集
+USE_USBCAM=1 system/manager/manager.py
+USE_USBCAM=1 JY62=1 system/manager/manager.py  #使用sensor_jy62
+USE_USBCAM=1 JY62=2 system/manager/manager.py  #使用locationd_jy62
+
+#如果只是测试一下摄像头显示，使用下面的命令
+USE_WEBCAM=1 ROAD_CAM=0 NO_DM=0 selfdrive/debug/uiview.py
+参数说明：USE_WEBCAM 使用USB摄像头，需要指定USE_WEBCAM为1，ROAD_CAM=0表示使用编号为0的摄像头（即/dev/video0）, NO_DM=0表示无驾驶员监控
+
+#通过C++的USB摄像头测试
+USE_USBCAM=1 selfdrive/debug/uiview.py
+
+需要访问ttyUSB0设备，需要先创建权限，让当前用户获得串口（/dev/ttyUSB0、/dev/ttyACM0等）访问权限
+sudo usermod -a -G dialout $LOGNAME
+newgrp dialout
+exec su -l $LOGNAME
+
+#========================================================
+#开机自动运行openpilot
+*可执行一键配置脚本./config_autostart.sh 删除开机自动执行./remove_autostart.sh
+*带JY62陀螺仪的一键配置脚本./config_jy62_autostart.sh 删除开机自动执行./remove_jy62_autostart.sh
+
+或手动分步执行下面的步骤
+#增加快捷栏图标
+cp logo.ico /home/$LOGNAME/
+sudo cp sunnypilot.desktop /usr/share/applications/
+sudo chmod +x /usr/share/applications/sunnypilot.desktop
+#增加启动脚本
+cp launch_pc.sh /home/$LOGNAME/
+chmod +x /home/$LOGNAME/launch_pc.sh
+#增加开机启动脚本
+mkdir /home/$LOGNAME/.config/autostart
+cp autostart_launch_pc.sh.desktop /home/$LOGNAME/.config/autostart/
+chmod +x /home/$LOGNAME/.config/autostart/autostart_launch_pc.sh.desktop
+#去掉sudo密码认证
+echo "$LOGNAME ALL=NOPASSWD: ALL" |sudo tee -a /etc/sudoers
+
+#========================================================
+#开机自动运行c3cam(适用thinkbook)
+执行一键配置脚本./config_autostart_cam.sh
+删除开机自动执行./remove_autostart_cam.sh
+
+#========================================================
+#开机自动运行c3cam_8845(适用8845小主机)
+执行一键配置脚本./config_autostart_cam_8845.sh
+删除开机自动执行./remove_autostart_cam_8845.sh
+
+#========================================================
+#通过监控检测panda来决定是否自动关机
+禁止挂起
+	sudo nano /etc/systemd/logind.conf
+
+	HandleLidSwitch=ignore       # 合盖时不挂起
+	HandleLidSwitchExternalPower=ignore  # 插电时合盖也不挂起
+	HandleLidSwitchDocked=ignore  # 外接显示器时合盖也不挂起
+重启服务
+	sudo systemctl restart systemd-logind
+运行命令
+  sudo nano /etc/systemd/system/panda_monitor.service
+ 创建 服务
+	[Unit]
+	Description=Panda Device Monitor
+	After=network.target
+
+	[Service]
+	User=op  # 替换为你的实际用户名（如 op、pi、ubuntu 等）
+	ExecStart=/usr/bin/python3 /data/openpilot/panda_monitor.py  # 确保路径正确
+	Restart=always
+	RestartSec=10
+
+	[Install]
+	WantedBy=multi-user.target
+
+开启开机自启
+	sudo systemctl daemon-reload
+	sudo systemctl enable panda_monitor.service  # 开机自启
+	sudo systemctl start panda_monitor.service   # 立即启动
+设置开机启动服务
+	sudo chown op:op /data/openpilot/panda_monitor.py
+	chmod +x /data/openpilot/panda_monitor.py
+临时停止
+	sudo systemctl stop panda_monitor.service  # 仅停止服务，不改变自启配置
+查看状态
+	sudo systemctl status panda_monitor.service
+手动启动进程
+/usr/bin/python3 /data/openpilot/panda_monitor.py
+
+另外发现开机的时候有报错
+systemd[1]: Failed to start bolt.service - Thunderbolt system service
+Ai给的建议是执行下面命令
+sudo systemctl stop bolt.service
+sudo systemctl disable bolt.service
+sudo systemctl mask bolt.service
+sudo sed -i '/bolt/d' /var/log/syslog
+说是禁用 bolt不会影响：
+USB4 / Thunderbolt-兼容设备（如 Type-C 显示器、硬盘、Dock）；
+DisplayPort over USB-C；
+USB-PD 充电；
+只会禁用 雷电设备授权与策略管理功能（AMD 平台本来也不支持）。
+
+===========================================================
+YOLO使用GPU加速
+->安装全功能的AMD GPU驱动
+sudo apt update
+wget https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
+sudo apt install ./amdgpu-install_6.4.60404-1_all.deb
+sudo amdgpu-install -y --usecase=graphics,rocm  --accept-eula　#安装需要24个G，可以选择只安装驱动＋基础Rocm
+sudo usermod -a -G render,video $LOGNAME
+只安装动＋基础Rocm
+sudo amdgpu-install -y --usecase=graphics,rocm --no-dkms --accept-eula
+sudo apt install rocblas miopen-hip hipblas hipsparse rocfft  #手动补装必要的计算库（而不是全部 SDK）
+
+如果要安装旧版本
+sudo amdgpu-install --uninstall
+wget https://repo.radeon.com/amdgpu-install/6.3.4/ubuntu/noble/amdgpu-install_6.3.60304-1_all.deb
+sudo dpkg -i amdgpu-install_6.3.60304-1_all.deb
+sudo amdgpu-install -y --usecase=graphics,rocm  --accept-eula　#安装需要24个G，可以选择只安装驱动＋基础Rocm
+sudo usermod -a -G render,video $LOGNAME
+
+安装后可以用以下命令检查：
+/opt/rocm/bin/rocminfo | grep Name
+正常会显示显卡的名称
+
+使用命令rocm-smi可查看GPU使用情况
+
+安装 OpenCL 工具
+sudo apt install clinfo
+clinfo | grep "Device"
+
+---------------------------------------------------------
+->安装 ONNX Runtime ROCm 版本，在python虚拟环境中安装（适合使用python）
+pip uninstall onnxruntime -y
+pip install onnxruntime-rocm==1.18.0 或 pip install onnxruntime-rocm 可自行测试
+
+验证
+python -c "import onnxruntime as ort; print(ort.get_device())"
+如果出现GPU说明成功
+
+->使用camera目录的下脚本test_rocm_onnxruntime.py进行测试
+python3 test_rocm_onnxruntime.py
+
+---------------------------------------------------------
+->适合C++使用onnxruntime的设置
+下载onnxruntime-rocm
+wget https://github.com/microsoft/onnxruntime/releases/download/v1.18.0/onnxruntime-linux-x64-rocm-1.18.0.tgz
+tar -xzf onnxruntime-linux-x64-rocm-1.18.0.tgz
+cd onnxruntime-linux-x64-rocm-1.18.0
+把onnxruntime-linux-x64-rocm-1.18.0文件夹拷贝到third_party中
+
+YOLOv5s ONNX 模型需要处理图像，所以要用 OpenCV
+sudo apt install libopencv-dev
+
+查看onnxruntime-rocm是为哪个ROCM版本编译的
+strings ./third_party/onnxruntime-linux-x64-rocm-1.18.0/lib/libonnxruntime_providers_rocm.so | grep -i rocm
+
+# 1. 创建兼容符号链接
+sudo ln -s /opt/rocm-6.4.4/lib/librocblas.so.4 /opt/rocm-6.4.4/lib/librocblas.so.3
+
+# 2. 确保 ROCm 库路径在环境变量中
+export LD_LIBRARY_PATH=/opt/rocm-6.4.4/lib:$LD_LIBRARY_PATH
+
+---------------------------------------------------------
+经过测试发现，onnxruntime-rocm-1.18.0与rocm6.4.4不匹配，需要重新编译onnxruntime-rocm
+安装依赖
+sudo apt update
+sudo apt install -y \
+    build-essential \
+    cmake \
+    git \
+    python3 \
+    python3-pip \
+    python3-venv \
+    llvm-13-dev \
+    libnuma-dev \
+    zlib1g-dev \
+    wget
+环境变量（确保 ROCm 库能被找到）
+export ROCM_PATH=/opt/rocm-6.4.4
+export HIP_PATH=$ROCM_PATH          # 指向 ROCm 根目录就行
+export LD_LIBRARY_PATH=$ROCM_PATH/lib:$LD_LIBRARY_PATH
+export PATH=$ROCM_PATH/bin:$PATH
+
+下载 ONNX Runtime 最新源码
+git clone https://github.com/microsoft/onnxruntime.git
+下载 ONNX Runtime v1.18.0 源码
+git clone --branch v1.18.0 --single-branch https://github.com/microsoft/onnxruntime.git
+git clone --branch v1.17.0 --single-branch https://github.com/microsoft/onnxruntime.git
+git clone --branch v1.22.0 --single-branch https://github.com/microsoft/onnxruntime.git
+git clone --branch v1.22.2 --single-branch https://github.com/microsoft/onnxruntime.git
+cd onnxruntime
+
+安装CMake
+sudo apt update
+sudo apt install -y cmake
+
+cd /data/onnxruntime
+
+# 设置 ROCm 环境变量
+export ROCM_PATH=/opt/rocm-6.4.4
+export PATH=$ROCM_PATH/bin:$PATH
+export LD_LIBRARY_PATH=$ROCM_PATH/lib:$ROCM_PATH/lib64:$LD_LIBRARY_PATH
+
+# 构建命令
+python3 tools/ci_build/build.py \
+  --config Release \
+  --build_dir build \
+  --update \
+  --build \
+  --parallel \
+  --skip_tests \
+  --build_shared_lib \
+  --use_rocm --rocm_version=6.4.4 --rocm_home /opt/rocm-6.4.4 \
+  --nccl_home /opt/rocm-6.4.4
+
+# 重新编译并保存日志
+python3 tools/ci_build/build.py \
+  --config Release \
+  --build_dir build \
+  --update \
+  --build \
+  --parallel \
+  --skip_tests \
+  --build_shared_lib \
+  --use_rocm --rocm_version=6.4.4 --rocm_home /opt/rocm-6.4.4 \
+  --nccl_home /opt/rocm-6.4.4 2>&1 | tee build.log
+
+# 搜索 ROCm 相关的错误或警告
+grep -i "rocm" build.log | grep -i "error\|warning\|not found"
+
+编译1.18.0版本时，可能会报hash错误，按下面的方法解决
+更新 cmake/deps.txt 文件中 Eigen 的 SHA1 哈希值:
+# 编辑 cmake/deps.txt,找到 Eigen 相关的行
+# 将 SHA1 从 be8be39fdbc6e60e94fa7870b280707069b5b81a
+# 改为 32b145f525a8308d7ab1c09388b2e288312d8eba
+
+安装
+cd build/Release
+make install DESTDIR=/data/openpilot/third_party/onnxruntime-rocm

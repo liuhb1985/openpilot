@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=gnome-terminal -e "bash -c '/home/$LOGNAME/launch_cam_8845.sh;$SHELL'"
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[zh_CN]=Camera
+Name=Camera
+Comment[zh_CN]=
+Comment=

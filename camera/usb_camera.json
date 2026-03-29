@@ -1,0 +1,17 @@
+{
+  "debug": false,
+  "raw_conf_threshold": 0.5,
+  "nms_conf_threshold": 0.5,
+  "nms_threshold": 0.5,
+  "show_video":false,
+  "single_window":true,
+
+  "cameras": [
+    {
+      "device": "/dev/video0",
+      "sign": 0,
+      "car_detect": 0
+    }
+  ]
+}
+
