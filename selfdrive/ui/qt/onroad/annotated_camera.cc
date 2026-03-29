@@ -167,8 +167,23 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       skip_frame_count = 5;
     }
 
-    // Camera view switching logic removed as requested. Always use the standard road camera.
-    wide_cam_requested = false;
+    // Wide or narrow cam dependent on speed
+    bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
+    if (has_wide_cam && sm.allAliveAndValid({"carState"})) {
+      float v_ego = sm["carState"].getCarState().getVEgo();
+      uint64_t cur_frame = sm.frame;
+      if (cur_frame - last_switch_frame > 2 * UI_FREQ) {
+        if (!wide_cam_requested && v_ego < 10 / 3.6) {
+          wide_cam_requested = true;
+          last_switch_frame = cur_frame;
+        } else if (wide_cam_requested && v_ego > 15 / 3.6) {
+          wide_cam_requested = false;
+          last_switch_frame = cur_frame;
+        }
+      }
+    } else {
+      wide_cam_requested = false;
+    }
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
     CameraWidget::setFrameId(sm["modelV2"].getModelV2().getFrameId());
