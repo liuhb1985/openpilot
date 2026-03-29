@@ -1,6 +1,7 @@
 
 #include "selfdrive/ui/qt/onroad/annotated_camera.h"
 
+#include <QDateTime>
 #include <QPainter>
 #include <algorithm>
 #include <cmath>
@@ -167,9 +168,12 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       skip_frame_count = 5;
     }
 
-    // Wide or narrow cam dependent on speed
+    // Wide or narrow cam dependent on speed and time of day (Night guard)
+    QTime now = QTime::currentTime();
+    bool is_daytime = (now.hour() >= 7 && now.hour() < 19);
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
-    if (has_wide_cam && sm.allAliveAndValid({"carState"})) {
+
+    if (is_daytime && has_wide_cam && sm.allAliveAndValid({"carState"})) {
       float v_ego = sm["carState"].getCarState().getVEgo();
       uint64_t cur_frame = sm.frame;
       if (cur_frame - last_switch_frame > 2 * UI_FREQ) {
