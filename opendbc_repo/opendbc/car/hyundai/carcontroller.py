@@ -524,11 +524,11 @@ class CarController(CarControllerBase):
           send_button = Buttons.RES_ACCEL
           self.activateCruise = 1
           activate_cruise = True
-      elif CC.cruiseControl.resume:
+      elif CC.cruiseControl.resume or (CS.out.cruiseState.standstill and target > 0):
         send_button = Buttons.RES_ACCEL
-      elif target < current and current>= 31 and self.speed_from_pcm != 1:
+      elif target < current and current >= 31:
         send_button = Buttons.SET_DECEL
-      elif target > current and current < 160 and self.speed_from_pcm != 1:
+      elif target > current and current < 160:
         send_button = Buttons.RES_ACCEL
     elif CS.out.activateCruise: #CC.cruiseControl.activate:
       if (hud_control.leadVisible or v_ego_kph > 10.0) and self.activateCruise == 0:

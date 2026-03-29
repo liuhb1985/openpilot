@@ -114,31 +114,35 @@ robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 # -----------------------------------------------------------------------------
 # 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
 # -----------------------------------------------------------------------------
-# 1. 长焦摄像头 (Long-focus, 原为 index 2)
-ROAD_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:2.3:1.0-video-index0"
-if [ -L "$ROAD_PATH" ]; then
+# 1. 长焦摄像头 (Long-focus, 默认 index 2)
+# 使用通配符匹配，解决 usb-0 vs usbv2-0 或微小路径变动
+ROAD_PATH=$(ls /dev/v4l/by-path/*usb*-0:2.3:1.0-video-index0 2>/dev/null | head -n 1)
+if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM=${ROAD_DEV#/dev/video}
-    echo "[INFO] Identified Road Cam (Long-focus) at index: $ROAD_CAM"
+    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM"
 else
     export ROAD_CAM=2
-    echo "[WARN] Road Cam path not found, using default index 2"
+    echo "[WARN] Road Cam path not found, falling back to default index 2"
 fi
 
-# 2. 广角摄像头 (Wide-angle / BSM, 原为 index 0)
-WIDE_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1:1.0-video-index0"
-if [ -L "$WIDE_PATH" ]; then
+# 2. 广角摄像头 (Wide-angle / BSM, 默认 index 0)
+WIDE_PATH=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index0 2>/dev/null | head -n 1)
+if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
     export WIDE_CAM=${WIDE_DEV#/dev/video}
-    echo "[INFO] Identified Wide Cam (BSM) at index: $WIDE_CAM"
+    echo "[INFO] Identified Wide Cam (BSM) via path $WIDE_PATH at index: $WIDE_CAM"
 else
     export WIDE_CAM=0
-    echo "[WARN] Wide Cam path not found, using default index 0"
+    echo "[WARN] Wide Cam path not found, falling back to default index 0"
 fi
 
-# 启动前硬件预检查，防止进程频繁崩溃重启
+# 启动前硬件预检查
 wait_for_device "/dev/video$ROAD_CAM" "Road Camera (Long-focus)"
 wait_for_device "/dev/video$WIDE_CAM" "Wide Camera (BSM)"
+
+# 导出环境变量供 cam_blindspot 进程内部使用，确保路径 100% 同步
+export WIDE_CAM_DEV="/dev/video$WIDE_CAM"
 
 # 在前台启动 manager (开启精简模式)
 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM WIDE_CAM=$WIDE_CAM NO_DM=0 JY62=0 BLOCK=$BLOCK_PROCS system/manager/manager.py

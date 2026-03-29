@@ -258,21 +258,23 @@ class Controls:
     hudControl.atcDistance = self.sm['carrotMan'].xDistToTurn
 
     lp = self.sm['longitudinalPlan']
+    # carrot: setSpeed should use the internal target to allow carcontroller to sync the PCM
+    hudControl.setSpeed = float(CS.vCruise * CV.KPH_TO_MS)
+    
     if self.CP.pcmCruise:
       speed_from_pcm = self.params.get_int("SpeedFromPCM")
-      if speed_from_pcm == 1: #toyota
-        hudControl.setSpeed = float(CS.vCruiseCluster * CV.KPH_TO_MS)
+      if speed_from_pcm == 1: # Hyundai/Toyota standard
+        pass # Now uses the internal CS.vCruise set above
       elif speed_from_pcm == 2:
         hudControl.setSpeed = float(max(30/3.6, desired_kph * CV.KPH_TO_MS))
-      elif speed_from_pcm == 3: # honda
+      elif speed_from_pcm == 3: # Honda
         hudControl.setSpeed = setSpeed if lp.xState == 3 else float(desired_kph * CV.KPH_TO_MS)
-      else:
-        hudControl.setSpeed = float(max(30/3.6, setSpeed))
     else:
       hudControl.setSpeed = setSpeed if lp.xState == 3 else float(desired_kph * CV.KPH_TO_MS)
+
     hudControl.speedVisible = CC.enabled
     hudControl.lanesVisible = CC.enabled
-    hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
+    hudControl.leadVisible = lp.hasLead
     hudControl.leadDistanceBars = self.sm['selfdriveState'].personality.raw + 1
     hudControl.visualAlert = self.sm['selfdriveState'].alertHudVisual
 

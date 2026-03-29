@@ -337,8 +337,8 @@ class VCruiseCarrot:
       else:
         if self.speed_from_pcm == 1:
           if (CS.gasPressed or self._gas_pressed_count > -7) and self.autoGasSyncSpeed and self.v_ego_kph_set > v_cruise_kph:
-            self.v_cruise_kph = self.v_ego_kph_set
-            self.v_cruise_cluster_kph = self.v_ego_kph_set
+            self.v_cruise_kph = max(self.v_cruise_kph, self.v_ego_kph_set)
+            self.v_cruise_cluster_kph = self.v_cruise_kph
           else:
             self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
             self.v_cruise_cluster_kph = CS.cruiseState.speedCluster * CV.MS_TO_KPH

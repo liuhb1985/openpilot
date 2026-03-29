@@ -1560,6 +1560,13 @@ int main() {
         // ... 继续使用默认 devices
     }
 
+    // === 新增：环境变量覆盖 (解决 by-path 路径失效问题) ===
+    const char* wide_cam_dev = getenv("WIDE_CAM_DEV");
+    if (wide_cam_dev != nullptr && !devices.empty()) {
+        std::cout << "[INFO] Overriding Wide Cam device with environment variable: " << wide_cam_dev << std::endl;
+        devices[0] = std::string(wide_cam_dev);
+    }
+
     // 在后台过滤
     filter_unusable_cameras(devices, camera_sign, car_detect);
     
