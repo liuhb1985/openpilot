@@ -114,25 +114,15 @@ robust_place "ui" "ui" 0 0 $SCREEN_WIDTH $UI_H
 # -----------------------------------------------------------------------------
 # 摄像头动态注册与预检查
 # -----------------------------------------------------------------------------
-# 路面摄像头 (建议在此处添加您的路面摄像头持久化路径)
-# ROAD_PATH="/dev/v4l/by-path/your-road-cam-path"
-# if [ -L "$ROAD_PATH" ]; then ROAD_DEV=$(readlink -f "$ROAD_PATH"); export ROAD_CAM=${ROAD_DEV#/dev/video}; fi
-export ROAD_CAM=${ROAD_CAM:-2} 
-
-WIDE_PATH="/dev/v4l/by-path/pci-0000:04:00.3-usb-0:1:1.0-video-index0"
-if [ -L "$WIDE_PATH" ]; then
-    WIDE_DEV=$(readlink -f "$WIDE_PATH")
-    export WIDE_CAM=${WIDE_DEV#/dev/video}
-    echo "[INFO] Detected wide-angle camera at index: $WIDE_CAM"
-else
-    echo "[WARN] Wide-angle camera path $WIDE_PATH not found"
-fi
+# 根据用户当前硬件配置：长焦在2上，广角在0上
+export ROAD_CAM=2
+export WIDE_CAM=0
 
 # 启动前硬件预检查，防止进程频繁崩溃重启
-wait_for_device "/dev/video$ROAD_CAM" "Road Camera"
-[ -n "$WIDE_CAM" ] && wait_for_device "/dev/video$WIDE_CAM" "Wide Camera"
+wait_for_device "/dev/video$ROAD_CAM" "Road Camera (Long-focus)"
+wait_for_device "/dev/video$WIDE_CAM" "Wide Camera (BSM)"
 
 # 在前台启动 manager (开启精简模式)
-USE_USBCAM=1 ROAD_CAM=2 NO_DM=0 JY62=0 BLOCK=$BLOCK_PROCS system/manager/manager.py
+USE_USBCAM=1 ROAD_CAM=$ROAD_CAM WIDE_CAM=$WIDE_CAM NO_DM=0 JY62=0 BLOCK=$BLOCK_PROCS system/manager/manager.py
 
 # 等待监控任务完成

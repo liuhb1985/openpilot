@@ -137,6 +137,7 @@ class CameraMJPG:
             self.cap.release()
 
     def __del__(self):
-        self.stop_event.set()
+        if hasattr(self, 'stop_event'):
+            self.stop_event.set()
         if hasattr(self, 'cap') and self.cap.isOpened():
             self.cap.release()

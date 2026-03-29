@@ -181,6 +181,8 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
           last_switch_frame = cur_frame;
         }
       }
+    } else {
+      wide_cam_requested = false;
     }
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
