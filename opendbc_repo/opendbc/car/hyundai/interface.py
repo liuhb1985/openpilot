@@ -300,15 +300,21 @@ def enable_radar_tracks(CP, logcan, sendcan):
            # 4. Write data by identifier
            print("ecu write data by id ...")
            WRITE_DAT_REQUEST = b'\x2e'
-           WRITE_DAT_RESPONSE = b'\x68'
+           WRITE_DAT_RESPONSE = b'\x6e'  # Correct UDS positive response for 0x2e is 0x6e
            query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
-           result = query.get_data(0)
+           result = query.get_data(0.5)  # Wait longer for flash memory write
            print("result=", result)
            ret = True
 
-        # 5. Bring ECU back to default session rapidly to prevent dashboard faults
-        reset_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x01'], [b'\x50\x01'])
-        reset_query.get_data(0.1)
+        # 5. Send ECU Hard Reset (0x11 0x01) to reboot the radar module gracefully
+        # This forces the radar to reload the new tracks config and crucially restarts SCC11 broadcast 
+        print("ecu hard reset to resume CAN broadcast ...")
+        reset_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x11\x01'], [b'\x51\x01'])
+        reset_query.get_data(0.2)
+        
+        # 6. Bring ECU back to default session rapidly to prevent dashboard faults
+        default_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x01'], [b'\x50\x01'])
+        default_query.get_data(0.1)
         break
     except Exception as e:
       print(f"Failed : {e}")
