@@ -667,6 +667,8 @@ private:
     bool    lead_status = false;
     float   radarDist = 0.0;
     float   visionDist = 0.0;
+    float   radarSpeed = 0.0;
+    float   visionSpeed = 0.0;
     int     xState = 0;
     int     trafficState = 0;
 
@@ -713,6 +715,7 @@ protected:
 
         auto leadsV3 = model.getLeadsV3()[0];
         visionDist = leadsV3.getProb() > .5 ? leadsV3.getX()[0] - 1.52 : 0.0;
+        visionSpeed = leadsV3.getProb() > .5 ? std::max(0.0f, v_ego + leadsV3.getV()[0]) : 0.0;
 
         auto lead_one = sm["radarState"].getRadarState().getLeadOne();
         lead_status = lead_one.getStatus();
@@ -722,10 +725,12 @@ protected:
             y = -lead_one.getYRel();
             radarTrackId = lead_one.getRadarTrackId();
             radarDist = (lead_one.getRadar()) ? lead_one.getDRel() : 0;
+            radarSpeed = std::max(0.0f, lead_one.getVLeadK());
         }
         else {
             radarTrackId = -1;
             radarDist = 0;
+            radarSpeed = 0.0;
         }
         _model->mapToScreen(max_distance, y - 1.2, z + 1.22, &path_end_left_vertex);
         _model->mapToScreen(max_distance, y + 1.2, z + 1.22, &path_end_right_vertex);
@@ -846,25 +851,35 @@ public:
         else draw_dist = true;
 
         if (draw_dist) {
-            //float dist = (getRadarDist() > 0.0) ? getRadarDist() : getVisionDist();
-            //if (dist < 10.0) sprintf(str, "%.1f", dist);
-            //else sprintf(str, "%.0f", dist);
-            //ui_draw_text(s, x, disp_y, str, disp_size, COLOR_WHITE, BOLD);
             int wStr = 0, w = 80;
             float dist = radarDist * (s->scene.is_metric ? 1 : METER_TO_FOOT);
+            float speed = radarSpeed * (s->scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
             NVGcolor text_color = (xState==0) ? COLOR_WHITE : (xState==1) ? COLOR_GREY : COLOR_GREEN;
             if (dist > 0.0) {
                 sprintf(str, "%.1f", dist);
                 wStr = 32 * (strlen(str) + 0);
                 ui_fill_rect(s->vg, { (int)(x - w - wStr / 2), (int)(disp_y - 35), wStr, 42 }, isLeadSCC() ? COLOR_RED : COLOR_ORANGE, 15);
                 ui_draw_text(s, x - w, disp_y, str, 40, text_color, BOLD);
+                
+                // Draw speed below distance
+                sprintf(str, "%.0f", speed);
+                int speed_w = 20 * (strlen(str) + 0);
+                ui_fill_rect(s->vg, { (int)(x - w - speed_w / 2), (int)(disp_y + 12), speed_w, 28 }, COLOR_BLACK_ALPHA(100), 10);
+                ui_draw_text(s, x - w, disp_y + 35, str, 28, text_color, BOLD);
             }
             dist = visionDist * (s->scene.is_metric ? 1 : METER_TO_FOOT);
+            speed = visionSpeed * (s->scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
             if (dist > 0.0) {
                 sprintf(str, "%.1f", dist);
                 wStr = 32 * (strlen(str) + 0);
                 ui_fill_rect(s->vg, { (int)(x + w - wStr / 2), (int)(disp_y - 35), wStr, 42 }, COLOR_BLUE, 15);
                 ui_draw_text(s, x + w, disp_y, str, 40, text_color, BOLD);
+
+                // Draw speed below distance
+                sprintf(str, "%.0f", speed);
+                int speed_w = 20 * (strlen(str) + 0);
+                ui_fill_rect(s->vg, { (int)(x + w - speed_w / 2), (int)(disp_y + 12), speed_w, 28 }, COLOR_BLACK_ALPHA(100), 10);
+                ui_draw_text(s, x + w, disp_y + 35, str, 28, text_color, BOLD);
             }
         }
         /*QPolygonF tf_vertext;

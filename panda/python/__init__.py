@@ -629,6 +629,8 @@ class Panda:
 
   @staticmethod
   def get_signature_from_firmware(fn) -> bytes:
+    if not os.path.isfile(fn) or os.path.getsize(fn) < 128:
+      return b""
     with open(fn, 'rb') as f:
       f.seek(-128, 2)  # Seek from end of file
       return f.read(128)
