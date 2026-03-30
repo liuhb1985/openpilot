@@ -261,8 +261,21 @@ class CarInterface(CarInterfaceBase):
 
     params = Params()
     if params.get_int("EnableRadarTracks") > 0 and not CP.flags & HyundaiFlags.CANFD:
-      result = enable_radar_tracks(CP, can_recv, can_send)
-      params.put_bool("EnableRadarTracksResult", result)
+      # Check if radar tracks were already successfully configured in a previous session.
+      # EnableRadarTracksResult is now PERSISTENT (not cleared on manager start),
+      # so a True value here means the radar hardware was already flashed — skip the
+      # diagnostic sequence entirely to avoid any CAN bus disruption on subsequent boots.
+      already_configured = params.get_bool("EnableRadarTracksResult")
+      if already_configured:
+        print("################ Radar Tracks already configured. Skipping to prevent CAN bus disruption. ####################")
+      else:
+        result = enable_radar_tracks(CP, can_recv, can_send)
+        params.put_bool("EnableRadarTracksResult", result)
+        if result:
+          print("################ Radar Tracks enabled successfully. Will skip on next boot. ####################")
+    elif params.get_int("EnableRadarTracks") <= 0:
+      # User disabled EnableRadarTracks — clear the flag so it re-runs if re-enabled later
+      params.put_bool("EnableRadarTracksResult", False)
 
     # for blinkers
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
