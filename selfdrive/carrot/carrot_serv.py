@@ -1418,12 +1418,21 @@ class CarrotServ:
           # 如果前车比自车慢很多，或者距离在快速缩短，降低安全时间(safe_sec)或增加减速率
           dynamic_safe_sec = np.interp(v_lead_v, [-5, -1], [1.0, 1.5])
 
-          # [Optimization] 利用视觉预测的加速度进行超前预判
-          # 如果前车急刹（a < -1.5），缩短安全探测距离并引入额外的降速偏移
+          # [Optimization 3] 视觉前车急刹惩罚衰减防晕 (Vlead Brake Attenuation)
+          # 当视觉前车反馈急刹（a < -1.5）时，增加距离和车速衰减抑制，防止远距离误触发重刹
           if v_lead_a < -1.5:
-            dynamic_safe_sec *= np.interp(v_lead_a, [-4, -1.5], [0.5, 1.0])
-            # 直接在目标时速上减去一个偏移量（例如 5-10 KPH），强制原车 ACC 尽早进入制动
-            v_lead_kph -= np.interp(v_lead_a, [-4, -1.5], [10, 0])
+            aggressiveness = 1.0
+            if v_lead_x > 40.0:
+              # 距离超过40米，急刹剧烈响应大幅度衰减
+              aggressiveness = np.interp(v_lead_x, [40.0, 80.0], [1.0, 0.0])
+            
+            # 如果绝对速度和本车差不多甚至只慢一点点，说明前车可能只是轻点刹车
+            if (v_ego + v_lead_v) > max(1.0, v_ego * 0.8):
+              aggressiveness *= 0.5
+            
+            if aggressiveness > 0:
+              dynamic_safe_sec *= np.interp(v_lead_a, [-4, -1.5], [1.0 - 0.5 * aggressiveness, 1.0])
+              v_lead_kph -= np.interp(v_lead_a, [-4, -1.5], [10.0 * aggressiveness, 0.0])
 
           vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, dynamic_safe_sec, self.vision_lead_decel_rate)
           speed_n_sources.append((vision_speed, "vlead"))
@@ -1445,6 +1454,24 @@ class CarrotServ:
       #speed_n_sources.append((self.calculate_current_speed(dist, speed * self.mapTurnSpeedFactor, 0, 1.2), "route"))
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
+
+    # [Optimization 1 & 2] 目标速度防摇摆与提速平滑滤波 (EMA Anti-wobble & Smooth Jerk)
+    if not hasattr(self, 'smooth_desired_speed'):
+      self.smooth_desired_speed = desired_speed
+    
+    if desired_speed < self.smooth_desired_speed:
+      # 限制条件变严（突发限速/前车刹车/入弯），快速降速，把刹车交由原车尽早执行
+      self.smooth_desired_speed = desired_speed
+    elif desired_speed > self.smooth_desired_speed:
+      # 限制条件解除，或视觉/地图曲线抖动引起的瞬时升速，执行慢速阻尼恢复
+      if source in ["user", "road", "atc"]:
+        # 用户干预、解除道路限速、彻底出弯：允许较为连贯的提速 (约 +3KPH / tick)
+        self.smooth_desired_speed = min(desired_speed, self.smooth_desired_speed + 3.0)
+      else:
+        # 模型识别跳动：使用严格的平滑滤波防“死亡摇摆” (+1KPH / tick)
+        self.smooth_desired_speed = min(desired_speed, self.smooth_desired_speed + 1.0)
+        
+    desired_speed = self.smooth_desired_speed
 
     if CS is not None:
       if self.overtake_wait_count <= -int(5.0 / DT_NAV): # 触发超车后的前 5 秒

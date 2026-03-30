@@ -123,7 +123,7 @@ def get_default_params():
     ("LongActuatorDelay", "20"),
     ("VEgoStopping", "50"),
     ("RadarReactionFactor", "100"),
-    ("EnableRadarTracks", "1"),
+    ("EnableRadarTracks", "0"),
     ("EnableEscc", "0"),
     ("RadarLatFactor", "60"),
     ("EnableCornerRadar", "0"),

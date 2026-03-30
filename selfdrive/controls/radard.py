@@ -391,6 +391,8 @@ class RadarD:
     self.radar_detected = False
     #new
     self.sideRadarMinDist = self.params.get_float("SideRadarMinDist") * 0.1
+    self.model_v_ego = 0.0
+    self._vision_cutin_count = 0  # counter for vision-only cut-in confirmation
 
 
   def update(self, sm: messaging.SubMaster, rr: car.RadarData):
@@ -455,10 +457,13 @@ class RadarD:
       self.radar_state.leadTwo, _ = self.get_lead(sm['carState'], md, alive_tracks, 1, leads_v3[1], model_v_ego, low_speed_override=False)
 
       self.lane_line_available = md.laneLineProbs[1] > 0.5 and md.laneLineProbs[2] > 0.5
-      self.compute_leads(self.sideRadarMinDist, self.v_ego, alive_tracks, md)
+      self.compute_leads(self.sideRadarMinDist, self.v_ego, alive_tracks, md, model_v_ego)
       if self.leadTwo is not None:
         self.radar_state.leadTwo = self.leadTwo
-      if self.enable_radar_tracks == 3:
+      # Run cut-in detection:
+      # - mode 3 (radar tracks + cut-in): original behavior
+      # - mode 0 (AEB preserved): vision-only cut-in via RadarLatFactor
+      if self.enable_radar_tracks == 3 or (self.detect_cut_in and self.enable_radar_tracks == 0):
         self._pick_lead_one_from_state()
 
   def publish(self, pm: messaging.PubMaster):
@@ -516,7 +521,8 @@ class RadarD:
 
     return lead_dict, radar
 
-  def compute_leads(self, min_dist, v_ego, tracks, md):
+  def compute_leads(self, min_dist, v_ego, tracks, md, model_v_ego=0.0):
+    self.model_v_ego = model_v_ego
     lead_msg = md.leadsV3[0] if (md is not None and len(md.position.x) == 33) else None
     self.leadCutIn = {'status': False}
     if lead_msg is None:
@@ -562,8 +568,54 @@ class RadarD:
     self.radar_state.leadsRight  = right_list
     self.radar_state.leadsCenter = center_list
     self.radar_state.leadsCutIn = cutin_list
+
+    # ── Vision-only cut-in detection ─────────────────────────────────────
+    # When EnableRadarTracks=0 (AEB preserved), the radar-track-based cutin_list
+    # above is always empty. Supplement it using the secondary vision prediction
+    # (leadsV3[1]) which the model often locks onto adjacent-lane vehicles that
+    # are about to merge before the merge completes.
+    MAX_VISION_CUTIN_COUNT = int(2.0 / DT_MDL)  # cap at 2 seconds
+    if self.detect_cut_in and self.enable_radar_tracks == 0 and len(md.leadsV3) > 1:
+      lead_v2 = md.leadsV3[1]
+      if lead_v2.prob > 0.3:
+        dRel_v2 = float(lead_v2.x[0]) - RADAR_TO_CAMERA
+        yRel_v2 = float(-lead_v2.y[0])       # + = right of ego, - = left of ego
+        vLead_v2 = v_ego + (lead_v2.v[0] - model_v_ego)
+        # vLat from VisionTrack: dPath derivative in path-relative frame.
+        # If car is on the RIGHT (yRel>0), moving toward lane center → dPath decreases → vLat < 0
+        # If car is on the LEFT  (yRel<0), moving toward lane center → dPath increases → vLat > 0
+        vLat_v2 = self.vision_tracks[1].vLat
+        lateral_ok = 1.0 < abs(yRel_v2) < 3.5          # in adjacent lane, not ours yet
+        dist_ok    = 3.0 < dRel_v2 < 50.0
+        speed_ok   = vLead_v2 > 3.0
+        # CRITICAL: direction must be TOWARD our lane center, not away from it
+        moving_into_lane = (
+          (yRel_v2 > 0 and vLat_v2 < -0.2) or    # right-side car moving left (toward us)
+          (yRel_v2 < 0 and vLat_v2 >  0.2)        # left-side  car moving right (toward us)
+        )
+        if lateral_ok and moving_into_lane and dist_ok and speed_ok:
+          self._vision_cutin_count = min(self._vision_cutin_count + 2, MAX_VISION_CUTIN_COUNT)
+        else:
+          self._vision_cutin_count = max(0, self._vision_cutin_count - 1)
+
+        # Require sustained presence before acting (~0.3s), stop once merged
+        already_merged = abs(yRel_v2) < 0.8     # car is now inside our lane
+        if self._vision_cutin_count > int(0.3 / DT_MDL) and not already_merged:
+          ld_vision = get_RadarState_from_vision(md, lead_v2, v_ego, model_v_ego)
+          ld_vision['modelProb'] = 0.05
+          ld_vision['status'] = True
+          cutin_list.append(ld_vision)
+          self.radar_state.leadsCutIn = cutin_list
+        elif already_merged:
+          # Car has merged; reset so the normal leadOne path handles it
+          self._vision_cutin_count = 0
+      else:
+        # Probability too low — decay counter
+        self._vision_cutin_count = max(0, self._vision_cutin_count - 1)
+    # ─────────────────────────────────────────────────────────────────────
+
     self.leadCutIn = min(
-      (ld for ld in cutin_list if 3 < ld['dRel'] < 50 and ld['vLead'] > 4),
+      (ld for ld in cutin_list if 3 < ld['dRel'] < 50 and ld['vLead'] > 3),
       key=lambda d: d['dRel'],
       default={'status': False}
     )
