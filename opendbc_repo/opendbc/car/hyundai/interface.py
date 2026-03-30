@@ -274,22 +274,41 @@ def enable_radar_tracks(CP, logcan, sendcan):
 
   ret = False
   sccBus = 2 if CP.flags & HyundaiFlags.CAMERA_SCC.value else 0
-  rdr_fw = None
-  rdr_fw_address = 0x7d0 #
+  rdr_fw_address = 0x7d0
   try:
+    dataId = b'\x01\x42'
+    new_config = b"\x00\x00\x00\x01\x00\x01"
+
+    # 1. Try reading first in default session to avoid faults.
+    read_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x22' + dataId], [b'\x62' + dataId])
+    read_resp = read_query.get_data(0.1)
+    if rdr_fw_address in read_resp and read_resp[rdr_fw_address] == new_config:
+      print("Radar tracks already enabled. Skipping write command to prevent fault codes.")
+      return True
+
     try:
+      # 2. If not enabled, enter Extended Diagnostic Session
       query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x07'], [b'\x50\x07'])
-      for addr, dat in query.get_data(0.1).items(): # pylint: disable=unused-variable
-        print("ecu write data by id ...")
-        new_config = b"\x00\x00\x00\x01\x00\x01"
-        #new_config = b"\x00\x00\x00\x00\x00\x01"
-        dataId = b'\x01\x42'
-        WRITE_DAT_REQUEST = b'\x2e'
-        WRITE_DAT_RESPONSE = b'\x68'
-        query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
-        result = query.get_data(0)
-        print("result=", result)
-        ret = True
+      for addr, dat in query.get_data(0.1).items(): 
+        # 3. Read again inside the diagnostic session just in case
+        read_query_ext = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x22' + dataId], [b'\x62' + dataId])
+        read_resp_ext = read_query_ext.get_data(0.1)
+        if rdr_fw_address in read_resp_ext and read_resp_ext[rdr_fw_address] == new_config:
+           print("Radar tracks already enabled (in Ext diag). Skipping write.")
+           ret = True
+        else:
+           # 4. Write data by identifier
+           print("ecu write data by id ...")
+           WRITE_DAT_REQUEST = b'\x2e'
+           WRITE_DAT_RESPONSE = b'\x68'
+           query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
+           result = query.get_data(0)
+           print("result=", result)
+           ret = True
+
+        # 5. Bring ECU back to default session rapidly to prevent dashboard faults
+        reset_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x01'], [b'\x50\x01'])
+        reset_query.get_data(0.1)
         break
     except Exception as e:
       print(f"Failed : {e}")
