@@ -167,6 +167,7 @@ class UnifiedParams:
             "DynamicExperimentalSpeed": -5,
             "DynamicExperimentalLatA": 0,
             "AutoOvertake": 0,
+            "AutoOvertakeReturn": 1,
             "VisionLeadDecel": 1,
             "VisionLeadDecelRate": 80,
             "AutoOvertakeSpeedDiff": 15,

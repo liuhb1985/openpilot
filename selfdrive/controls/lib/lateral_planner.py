@@ -63,7 +63,8 @@ class LateralPlanner:
     self.lanelines_active_tmp = False
 
     self.useLaneLineSpeedApply = self.params.get_int("UseLaneLineSpeed")
-    self.pathOffset = float(self.params.get_int("PathOffset")) * 0.01
+    # [Fix] 纠正 PathOffset 正负号：UI 显示 '(-)左偏, (+)右偏'。由于 OP 的 Y 轴为向左正方向，故需要反转输入参数符号以匹配物理意图
+    self.pathOffset = -float(self.params.get_int("PathOffset")) * 0.01
     self.useLaneLineMode = False
     self.plan_a = np.zeros((TRAJECTORY_SIZE, ))
     self.plan_yaw = np.zeros((TRAJECTORY_SIZE,))
@@ -91,7 +92,7 @@ class LateralPlanner:
     if self.readParams <= 0:
       self.readParams = 100
       self.useLaneLineSpeedApply = sm['carState'].useLaneLineSpeed
-      self.pathOffset = float(self.params.get_int("PathOffset")) * 0.01
+      self.pathOffset = -float(self.params.get_int("PathOffset")) * 0.01
       self.lateralPathCost = self.params.get_float("LatMpcPathCost") * 0.01
       self.lateralMotionCost = self.params.get_float("LatMpcMotionCost") * 0.01
       LATERAL_ACCEL_COST = self.params.get_float("LatMpcAccelCost") * 0.01
