@@ -1659,7 +1659,7 @@ class CarrotServ:
         if can_return and v_lead_kph_return > 0 and v_lead_kph_return < v_cruise_kph - needed_diff and d_lead_return < 120:
           can_return = False
           print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Canceled: Found another slow car ahead ({v_lead_kph_return:.1f}kph) in passing lane!")
-          self.overtake_return_wait_count = int(10.0 / DT_NAV) # 再等等，继续超车
+          self.overtake_return_wait_count = int(5.0 / DT_NAV) # 再等等，继续超车
           
         if can_return:
           self.carrotCmdIndex += 1
