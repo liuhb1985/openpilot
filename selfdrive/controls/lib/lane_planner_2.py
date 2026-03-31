@@ -244,6 +244,11 @@ class LanePlanner:
 
     ## self.d_prob = 0 if lane_changing
     self.d_prob *= self.lane_change_multiplier  ## 变更车道期间关闭.
+    # [Task 15] 高速稳定性增强：自适应路径平滑 (Adaptive Offset Filtering)
+    # 随速动态调节 RC 时间常数：低速保持灵敏，高速（> 100km/h）显著增大 RC 压制抖动
+    rc_lane = np.interp(v_ego * 3.6, [60, 100, 150], [2.0, 5.0, 8.0])
+    self.lane_offset_filtered.update_alpha(rc_lane)
+
     if self.lane_change_multiplier < 0.5:
       #self.lane_offset_filtered.x = 0.0
       pass

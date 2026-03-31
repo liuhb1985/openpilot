@@ -143,10 +143,17 @@ class LateralPlanner:
     # Turn off lanes during lane change
     #if self.DH.desire == log.Desire.laneChangeRight or self.DH.desire == log.Desire.laneChangeLeft:
 
-    # 变道过程中的平滑过渡 (Smooth transition during lane change)
+    # [Task 21] 变道过程中的平滑过渡 (High-speed LC Smoothing)
+    # 变道瞬态平滑：高速（> 110km/h）变道时放慢路径权重切换 (0.5s -> 1.8s)，提升平稳性
+    rc_lc = np.interp(self.v_ego * 3.6, [60, 110, 150], [0.5, 1.8, 3.0])
+    self.lane_change_multiplier_filter.update_alpha(rc_lc)
+    
     target_multiplier = 0.0 if (md.meta.desire != log.Desire.none or carrot.atc_active) else 1.0
     self.lane_change_multiplier_filter.update(target_multiplier)
     self.LP.lane_change_multiplier = self.lane_change_multiplier_filter.x
+
+    # 在执行变道期间动态调增 1.5x 的转向速率成本，压制变道起手的突兀修正
+    lc_rate_cost_multiplier = 1.5 if (md.meta.desire != log.Desire.none) else 1.0
 
     # lanelines calculation?
     self.LP.lanefull_mode = self.useLaneLineMode
@@ -163,9 +170,24 @@ class LateralPlanner:
 
     self.path_xyz[:, 1] += self.pathOffset
 
-    self.lat_mpc.set_weights(self.lateralPathCost, self.lateralMotionCost,
-                             LATERAL_ACCEL_COST, LATERAL_JERK_COST,
-                             STEERING_RATE_COST)
+    # [Task 15] 高速稳定性增强：随速动态调增 MPC 运动与抖动权重 (Dynamic Dampening)
+    # 车速越高，感知抖动对稳定性影响越大。在 60-150km/h 区间通过线性插值增加成本，增强轨迹“粘性”
+    v_ego_kph = self.v_ego * 3.6
+    speed_damp_factor = np.interp(v_ego_kph, [60, 100, 150], [1.0, 1.5, 2.0])
+    # 低置信度车道线环境下进行额外抑制，防止方向盘“神经质”地追踪模糊信号
+    conf_damp_factor = np.interp(self.LP.d_prob, [0.1, 0.6], [1.5, 1.0])
+    
+    total_damp = speed_damp_factor * conf_damp_factor
+    
+    # 应用动态权重到 MPC 核心参数
+    motion_cost = self.lateralMotionCost * total_damp
+    jerk_cost = LATERAL_JERK_COST * total_damp
+    # [Task 21] 额外叠加变道期间的平滑倍率
+    rate_cost = STEERING_RATE_COST * total_damp * lc_rate_cost_multiplier
+
+    self.lat_mpc.set_weights(self.lateralPathCost, motion_cost,
+                             LATERAL_ACCEL_COST, jerk_cost,
+                             rate_cost)
 
     y_pts = self.path_xyz[:LAT_MPC_N+1, 1]
     heading_pts = self.plan_yaw[:LAT_MPC_N+1]

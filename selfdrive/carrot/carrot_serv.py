@@ -98,6 +98,10 @@ class CarrotServ:
     self.nRoadLimitSpeed_counter = 0
 
     self.active_carrot = 0     ## 1: CarrotMan Active, 2: sdi active , 3: speed decel active, 4: section active, 5: bump active, 6: speed limit active
+
+    # [Task 22] 纵向：前车初探测保护 (New Lead Protection) 状态变量
+    self.lead_one_track_id_last = -1
+    self.lead_one_pickup_timer = 0
     self.active_count = 0
     self.active_sdi_count = 0
     self.active_sdi_count_max = 200 # 20 sec
@@ -846,7 +850,8 @@ class CarrotServ:
     stop_dist_for_speed = 5
     if self.roadcate > 1:
       fork_dist_offset = self.autoForkDistOffset
-      start_fork_dist = np.interp(self.nRoadLimitSpeed, [30, 50, 100], [160, 200, 350]) + fork_dist_offset
+      # [Task 21] 导航变道策略：统一高速路口变道基准点为 500m
+      start_fork_dist = np.interp(self.nRoadLimitSpeed, [30, 50, 100, 120], [160, 200, 450, 500]) + fork_dist_offset
       do_fork_dist = fork_dist_for_speed + self.autoDoForkBlinkerDist
       do_speed_decal_dist = fork_dist_for_speed + self.autoDoForkDecalDist
       auto_decel_rate = self.autoForkDecalRate
@@ -921,7 +926,7 @@ class CarrotServ:
           atc_control = True
       elif atc_type in ["fork left", "fork right"]: #说明x_dist_to_turn>do_fork_dist并且说明x_dist_to_turn <=atc_start_dist
         #atc_dist = do_speed_decal_dist #替换减速距离
-        if (fork_dist_offset > 0) and (x_dist_to_turn > do_fork_dist): #设置了提前变道距离，并且剩余距离大于进入匝道口距离，则执行提前变道流程
+        if (fork_dist_offset > 0) and (500 > x_dist_to_turn > do_fork_dist): # 修正：增加 500m 硬性卡点，解决 2km 过早变道问题
           atc_type = "atc left" if "left" in atc_type else "atc right"
           atc_bsd_adjust_enable = True
           if x_dist_to_turn < 500: #小于500米时优先减速
@@ -1343,11 +1348,25 @@ class CarrotServ:
 
     sdi_speed = 250
     hda_active = False
+
+    # [Task 22] 纵向：新前车初探测保护 (New Lead Protection)
+    # 检测雷达目标 ID 切换，识别新进入视野的车辆 (Lead Pickup)
+    radar_state_p = sm['radarState']
+    lead_one_p = radar_state_p.leadOne
+    if lead_one_p.status and lead_one_p.trackId != self.lead_one_track_id_last and lead_one_p.trackId > 0:
+      self.lead_one_pickup_timer = 10 # 1.0s @ 10Hz (DT_NAV=0.1) 延长至 1 秒确保信号彻底平稳
+    self.lead_one_track_id_last = lead_one_p.trackId
+    self.lead_one_pickup_timer = max(0, self.lead_one_pickup_timer - 1)
+
+    # 如果处于新目标“冷静期”，限制最大减速度，防止初始噪声引起的瞬间点刹 (0.8 -> 0.3)
+    current_decel_rate = self.autoNaviSpeedDecelRate
+    if self.lead_one_pickup_timer > 0:
+      current_decel_rate = min(current_decel_rate, 0.3)
     ### 超速摄影机和减速带减速处理
     if (self.xSpdDist > 0 or self.xSpdType in [100, 101]) and self.active_carrot > 0:
       safe_sec = self.autoNaviSpeedBumpTime if self.xSpdType == 22 else self.autoNaviSpeedCtrlEnd
       decel = self.autoNaviSpeedDecelRate
-      sdi_speed = min(sdi_speed, self.calculate_current_speed(self.xSpdDist, self.xSpdLimit, safe_sec, decel))
+      sdi_speed = min(sdi_speed, self.calculate_current_speed(self.xSpdDist, self.xSpdLimit, safe_sec, current_decel_rate))
       self.active_carrot = 5 if self.xSpdType == 22 else 3
       if self.xSpdType == 4 or (self.xSpdType in [100, 101] and self.xSpdDist <= 0):
         sdi_speed = self.xSpdLimit
@@ -1357,7 +1376,7 @@ class CarrotServ:
                       self.calculate_current_speed(CS.speedLimitDistance,
                                                    CS.speedLimit * self.autoNaviSpeedSafetyFactor,
                                                    self.autoNaviSpeedCtrlEnd,
-                                                   self.autoNaviSpeedDecelRate))
+                                                   current_decel_rate))
       #self.active_carrot = 6
       hda_active = True
 
@@ -1447,7 +1466,7 @@ class CarrotServ:
               dynamic_safe_sec *= np.interp(v_lead_a * aggressiveness, [-4, -1.5], [0.8, 1.0])
               v_lead_kph -= np.interp(v_lead_a * aggressiveness, [-4, -1.5], [8.0, 0.0])
 
-          vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, dynamic_safe_sec, self.vision_lead_decel_rate)
+          vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, dynamic_safe_sec, current_decel_rate)
           speed_n_sources.append((vision_speed, "vlead"))
           self.debugText += f" v_l={v_lead_x:.1f}m,{v_lead_v*3.6:.1f}k,a={v_lead_a:.1f}"
 
