@@ -28,7 +28,13 @@ class UnifiedParams:
         if self._initialized:
             return
 
-        self.system_params = Params()
+        # [Task 19] PC 环境 (Ubuntu) 兼容性增强：手动定位家目录
+        user_home = os.environ.get('HOME')
+        if not os.path.exists('/data/params') and user_home:
+          params_path = os.path.join(user_home, '.comma/params')
+          self.system_params = Params(params_path)
+        else:
+          self.system_params = Params()
 
         if nav_json_file is None:
             current_dir = os.path.dirname(os.path.abspath(__file__))
