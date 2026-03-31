@@ -741,6 +741,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "轻推方向变道", "-1:禁用变道, 0:无需轻推方向, 1:需要轻推方向变道", -1, 1, 1));
   latLongToggles->addItem(new CValueControl("AutoLaneChangeMinSpeed", "打灯变道最低速度", "低于这个速度打灯不自动变道", -1, 100, 5));
   latLongToggles->addItem(new CValueControl("AutoOvertake", "高速自主超车模式", "0:关闭, 1:左侧, 2:右侧, 3:双侧", 0, 3, 1));
+  latLongToggles->addItem(new CValueControl("AutoOvertakeReturn", "超车后自动归位原车道", "1:开启,超车5秒之后若安全自动转回原行车道流", 0, 1, 1));
   latLongToggles->addItem(new CValueControl("AutoOvertakeSpeedDiff", "自主超车触发速度差", "定速与前车速度差达到此值触发超车(单位:km/h)", 5, 30, 1));
   latLongToggles->addItem(new CValueControl("AutoOvertakePreAccel", "自主超车预提速幅度", "变道初期额外增加的期望速度(单位:km/h)", 0, 15, 1));
   latLongToggles->addItem(new CValueControl("LaneChangeDelay", "变道延迟", "单位 x0.1秒", 0, 100, 5));

@@ -166,9 +166,13 @@ class LanePlanner:
     self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
     #self.adjustCurveOffset = self.adjustLaneOffset #float(self.params.get_int("AdjustCurveOffset")) * 0.01
     ADJUST_OFFSET_LIMIT = 0.4 #max(self.adjustLaneOffset, self.adjustCurveOffset)
-    offset_curve = 0.0
-    ## curve offset
-    offset_curve = np.interp(abs(curve_speed), [40, 50, 200, 250], [0.0, self.adjustCurveOffset, 0.0, 0.0]) * np.sign(curve_speed)
+    ## [Optimization] 增加切大弯平滑抑制 (Curve Offset Smoothing) 
+    # 吸纳模型给出的切弯偏移请求并低通滤波，防止遇弯方向盘突兀猛拽
+    raw_offset_curve = np.interp(abs(curve_speed), [40, 50, 200, 250], [0.0, self.adjustCurveOffset, 0.0, 0.0]) * np.sign(curve_speed)
+    if not hasattr(self, 'offset_curve_ema'):
+      self.offset_curve_ema = raw_offset_curve
+    self.offset_curve_ema = 0.02 * raw_offset_curve + 0.98 * self.offset_curve_ema
+    offset_curve = self.offset_curve_ema
 
     diff_width = self.lane_width_left_filtered.x - self.lane_width_right_filtered.x
     offset_lane = np.interp(diff_width, [-0.4, 0.4], [-self.adjustLaneOffset, self.adjustLaneOffset])
@@ -194,28 +198,41 @@ class LanePlanner:
     else:
       lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
 
-    use_laneless_center_adjust = False
+    # [Optimization] 激活纯视觉模型下的动态居中偏移对齐 (Fix Right Bias)
+    # 对于纯模型偏右问题，通过比对视觉左/右线的预期几何中心与模型裸中心，补回偏移量
+    use_laneless_center_adjust = True
     if use_laneless_center_adjust:
-      ## 设法查看前方 0.5 秒的中心.
-      lane_path_y_center = np.interp(0.5, path_t, lane_path_y)
-      path_xyz_y_center = np.interp(0.5, path_t, path_xyz[:,1])
-      #lane_path_y_center = lane_path_y[0]
-      #path_xyz_y_center = path_xyz[:,1][0]
-      diff_center = (lane_path_y_center - path_xyz_y_center) if not self.lanefull_mode else 0.0
+      # 看前方 1.0 秒（更远、更平滑，不建议用 0.5 秒）
+      lane_path_y_center = np.interp(1.0, path_t, lane_path_y)
+      path_xyz_y_center = np.interp(1.0, path_t, path_xyz[:,1])
+      
+      if not self.lanefull_mode:
+        # 模型偏差差值 * 0.6 (防修正过猛画龙) * d_prob (车道线置信度)
+        diff_center = (lane_path_y_center - path_xyz_y_center) * 0.6 * self.d_prob
+      else:
+        diff_center = 0.0
     else:
       diff_center = 0.0
-    #print("center = {:.2f}={:.2f}-{:.2f}, lanefull={}".format(diff_center, lane_path_y_center, path_xyz_y_center, self.lanefull_mode))
-    #diff_center = lane_path_y[5] - path_xyz[:,1][5] if not self.lanefull_mode else 0.0
     self.offset_lead = 0.0
     if radarState is not None and radarState.leadOne.status:
       lead = radarState.leadOne
-      # 前车避让避让逻辑 (Lead avoidance nudge)
-      # 距离在 40m 内，且前车横向偏离中心小于 1.4m (Lead within 40m, lateral offset < 1.4m)
-      if 2.0 < lead.dRel < 40.0 and abs(lead.yRel) < 1.4:
-        # 根据前车横向位置，产生反向偏移 (Nudge in opposite direction of lead)
-        self.offset_lead = np.interp(abs(lead.yRel), [0.0, 1.4], [0.5, 0.0]) * -np.sign(lead.yRel)
-        # 距离因子：5-30m 效果最明显 (Dist factor: most effective between 5-30m)
-        dist_factor = np.interp(lead.dRel, [2, 5, 30, 40], [0.0, 1.0, 1.0, 0.0])
+      
+      # [Optimization] 前车交互双模体系: 绕开静止物体 vs 平滑跟随防加塞
+      if 2.0 < lead.dRel < 50.0:
+        is_stationary_or_slow = lead.vLead < 5.0 # 时速低于 ~18km/h 判为临停或缓行路口挪车
+        
+        if is_stationary_or_slow and 0.5 < abs(lead.yRel) < 2.5:
+          # [模式一: 危险边缘物体逆向绕行] (Stationary Avoidance)
+          # 对于越跨线的静止车躲避得越宽（最大 0.5m 反向偏移）
+          self.offset_lead = np.interp(abs(lead.yRel), [0.5, 1.5, 2.5], [0.3, 0.5, 0.0]) * -np.sign(lead.yRel)
+        elif not is_stationary_or_slow and abs(lead.yRel) < 1.2:
+          # [模式二: 正常行驶前车正向平顺跟随] (Traffic Following)
+          # 在车道线不清（d_prob < 0.6）时，优雅地追踪前车留在前方的安全轨迹，有车道线时弱化
+          follow_strength = np.interp(self.d_prob, [0.0, 0.6], [0.4, 0.0]) 
+          self.offset_lead = np.interp(abs(lead.yRel), [0.0, 1.2], [0.0, follow_strength]) * np.sign(lead.yRel)
+
+        # 随距离产生效果衰减：太远没必要，太近由于来不及而交还给 AEB
+        dist_factor = np.interp(lead.dRel, [2, 10, 35, 50], [0.0, 1.0, 1.0, 0.0])
         self.offset_lead *= dist_factor
     
     self.lane_offset_lead_filtered.update(self.offset_lead)

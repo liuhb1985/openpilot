@@ -249,6 +249,9 @@ class CarrotServ:
     self.autoDoForkBlinkerDistH = 30
     self.autoDoForkNavDistH = 50
     self.autoOvertake = 0
+    self.autoOvertakeReturn = 0
+    self.overtake_active_direction = ""
+    self.overtake_return_wait_count = 0
     self.overtake_wait_count = 0
     self.vision_lead_decel = 0
     self.vision_lead_decel_rate = 0.8
@@ -350,6 +353,7 @@ class CarrotServ:
       self.showDebugLog = self.params.get_int("ShowDebugLog")
       self.enable_radar_tracks = self.params.get_int("EnableRadarTracks")
       self.autoOvertake = self.params.get_int("AutoOvertake")
+      self.autoOvertakeReturn = self.params.get_int("AutoOvertakeReturn")
       self.vision_lead_decel = self.params.get_int("VisionLeadDecel")
       self.vision_lead_decel_rate = float(self.params.get_int("VisionLeadDecelRate")) * 0.01
       self.autoOvertakeSpeedDiff = self.params.get_int("AutoOvertakeSpeedDiff")
@@ -1599,10 +1603,72 @@ class CarrotServ:
   def check_auto_overtake(self, sm, v_ego):
     if self.autoOvertake <= 0:
       self.overtake_wait_count = 0
+      self.overtake_active_direction = ""
       return
 
     if not (sm.alive['carState'] and sm.alive['selfdriveState'] and sm['selfdriveState'].active):
       self.overtake_wait_count = 0
+      self.overtake_active_direction = ""
+      return
+
+    # [Optimization] 人接管转向灯时，清除超车返回的记忆状态
+    if sm['carState'].leftBlinker or sm['carState'].rightBlinker:
+      self.overtake_active_direction = ""
+
+    # [Optimization] 处理“超车后自动回到原车道”的记忆状态机归位任务
+    if self.autoOvertakeReturn > 0 and self.overtake_active_direction:
+      self.overtake_return_wait_count -= 1
+      if self.overtake_return_wait_count <= 0:
+        return_arg = "RIGHT" if self.overtake_active_direction == "LEFT" else "LEFT"
+        
+        # 多源盲区感知
+        meta = sm['modelV2'].meta
+        onboard_left_blind = (meta.atcBsd in [1, 4])
+        onboard_right_blind = (meta.atcBsd in [2, 5])
+        effective_left_blind = onboard_left_blind or self.left_blind or self.lidar_lblind or self.lidar_car_lblind
+        effective_right_blind = onboard_right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
+
+        can_return = False
+        if return_arg == "RIGHT" and not effective_right_blind and self.right_lane:
+          can_return = True
+        elif return_arg == "LEFT" and not effective_left_blind and self.left_lane:
+          can_return = True
+          
+        # 如果即将归位时，发现本车道（快车道）前方百米内还有慢车等待超越，极度聪明地取消归位，继续在快车道连超！
+        v_cruise_kph = sm['carState'].vCruise
+        lead_one = sm['radarState'].leadOne
+        v_lead_kph_return = -1
+        d_lead_return = 255
+        if sm.alive['modelV2'] and len(sm['modelV2'].leadsV3) > 0:
+          v_lead_v3 = sm['modelV2'].leadsV3[0]
+          if v_lead_v3.prob > 0.8:
+            v_lead_kph_return = (v_ego + v_lead_v3.v[0]) * 3.6
+            d_lead_return = v_lead_v3.x[0]
+        if lead_one and lead_one.status:
+          v_lead_radar = (v_ego + lead_one.vRel) * 3.6
+          d_lead_radar = lead_one.dRel
+          if v_lead_kph_return > 0:
+            v_lead_kph_return = min(v_lead_kph_return, v_lead_radar)
+            d_lead_return = min(d_lead_return, d_lead_radar)
+          else:
+            v_lead_kph_return = v_lead_radar
+            d_lead_return = d_lead_radar
+
+        needed_diff = np.interp(v_ego * 3.6, [20, 60, 100, 120], [5.0, self.autoOvertakeSpeedDiff, self.autoOvertakeSpeedDiff * 0.8, self.autoOvertakeSpeedDiff * 0.6])
+
+        if can_return and v_lead_kph_return > 0 and v_lead_kph_return < v_cruise_kph - needed_diff and d_lead_return < 120:
+          can_return = False
+          print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Canceled: Found another slow car ahead ({v_lead_kph_return:.1f}kph) in passing lane!")
+          self.overtake_return_wait_count = int(10.0 / DT_NAV) # 再等等，继续超车
+          
+        if can_return:
+          self.carrotCmdIndex += 1
+          self.carrotCmd = "OVERTAKE"  
+          self.carrotArg = return_arg
+          self.overtake_active_direction = "" # 清除记忆
+          print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Executing: Return to {return_arg}")
+          return
+      # 正在处于刚超车的冷却倒计时中，暂停正常的绕行检测
       return
 
     v_ego_kph = v_ego * 3.6
@@ -1695,6 +1761,11 @@ class CarrotServ:
       self.carrotCmdIndex += 1
       self.carrotCmd = "OVERTAKE"
       self.carrotArg = overtake_arg
+      
+      # [Optimization] 状态机记忆超车方向，用来触发后续自动归位
+      self.overtake_active_direction = overtake_arg
+      self.overtake_return_wait_count = int(5.0 / DT_NAV) # 归位冷却等待 (至少跑 5 秒拉开被超越车辆)
+
       # 触发后进入冷却及预加热阶段 ( -10秒 )
       self.overtake_wait_count = -int(10.0 / DT_NAV)
       print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertake optimized trigger: {overtake_arg}, diff={v_cruise_kph - v_lead_kph:.1f}kph")
