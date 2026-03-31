@@ -1851,14 +1851,16 @@ class CarrotServ:
       return
 
     epoch_time = int(time.time())
-    if epoch_time_remote > 0:
+    # [Task 12] 增加安全性校验：仅在远程时间有效（大于 2024-01-01）时同步
+    if epoch_time_remote > 1704067200: 
       epoch_time_offset = epoch_time_remote - epoch_time
-      if abs(epoch_time_offset) > 60:
+      if abs(epoch_time_offset) > 30: # 超过 30 秒偏差才同步
         self.last_time_sync = now_mono
-        print(f"Setting system time, offset = {epoch_time_offset}")
-        os.system(f"sudo timedatectl set-timezone {timezone_remote}")
+        print(f"---[{time.strftime('%H:%M:%S')}] Syncing system time: remote={epoch_time_remote}, offset={epoch_time_offset}s")
+        if timezone_remote:
+          os.system(f"sudo timedatectl set-timezone {timezone_remote} 2>/dev/null")
         formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(epoch_time_remote))
-        os.system(f'sudo date -s "{formatted_time}"')
+        os.system(f'sudo date -s "{formatted_time}" 2>/dev/null')
 
   def set_time(self, epoch_time, timezone):
     # [Task 12] 增加同步频率限制
