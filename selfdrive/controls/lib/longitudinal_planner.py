@@ -96,11 +96,11 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
     self.DynamicExperimentalSpeed = -1
     self.DynamicExperimentalLatA = 0.0
     self.UserExperimentalMode = False
-    # ===== 动态实验模式迟滞参数 =====
-    self._exp_latched = False  # 当前是否被动态逻辑锁定为实验模式
-    self._exp_on_counter = 0  # 连续满足进入条件的帧数
+    # ===== 动态实验模式迟滞参�?=====
+    self._exp_latched = False  # 当前是否被动态逻辑锁定为实验模�?
+    self._exp_on_counter = 0  # 连续满足进入条件的帧�?
     self._exp_off_counter = 0  # 连续满足退出条件的帧数
-    self._exp_on_frames = 10  # 连续10帧才进入（比如 20Hz ≈ 0.5s）
+    self._exp_on_frames = 10  # 连续10帧才进入（比�?20Hz �?0.5s�?
     self._exp_off_frames = 20  # 连续20帧才退出（更保守）
     self._exp_hyst_speed = 5.0  # km/h 迟滞
     self._exp_hyst_latA = 0.5  # m/s^2 迟滞
@@ -132,6 +132,9 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
     if self.frame % 100 == 0:
       self.DynamicExperimentalSpeed = self.params.get_int("DynamicExperimentalSpeed")
       self.DynamicExperimentalLatA = self.params.get_float("DynamicExperimentalLatA")*0.1
+      # [Task 18] 将高频读取项移入慢速循�?
+      self.longitudinalActuatorDelay = self.params.get_float("LongActuatorDelay")*0.01
+      self.vEgoStopping = self.params.get_float("VEgoStopping") * 0.01
     self.frame += 1
 
     modelData = sm['modelV2']
@@ -182,13 +185,13 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
       self._exp_off_counter = 0
 
     # ========= 模式切换 =========
-    # 设定值为0表示动态实验模式
+    # 设定值为0表示动态实验模�?
     if self.DynamicExperimentalSpeed == 0 and self.DynamicExperimentalLatA == 0:
       LongitudinalPlannerSP.update(self, sm)
       if dec_mpc_mode := self.get_mpc_mode():
         self.mpc.mode = dec_mpc_mode
 
-    # 设置值大于0表示条件实验模式
+    # 设置值大�?表示条件实验模式
     elif self._exp_on_counter >= self._exp_on_frames and not self._exp_latched:
       # 进入实验模式
       #if not sm['selfdriveState'].experimentalMode and not self.UserExperimentalMode:
@@ -201,7 +204,7 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
       self._exp_off_counter = 0
 
     elif self._exp_off_counter >= self._exp_off_frames and self._exp_latched:
-      # 退出实验模式
+      # 退出实验模�?
       #if sm['selfdriveState'].experimentalMode:
       #  self.sys_params.put_bool_nonblocking("ExperimentalMode", False)
       self.sys_params.put_bool_nonblocking("ExperimentalMode", False)
@@ -243,8 +246,9 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
 
     if self.mpc.mode == 'acc':
       #accel_limits = [A_CRUISE_MIN, get_max_accel(v_ego)]
-      accel_limits = [A_CRUISE_MIN, carrot.get_carrot_accel(v_ego)]
+      # [Task 16] 注入转向角以实现弯道加速度压缩
       steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
+      accel_limits = [A_CRUISE_MIN, carrot.get_carrot_accel(v_ego, steer_angle=steer_angle_without_offset)]
       accel_limits_turns = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_limits, self.CP)
     else:
       accel_limits = [ACCEL_MIN, ACCEL_MAX]
@@ -296,13 +300,9 @@ class LongitudinalPlanner(LongitudinalPlannerSP): #new
     a_prev = self.a_desired
     self.a_desired = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
+    action_t = self.longitudinalActuatorDelay + DT_MDL
 
-    longitudinalActuatorDelay = self.params.get_float("LongActuatorDelay")*0.01
-    vEgoStopping = self.params.get_float("VEgoStopping") * 0.01
-    action_t =  longitudinalActuatorDelay + DT_MDL
-
-    output_a_target_mpc, output_should_stop_mpc, output_v_target_mpc, _ = get_accel_from_plan(self.v_desired_trajectory, self.a_desired_trajectory, CONTROL_N_T_IDX,
-                                                                        action_t=action_t, vEgoStopping=vEgoStopping)
+    output_a_target_mpc, output_should_stop_mpc, output_v_target_mpc, _ = get_accel_from_plan(self.v_desired_trajectory, self.a_desired_trajectory, CONTROL_N_T_IDX, action_t=action_t, vEgoStopping=self.vEgoStopping)
     output_a_target_e2e = sm['modelV2'].action.desiredAcceleration
     output_should_stop_e2e = sm['modelV2'].action.shouldStop
     output_v_target_now_e2e = sm['modelV2'].action.desiredVelocity

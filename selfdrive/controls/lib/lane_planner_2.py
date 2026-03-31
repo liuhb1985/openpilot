@@ -106,7 +106,7 @@ class LanePlanner:
       self.l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
       self.r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
 
-  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed, radarState=None):
+  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed, lane_offset=0.0, curve_offset=0.0, radarState=None):
     #if v_ego > 0.1:
     #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
     # Reduce reliance on lanelines that are too far apart or
@@ -162,8 +162,8 @@ class LanePlanner:
       self.lane_width_right_filtered.update(self.lane_width_right)
       #self.lane_width_right_filtered.x = self.lane_width_right #立即应用
 
-    self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
-    self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
+    self.adjustLaneOffset = lane_offset
+    self.adjustCurveOffset = curve_offset
     #self.adjustCurveOffset = self.adjustLaneOffset #float(self.params.get_int("AdjustCurveOffset")) * 0.01
     ADJUST_OFFSET_LIMIT = 0.4 #max(self.adjustLaneOffset, self.adjustCurveOffset)
     ## [Optimization] 增加切大弯平滑抑制 (Curve Offset Smoothing) 

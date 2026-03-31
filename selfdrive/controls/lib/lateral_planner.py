@@ -59,6 +59,8 @@ class LateralPlanner:
     # lane_mode
     self.LP = LanePlanner()
     self.readParams = 0
+    self.adjustLaneOffset = 0.0
+    self.adjustCurveOffset = 0.0
     self.lanelines_active = False
     self.lanelines_active_tmp = False
 
@@ -95,6 +97,8 @@ class LateralPlanner:
       self.pathOffset = -float(self.params.get_int("PathOffset")) * 0.01
       self.lateralPathCost = self.params.get_float("LatMpcPathCost") * 0.01
       self.lateralMotionCost = self.params.get_float("LatMpcMotionCost") * 0.01
+      self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
+      self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
       LATERAL_ACCEL_COST = self.params.get_float("LatMpcAccelCost") * 0.01
       LATERAL_JERK_COST = self.params.get_float("LatMpcJerkCost") * 0.01
       STEERING_RATE_COST = self.params.get_float("LatMpcSteeringRateCost")
@@ -149,7 +153,7 @@ class LateralPlanner:
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
     self.LP.curvature = measured_curvature
-    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed, sm['radarState'])
+    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed, self.adjustLaneOffset, self.adjustCurveOffset, sm['radarState'])
 
     #if self.LP.lanefull_mode:
     #  self.plan_yaw, self.plan_yaw_rate = self.LP.calculate_plan_yaw_and_yaw_rate(self.path_xyz)
