@@ -370,6 +370,3 @@ class UnifiedParams:
     def get(self, key, encoding='utf-8'):
         """获取原始数据 - 系统参数专用"""
         return self.system_params.get(key, encoding=encoding)
-
-# 全局实例，便于导入使用
-unified_params = UnifiedParams()
