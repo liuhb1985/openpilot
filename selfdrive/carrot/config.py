@@ -6,6 +6,8 @@
 
 import json
 import os
+import threading
+import time
 from common.params import Params
 from common.params_pyx import UnknownKeyName
 
@@ -36,6 +38,12 @@ class UnifiedParams:
 
         self.nav_data = {}
         self._load_nav_params()
+
+        # 增加缓存机制，降低Params读取频率
+        self._param_cache = {}
+        self._cache_time = {}
+        self._cache_expiry = 0.2  # 0.2秒缓存有效期
+        self._lock = threading.Lock()  # 线程安全锁
 
         self._initialized = True
 
@@ -176,10 +184,18 @@ class UnifiedParams:
 
     def get_bool(self, key, default=False):
         """获取布尔值参数 - 统一接口"""
+        now = time.time()
+        with self._lock:
+            if key in self._param_cache and (now - self._cache_time.get(key, 0)) < self._cache_expiry:
+                return bool(self._param_cache[key])
+
         # 优先尝试系统参数
         try:
             value = self.system_params.get_bool(key)
             if value is not None:
+                with self._lock:
+                    self._param_cache[key] = int(value)
+                    self._cache_time[key] = now
                 return value
         except (KeyError, AttributeError, UnknownKeyName) as e:
             pass
@@ -188,7 +204,11 @@ class UnifiedParams:
         if key in self.nav_data:
             value = self.nav_data[key]
             try:
-                return bool(int(value))
+                result = bool(int(value))
+                with self._lock:
+                    self._param_cache[key] = int(result)
+                    self._cache_time[key] = now
+                return result
             except (ValueError, TypeError):
                 return default
 
@@ -196,9 +216,19 @@ class UnifiedParams:
 
     def get_int(self, key, default=0):
         """获取整数值参数 - 统一接口"""
+        now = time.time()
+        
+        # 允许缓存以提升性能
+        with self._lock:
+            if key in self._param_cache and (now - self._cache_time.get(key, 0)) < self._cache_expiry:
+                return self._param_cache[key]
+
         try:
             value = self.system_params.get_int(key)
             if value is not None:
+                with self._lock:
+                    self._param_cache[key] = value
+                    self._cache_time[key] = now
                 return value
         except (KeyError, AttributeError, UnknownKeyName) as e:
             pass
@@ -206,7 +236,11 @@ class UnifiedParams:
         if key in self.nav_data:
             value = self.nav_data[key]
             try:
-                return int(value)
+                result = int(value)
+                with self._lock:
+                    self._param_cache[key] = result
+                    self._cache_time[key] = now
+                return result
             except (ValueError, TypeError):
                 return default
 
@@ -214,9 +248,17 @@ class UnifiedParams:
 
     def get_float(self, key, default=0.0):
         """获取浮点数值参数 - 统一接口"""
+        now = time.time()
+        with self._lock:
+            if key in self._param_cache and (now - self._cache_time.get(key, 0)) < self._cache_expiry:
+                return float(self._param_cache[key])
+
         try:
             value = self.system_params.get_float(key)
             if value is not None:
+                with self._lock:
+                    self._param_cache[key] = value
+                    self._cache_time[key] = now
                 return value
         except (KeyError, AttributeError, UnknownKeyName) as e:
             pass
@@ -224,7 +266,11 @@ class UnifiedParams:
         if key in self.nav_data:
             value = self.nav_data[key]
             try:
-                return float(value)
+                result = float(value)
+                with self._lock:
+                    self._param_cache[key] = result
+                    self._cache_time[key] = now
+                return result
             except (ValueError, TypeError):
                 return default
 

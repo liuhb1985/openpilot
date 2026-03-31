@@ -348,5 +348,14 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"ComputerType", PERSISTENT},
     {"AutoOvertakeConfig", PERSISTENT},
     {"AutoOvertakeReturn", PERSISTENT},
+    {"DynamicBlindRange", PERSISTENT},
+    {"DynamicBlindDistance", PERSISTENT},
+    {"DynamicExperimentalSpeed", PERSISTENT},
+    {"DynamicExperimentalLatA", PERSISTENT},
+    {"AutoOvertake", PERSISTENT},
+    {"VisionLeadDecel", PERSISTENT},
+    {"VisionLeadDecelRate", PERSISTENT},
+    {"AutoOvertakeSpeedDiff", PERSISTENT},
+    {"AutoOvertakePreAccel", PERSISTENT},
     //new
 };

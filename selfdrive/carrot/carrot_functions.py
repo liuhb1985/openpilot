@@ -1,11 +1,14 @@
-from enum import Enum
+﻿from enum import Enum
 
 from cereal import log
-from openpilot.common.params import Params
+from openpilot.selfdrive.carrot.config import UnifiedParams
 import numpy as np
 from openpilot.common.realtime import DT_MDL
 from openpilot.common.conversions import Conversions as CV
-from openpilot.common.filter_simple import MyMovingAverage
+try:
+  from openpilot.common.filter_simple import MyMovingAverage
+except ImportError:
+  from common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.selfdrived.events import Events
 
 EventName = log.OnroadEvent.EventName
@@ -43,20 +46,9 @@ A_CRUISE_MAX_BP_CARROT = [0., 10 * CV.KPH_TO_MS, 40 * CV.KPH_TO_MS, 60 * CV.KPH_
 
 class CarrotPlanner:
   def __init__(self):
-    self.params = Params()
+    self.params = UnifiedParams()
     self.params_count = 0
     self.frame = 0
-
-    #self.log = ""
-
-    #self.aChangeCost = 200
-    #self.aChangeCostStart = 40
-    #self.tFollowSpeedAdd = 0.0
-    #self.tFollowSpeedAddM = 0.0
-    #self.tFollowLeadCarSpeed = 0.0
-    #self.tFollowLeadCarAccel = 0.0
-    #self.lo_timer = 0
-    #self.v_ego_prev = 0.0
 
     self.trafficState = TrafficState.off
     self.xStopFilter = MyMovingAverage(3)
@@ -131,54 +123,59 @@ class CarrotPlanner:
     self.atcType = ""
     self.atc_active = False
 
-
   def _params_update(self):
     self.frame += 1
     self.params_count += 1
+    
     if self.params_count % 10 == 0:
-      myDrivingMode = DrivingMode(self.params.get_int("MyDrivingMode"))
+      try:
+        myDrivingMode = DrivingMode(self.params.get_int('MyDrivingMode', default=3))
+      except (ValueError, TypeError):
+        myDrivingMode = DrivingMode.Normal
+ 
       if myDrivingMode != self.myDrivingMode_last:
         self.myDrivingMode_disable_auto = True
       self.myDrivingMode_last = myDrivingMode
-
-      self.myDrivingModeAuto = self.params.get_int("MyDrivingModeAuto")
+ 
+      self.myDrivingModeAuto = self.params.get_int('MyDrivingModeAuto')
       if self.myDrivingModeAuto > 0 and not self.myDrivingMode_disable_auto:
         self.myDrivingMode = self.drivingModeDetector.get_mode()
       else:
         self.myDrivingMode = myDrivingMode
-
-    if self.params_count == 10:
-      self.myHighModeFactor = 1.2 #float(self.params.get_int("MyHighModeFactor")) / 100.
-      self.trafficLightDetectMode = self.params.get_int("TrafficLightDetectMode") # 0: None, 1:Stop, 2:Stop&Go
-    elif self.params_count == 20:
-      self.tFollowGap1 = self.params.get_float("TFollowGap1") / 100.
-      self.tFollowGap2 = self.params.get_float("TFollowGap2") / 100.
-      self.tFollowGap3 = self.params.get_float("TFollowGap3") / 100.
-      self.tFollowGap4 = self.params.get_float("TFollowGap4") / 100.
-      self.dynamicTFollow = self.params.get_float("DynamicTFollow") / 100.
-      self.dynamicTFollowLC = self.params.get_float("DynamicTFollowLC") / 100.
-    elif self.params_count == 30:
-      self.cruiseMaxVals0 = self.params.get_float("CruiseMaxVals0") / 100.
-      self.cruiseMaxVals1 = self.params.get_float("CruiseMaxVals1") / 100.
-      self.cruiseMaxVals2 = self.params.get_float("CruiseMaxVals2") / 100.
-      self.cruiseMaxVals3 = self.params.get_float("CruiseMaxVals3") / 100.
-      self.cruiseMaxVals4 = self.params.get_float("CruiseMaxVals4") / 100.
-      self.cruiseMaxVals5 = self.params.get_float("CruiseMaxVals5") / 100.
-      self.cruiseMaxVals6 = self.params.get_float("CruiseMaxVals6") / 100.
-    elif self.params_count == 40:
-      self.stop_distance = self.params.get_float("StopDistanceCarrot") / 100.
-      self.j_lead_factor = self.params.get_float("JLeadFactor3") / 100.
-      self.eco_over_speed = self.params.get_int("CruiseEcoControl")
-      self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
-
-    elif self.params_count >= 100:
-
+ 
+      self.trafficLightDetectMode = self.params.get_int('TrafficLightDetectMode', default=2)
+      self.tFollowGap1 = self.params.get_float('TFollowGap1', default=110.0) / 100.
+      self.tFollowGap2 = self.params.get_float('TFollowGap2', default=120.0) / 100.
+      self.tFollowGap3 = self.params.get_float('TFollowGap3', default=145.0) / 100.
+      self.tFollowGap4 = self.params.get_float('TFollowGap4', default=160.0) / 100.
+      self.dynamicTFollow = self.params.get_float('DynamicTFollow', default=0.0) / 100.
+      self.dynamicTFollowLC = self.params.get_float('DynamicTFollowLC', default=0.0) / 100.
+      
+      self.cruiseMaxVals0 = self.params.get_float('CruiseMaxVals0', default=160.0) / 100.
+      self.cruiseMaxVals1 = self.params.get_float('CruiseMaxVals1', default=160.0) / 100.
+      self.cruiseMaxVals2 = self.params.get_float('CruiseMaxVals2', default=120.0) / 100.
+      self.cruiseMaxVals3 = self.params.get_float('CruiseMaxVals3', default=100.0) / 100.
+      self.cruiseMaxVals4 = self.params.get_float('CruiseMaxVals4', default=80.0) / 100.
+      self.cruiseMaxVals5 = self.params.get_float('CruiseMaxVals5', default=70.0) / 100.
+      self.cruiseMaxVals6 = self.params.get_float('CruiseMaxVals6', default=60.0) / 100.
+      
+      self.stop_distance = self.params.get_float('StopDistanceCarrot', default=600.0) / 100.
+      self.j_lead_factor = self.params.get_float('JLeadFactor3', default=0.0) / 100.
+      self.eco_over_speed = self.params.get_int('CruiseEcoControl', default=0)
+      self.autoNaviSpeedDecelRate = float(self.params.get_int('AutoNaviSpeedDecelRate', default=80)) * 0.01
+ 
+    if self.params_count >= 100:
       self.params_count = 0
 
-  def get_carrot_accel(self, v_ego):
+  def get_carrot_accel(self, v_ego, steer_angle=0.0):
+    # [Task 16] 寮亾鍔犻€熷害鍔ㄦ€佸帇缂?(Anti-Launch Curve Control)
+    # 褰撹浆鍚戣搴﹁緝澶ф椂锛岄檺鍒跺姞閫熷害涓婇檺锛岄槻姝㈠集閬撹窡涓㈠墠杞﹀悗绐佸厐鎻愰€?
+    # 20搴﹀紑濮嬪帇缂╋紝50搴﹁揪鍒版渶澶у帇缂╋紙30% 鍔ㄥ姏鍓婂噺锛?
+    accel_reduction = np.interp(abs(steer_angle), [20.0, 50.0], [1.0, 0.7])
+    
     cruiseMaxVals = [self.cruiseMaxVals0, self.cruiseMaxVals1, self.cruiseMaxVals2, self.cruiseMaxVals3, self.cruiseMaxVals4, self.cruiseMaxVals5, self.cruiseMaxVals6]
     factor = self.myHighModeFactor if self.myDrivingMode == DrivingMode.High else self.mySafeFactor
-    return np.interp(v_ego, A_CRUISE_MAX_BP_CARROT, cruiseMaxVals) * factor
+    return np.interp(v_ego, A_CRUISE_MAX_BP_CARROT, cruiseMaxVals) * factor * accel_reduction
 
   def get_T_FOLLOW(self, personality=log.LongitudinalPersonality.standard):
     if personality==log.LongitudinalPersonality.moreRelaxed:
@@ -207,20 +204,21 @@ class CarrotPlanner:
       self.desireStateCount = 0
 
   def dynamic_t_follow(self, t_follow, lead, desired_follow_distance, prev_a):
-
+ 
     self.jerk_factor_apply = self.jerk_factor
-    if self.desireState > 0.9 and self.desireStateCount < int(1.5 / DT_MDL):  # 车道变更状态, 仅限 1.5 秒.
-      t_follow *= self.dynamicTFollowLC   # 变更车道时减少 t_follow.
-      self.jerk_factor_apply = self.jerk_factor * self.dynamicTFollowLC   # 变更车道时减少 jerk factor 以提高激进性
+    if self.desireState > 0.9 and self.desireStateCount < int(1.5 / DT_MDL):
+      t_follow *= self.dynamicTFollowLC
+      self.jerk_factor_apply = self.jerk_factor * self.dynamicTFollowLC
     elif lead.status:
-      t_follow += np.interp(prev_a[0], [-2.0, -0.5], [0.2, 0.0])
+      brake_gap_comp = 0.4 if self.myDrivingMode in [DrivingMode.Safe, DrivingMode.Eco] else 0.2
+      t_follow += np.interp(prev_a[0], [-2.0, -0.5], [brake_gap_comp, 0.0])
+      
       if self.dynamicTFollow > 0.0:
         gap_dist_adjust = np.clip((desired_follow_distance - lead.dRel) * self.dynamicTFollow, - 0.1, 1.0) * 0.1
         t_follow += gap_dist_adjust
         if gap_dist_adjust < 0:
-          self.jerk_factor_apply = self.jerk_factor * 0.5 # 跟随前车时变得激进.
-        #self.jerk_factor_apply = np.interp(abs(lead.jLead), [0, 2], [self.jerk_factor, self.jerk_factor * self.j_lead_factor])
-
+          self.jerk_factor_apply = self.jerk_factor * 0.5
+ 
     return t_follow
 
   def update_stop_dist(self, stop_x):
@@ -240,8 +238,8 @@ class CarrotPlanner:
                   model_x < np.interp(v[0] * 3.6, [60, 80], [120.0, 150]) and
                   ((model_v < 3.0) or (model_v < v[0] * 0.7))) #and
                   #abs(y[-1]) < 5.0)
-      # 正常行驶中减速（摄像头减速等）时，误检测较多.
-      # 动能回收减速时：v_cruise=0 时尝试检测信号.
+      # 姝ｅ父琛岄┒涓噺閫燂紙鎽勫儚澶村噺閫熺瓑锛夋椂锛岃妫€娴嬭緝澶?
+      # 鍔ㄨ兘鍥炴敹鍑忛€熸椂锛歷_cruise=0 鏃跺皾璇曟娴嬩俊鍙?
       if v_cruise != 0 and (self.xState == XState.e2eCruise and a_ego < -1.0):
         stopSign = False
     else:
@@ -313,14 +311,14 @@ class CarrotPlanner:
           self.eco_target_speed = v_cruise_kph
         elif self.eco_target_speed > v_cruise_kph:
           self.eco_target_speed = 0
-      elif self.eco_target_speed == 0 and v_ego_kph + 3 < v_cruise_kph and v_cruise_kph > 20.0:  # 行驶中速度下降时重新开始巡航燃油效率控制.
+      elif self.eco_target_speed == 0 and v_ego_kph + 3 < v_cruise_kph and v_cruise_kph > 20.0:  # 琛岄┒涓€熷害涓嬮檷鏃堕噸鏂板紑濮嬪贰鑸噧娌规晥鐜囨帶鍒?
         self.eco_target_speed = v_cruise_kph
 
-      if self.eco_target_speed != 0:  ## 巡航燃油效率控制模式运行时：控制结束点
-        if v_ego_kph > self.eco_target_speed: # 超过设置速度时..
+      if self.eco_target_speed != 0:  ## 宸¤埅鐕冩补鏁堢巼鎺у埗妯″紡杩愯鏃讹細鎺у埗缁撴潫鐐?
+        if v_ego_kph > self.eco_target_speed: # 瓒呰繃璁剧疆閫熷害鏃?.
           self.eco_target_speed = 0
         else:
-          v_cruise_kph_apply = self.eco_target_speed + self.eco_over_speed  # 设置为 + 设置速度.
+          v_cruise_kph_apply = self.eco_target_speed + self.eco_over_speed  # 璁剧疆涓?+ 璁剧疆閫熷害.
     else:
       self.eco_target_speed = 0
 
@@ -416,7 +414,7 @@ class CarrotPlanner:
       elif self.stopping_count == 0:
         if self.trafficState == TrafficState.green and not self.carrot_stay_stop and not carstate.leftBlinker and self.trafficLightDetectMode != 1:
           #self.xState = XState.e2ePrepare
-          self.xState = XState.e2eCruise  # 不经过实验模式直接出发.
+          self.xState = XState.e2eCruise  # 涓嶇粡杩囧疄楠屾ā寮忕洿鎺ュ嚭鍙?
           self.events.add(EventName.trafficSignGreen)
       self.stopping_count = max(0, self.stopping_count - 1)
       v_cruise = 0
@@ -436,8 +434,8 @@ class CarrotPlanner:
           self.comfort_brake = self.comfortBrake * 0.9
           #self.comfort_brake = COMFORT_BRAKE
           self.trafficStopAdjustRatio = np.interp(v_ego_kph, [0, 100], [1.0, 0.7])
-          stop_dist = self.xStop * np.interp(self.xStop, [0, 50], [1.0, self.trafficStopAdjustRatio])  ## 根据停止距离调整
-          if stop_dist > 10.0: ### 10M 以上时，更新 self.actual_stop_distance
+          stop_dist = self.xStop * np.interp(self.xStop, [0, 50], [1.0, self.trafficStopAdjustRatio])  ## 鏍规嵁鍋滄璺濈璋冩暣
+          if stop_dist > 10.0: ### 10M 浠ヤ笂鏃讹紝鏇存柊 self.actual_stop_distance
             self.actual_stop_distance = stop_dist
           stop_model_x = 0
           self.fakeCruiseDistance = 0 if self.actual_stop_distance > 10.0 else 10.0
@@ -480,9 +478,9 @@ class CarrotPlanner:
     self.comfort_brake *= self.mySafeFactor
     self.actual_stop_distance = max(0, self.actual_stop_distance - (v_ego * DT_MDL))
 
-    if stop_model_x == 1000.0: ## e2eCruise, lead 情况
+    if stop_model_x == 1000.0: ## e2eCruise, lead 鎯呭喌
       self.actual_stop_distance = 0.0
-    elif self.actual_stop_distance > 0: ## e2eStop, e2eStopped 情况..
+    elif self.actual_stop_distance > 0: ## e2eStop, e2eStopped 鎯呭喌..
       stop_model_x = 0.0
 
     # self.debugLongText = (
@@ -491,7 +489,7 @@ class CarrotPlanner:
     #   f"stopDist={self.actual_stop_distance:.1f}," +
     #   f"Traffic={str(self.trafficState)}"
     # )
-    #��ȣ�� �������� self.xState.value
+    #锟斤拷龋锟斤拷 锟斤拷锟斤拷锟斤拷锟斤拷 self.xState.value
 
     stop_dist =  stop_model_x + self.actual_stop_distance
     stop_dist = max(stop_dist, v_ego ** 2 / (self.comfort_brake * 2))
@@ -513,11 +511,11 @@ class DrivingModeDetector:
         self.lead_speed_exit_threshold = 35  # (km/h)
 
     def update_data(self, my_speed, lead_speed, my_accel, lead_accel, distance):
-        # 1. 拥堵条件：前车靠近且停止的情况
+        # 1. 鎷ュ牭鏉′欢锛氬墠杞﹂潬杩戜笖鍋滄鐨勬儏鍐?
         if distance <= self.distance_threshold and lead_speed <= self.speed_threshold:
             self.congested = True
 
-        # 2. 行驶条件：前车加速或快速移动
+        # 2. 琛岄┒鏉′欢锛氬墠杞﹀姞閫熸垨蹇€熺Щ鍔?
         if lead_accel > self.accel_threshold or my_speed > self.lead_speed_exit_threshold or distance >= 200:
             self.congested = False
 

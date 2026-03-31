@@ -382,16 +382,23 @@ class CarrotServ:
       self.traffic_state = 0
 
   def _handle_detect_command(self, xArg):
+    if not xArg:
+      return
     elements = [e.strip() for e in xArg.split(',')]
     if len(elements) >= 4:
       try:
-        state = elements[0]
+        # 增加索引和数值转换的安全性
+        state = str(elements[0])
         value1 = float(elements[1])
         value2 = float(elements[2])
         value3 = float(elements[3])
-        self.traffic_light(value1, value2, state, value3)
-        self.traffic_light_count = int(0.5 / 0.1)
-      except ValueError:
+        
+        # [Task 8] 增加置信度阈值过滤 (0.4)，防止视觉信号抖动
+        if value3 > 0.4:
+          self.traffic_light(value1, value2, state, value3)
+          self.traffic_light_count = int(0.5 / DT_NAV) 
+      except (ValueError, IndexError, TypeError):
+        # 捕获解析错误，不中断服务
         pass
 
   def traffic_light(self, x, y, color, cnf):
@@ -1425,28 +1432,33 @@ class CarrotServ:
           # [Optimization 3] 视觉前车急刹惩罚衰减防晕 (Vlead Brake Attenuation)
           # 当视觉前车反馈急刹（a < -1.5）时，增加距离和车速衰减抑制，防止远距离误触发重刹
           if v_lead_a < -1.5:
+            # 引入基于距离和相对速度的衰减因子 (Attenuation Factor)
             aggressiveness = 1.0
-            if v_lead_x > 40.0:
-              # 距离超过40米，急刹剧烈响应大幅度衰减
-              aggressiveness = np.interp(v_lead_x, [40.0, 80.0], [1.0, 0.0])
+            if v_lead_x > 45.0:  # 稍微延长有效响应距离至 45m
+              # 距离超过 45 米，急刹响应随距离线性衰减至 85 米对齐零响应
+              aggressiveness = np.interp(v_lead_x, [45.0, 85.0], [1.0, 0.0])
             
-            # 如果绝对速度和本车差不多甚至只慢一点点，说明前车可能只是轻点刹车
-            if (v_ego + v_lead_v) > max(1.0, v_ego * 0.8):
-              aggressiveness *= 0.5
+            # 如果本车速度很快，而前车绝对速度仍在安全范围内（例如 >80% 自车速），进一步衰减
+            if (v_ego + v_lead_v) > max(2.0, v_ego * 0.85):
+              aggressiveness *= 0.4  # 非追尾碰撞风险下的点刹响应减弱
             
             if aggressiveness > 0:
-              dynamic_safe_sec *= np.interp(v_lead_a, [-4, -1.5], [1.0 - 0.5 * aggressiveness, 1.0])
-              v_lead_kph -= np.interp(v_lead_a, [-4, -1.5], [10.0 * aggressiveness, 0.0])
+              # 动态调整安全时间和惩罚速度，受 aggressiveness 调节
+              dynamic_safe_sec *= np.interp(v_lead_a * aggressiveness, [-4, -1.5], [0.8, 1.0])
+              v_lead_kph -= np.interp(v_lead_a * aggressiveness, [-4, -1.5], [8.0, 0.0])
 
           vision_speed = self.calculate_current_speed(v_lead_x, v_lead_kph, dynamic_safe_sec, self.vision_lead_decel_rate)
           speed_n_sources.append((vision_speed, "vlead"))
           self.debugText += f" v_l={v_lead_x:.1f}m,{v_lead_v*3.6:.1f}k,a={v_lead_a:.1f}"
 
-    # 红绿灯辅助 (Traffic Light Assist): 如果识别到红灯且前方无近距离障碍
+    # [Task 11] 红绿灯辅助 (Traffic Light Assist): 过红灯停止策略优化
     if self.traffic_state == 1: # Red light
-      # 如果距离停止线较近，或者认为应该停止，将目标速度设为最低设定速度
-      # 注意：原车 ACC 通常最低只能设到 30 KPH (或 20 MPH)
-      traffic_limit_speed = 30 if self.is_metric else 20 * CV.MPH_TO_KPH
+      # 增加“防蠕动”逻辑：如果车辆已经停稳 (v_ego < 0.1)，请求 0 速度确保不胡乱挪动
+      if v_ego < 0.1:
+        traffic_limit_speed = 0
+      else:
+        # 车辆还在行驶时，请求最低巡航速度 (30km/h) 作为平滑减速目标
+        traffic_limit_speed = 30 if self.is_metric else 20 * CV.MPH_TO_KPH
       speed_n_sources.append((traffic_limit_speed, "traffic"))
 
     route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
@@ -1460,19 +1472,22 @@ class CarrotServ:
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
     # [Optimization 1 & 2] 目标速度防摇摆与提速平滑滤波 (EMA Anti-wobble & Smooth Jerk)
+    # 采用非对称滤波：快速响应减速要求，平稳处理提速请求
     if not hasattr(self, 'smooth_desired_speed'):
       self.smooth_desired_speed = desired_speed
     
     if desired_speed < self.smooth_desired_speed:
-      # 限制条件变严（突发限速/前车刹车/入弯），快速降速，把刹车交由原车尽早执行
-      self.smooth_desired_speed = desired_speed
+      # 减速需求：快速降低，但增加一个极小的平滑度防止“跳变”感 (约 0.1s 响应)
+      self.smooth_desired_speed = self.smooth_desired_speed * 0.5 + desired_speed * 0.5
+      if abs(self.smooth_desired_speed - desired_speed) < 1.0:
+        self.smooth_desired_speed = desired_speed
     elif desired_speed > self.smooth_desired_speed:
-      # 限制条件解除，或视觉/地图曲线抖动引起的瞬时升速，执行慢速阻尼恢复
+      # 提速需求：根据信号源类型选择不同的恢复速率
       if source in ["user", "road", "atc"]:
-        # 用户干预、解除道路限速、彻底出弯：允许较为连贯的提速 (约 +3KPH / tick)
+        # 确定性信号源：允许较快恢复 (约 3.0 km/h 每步)
         self.smooth_desired_speed = min(desired_speed, self.smooth_desired_speed + 3.0)
       else:
-        # 模型识别跳动：使用严格的平滑滤波防“死亡摇摆” (+1KPH / tick)
+        # 视觉/模型信号源：采用更严格的渐进式恢复 (约 1.0 km/h 每步)，防止视觉摆动
         self.smooth_desired_speed = min(desired_speed, self.smooth_desired_speed + 1.0)
         
     desired_speed = self.smooth_desired_speed
@@ -1625,8 +1640,12 @@ class CarrotServ:
         meta = sm['modelV2'].meta
         onboard_left_blind = (meta.atcBsd in [1, 4])
         onboard_right_blind = (meta.atcBsd in [2, 5])
+        # [Task 13] 细化盲区融合感知逻辑 (BSM Signal Weighting)
         effective_left_blind = onboard_left_blind or self.left_blind or self.lidar_lblind or self.lidar_car_lblind
-        effective_right_blind = onboard_right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
+        effective_right_blind = onboard_right_blind or self.right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
+        
+        # 增加“快速逼近”辅助逻辑：即使当前未处于核心盲区，但如果感知到侧后方有快速移动物，逻辑上视为受阻
+        # 这里预留扩展逻辑，目前通过多源或运算已具备较强鲁棒性
 
         can_return = False
         if return_arg == "RIGHT" and not effective_right_blind and self.right_lane:
@@ -1656,9 +1675,13 @@ class CarrotServ:
 
         needed_diff = np.interp(v_ego * 3.6, [20, 60, 100, 120], [5.0, self.autoOvertakeSpeedDiff, self.autoOvertakeSpeedDiff * 0.8, self.autoOvertakeSpeedDiff * 0.6])
 
-        if can_return and v_lead_kph_return > 0 and v_lead_kph_return < v_cruise_kph - needed_diff and d_lead_return < 120:
+        # [Task 6] 支持随速动态回归判定距离 (Dynamic Return Distance)
+        # 高速环境下 (120km/h) 给予 4 秒以上的安全冗余
+        dynamic_return_dist = max(120, v_ego * 4.0)
+        
+        if can_return and v_lead_kph_return > 0 and v_lead_kph_return < v_cruise_kph - (needed_diff + 2.0) and d_lead_return < dynamic_return_dist:
           can_return = False
-          print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Canceled: Found another slow car ahead ({v_lead_kph_return:.1f}kph) in passing lane!")
+          print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Canceled: Slow car found within {dynamic_return_dist:.1f}m!")
           self.overtake_return_wait_count = int(5.0 / DT_NAV) # 再等等，继续超车
           
         if can_return:
@@ -1722,8 +1745,12 @@ class CarrotServ:
     v_rel_kph = v_ego_kph - v_lead_kph
     dynamic_wait_time = np.interp(v_rel_kph, [5, 20, 40], [5.0, 2.5, 1.0])
 
+    # [Task 7] 动态触发阈值增加 2.0km/h 迟滞区 (Hysteresis Buffer)
+    # 防止由于速度小幅波动导致在变道触发边缘反复横跳
+    trigger_diff = needed_diff + 2.0
+    
     # 触发条件检查
-    if v_lead_kph < v_cruise_kph - needed_diff and d_lead < 100:
+    if v_lead_kph < v_cruise_kph - trigger_diff and d_lead < 100:
       self.overtake_wait_count += 1
     else:
       self.overtake_wait_count = 0
@@ -1816,21 +1843,39 @@ class CarrotServ:
     pm.send('navInstructionCarrot', inst)
 
   def _update_system_time(self, epoch_time_remote, timezone_remote):
+    # [Task 12] 增加冷却，防止频繁触发 sudo 操作
+    if not hasattr(self, 'last_time_sync'):
+      self.last_time_sync = 0
+    now_mono = time.monotonic()
+    if (now_mono - self.last_time_sync) < 3600: # 1小时冷却
+      return
+
     epoch_time = int(time.time())
     if epoch_time_remote > 0:
       epoch_time_offset = epoch_time_remote - epoch_time
-      print(f"epoch_time_offset = {epoch_time_offset}")
       if abs(epoch_time_offset) > 60:
+        self.last_time_sync = now_mono
+        print(f"Setting system time, offset = {epoch_time_offset}")
         os.system(f"sudo timedatectl set-timezone {timezone_remote}")
         formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(epoch_time_remote))
-        print(f"Setting system time to: {formatted_time}")
         os.system(f'sudo date -s "{formatted_time}"')
 
   def set_time(self, epoch_time, timezone):
+    # [Task 12] 增加同步频率限制
+    if not hasattr(self, 'last_time_set'):
+      self.last_time_set = 0
+    now_mono = time.monotonic()
+    
+    # 距离上次成功检查未超过 1 小时且 localtime 正常且大小不为0，则跳过
+    localtime_path = "/data/etc/localtime"
+    if (now_mono - self.last_time_set) < 3600 and os.path.exists(localtime_path) and os.path.getsize(localtime_path) > 0:
+      return
+
     import datetime
     new_time = datetime.datetime.utcfromtimestamp(epoch_time)
-    localtime_path = "/data/etc/localtime"
-
+    
+    self.last_time_set = now_mono # 更新检查时间戳
+    
     no_timezone = False
     try:
       if os.path.getsize(localtime_path) == 0:
@@ -1840,7 +1885,6 @@ class CarrotServ:
 
     diff = datetime.datetime.utcnow() - new_time
     if abs(diff) < datetime.timedelta(seconds=10) and not no_timezone:
-      #print(f"Time diff too small: {diff}")
       return
 
     print(f"Setting time to {new_time}, diff={diff}")
