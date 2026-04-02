@@ -22,7 +22,7 @@ from openpilot.system.hardware import PC, TICI
 from openpilot.selfdrive.navd.helpers import Coordinate
 from opendbc.car.common.conversions import Conversions as CV
 
-from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
+# from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
 
 from openpilot.common.realtime import DT_MDL
 
@@ -188,6 +188,7 @@ def calculate_curvature(p1, p2, p3):
 
 class CarrotMan:
   def __init__(self):
+    from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
     self.amap_navi = AmapNaviServ()
     self.shared_cmd_index_last = -1
     print("************************************************CarrotMan init************************************************")
