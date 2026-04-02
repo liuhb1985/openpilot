@@ -1441,6 +1441,7 @@ class CarrotServ:
         v_lead = model_v2.leadsV3[0]
         if v_lead.prob > 0.5: # 概率大于0.5
           v_lead_x = v_lead.x[0] # 距离
+          v_lead_v = v_lead.v[0] # 相对速度 (m/s)
           # 强化型前车减速预判: 如果前车正在减速（v_lead_v < 0），则使用更激进的减速因子
           v_lead_kph = (v_ego + v_lead_v) * 3.6
           v_lead_a = v_lead.a[0] if hasattr(v_lead, 'a') else 0
@@ -1661,7 +1662,7 @@ class CarrotServ:
         onboard_right_blind = (meta.atcBsd in [2, 5])
         # [Task 13] 细化盲区融合感知逻辑 (BSM Signal Weighting)
         effective_left_blind = onboard_left_blind or self.left_blind or self.lidar_lblind or self.lidar_car_lblind
-        effective_right_blind = onboard_right_blind or self.right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
+        effective_right_blind = onboard_right_blind or self.right_blind or self.lidar_rblind or self.lidar_car_rblind
         
         # 增加“快速逼近”辅助逻辑：即使当前未处于核心盲区，但如果感知到侧后方有快速移动物，逻辑上视为受阻
         # 这里预留扩展逻辑，目前通过多源或运算已具备较强鲁棒性
