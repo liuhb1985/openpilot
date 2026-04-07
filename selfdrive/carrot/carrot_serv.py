@@ -1353,9 +1353,9 @@ class CarrotServ:
     # 检测雷达目标 ID 切换，识别新进入视野的车辆 (Lead Pickup)
     radar_state_p = sm['radarState']
     lead_one_p = radar_state_p.leadOne
-    if lead_one_p.status and lead_one_p.trackId != self.lead_one_track_id_last and lead_one_p.trackId > 0:
+    if lead_one_p.status and lead_one_p.radarTrackId != self.lead_one_track_id_last and lead_one_p.radarTrackId > 0:
       self.lead_one_pickup_timer = 10 # 1.0s @ 10Hz (DT_NAV=0.1) 延长至 1 秒确保信号彻底平稳
-    self.lead_one_track_id_last = lead_one_p.trackId
+    self.lead_one_track_id_last = lead_one_p.radarTrackId
     self.lead_one_pickup_timer = max(0, self.lead_one_pickup_timer - 1)
 
     # 如果处于新目标“冷静期”，限制最大减速度，防止初始噪声引起的瞬间点刹 (0.8 -> 0.3)
