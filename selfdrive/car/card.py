@@ -194,6 +194,10 @@ class Car:
     # Check for CAN timeout
     if not can_rcv_valid:
       self.can_rcv_cum_timeout_counter += 1
+      self.params.put_nonblocking("CanParserResult", "总线超时: Panda 未连接或没有数据")
+    elif self.can_rcv_cum_timeout_counter > 0 and self.sm.frame % 100 == 0:
+      # 如果恢复正常且已经过了一段时间，可以考虑清除错误，但通常由 manager 在启动时处理
+      pass
 
     if can_rcv_valid and REPLAY:
       self.can_log_mono_time = messaging.log_from_bytes(can_strs[0]).logMonoTime
@@ -270,7 +274,7 @@ class Car:
     if not self.initialized_prev:
       # Initialize CarInterface, once controls are ready
       # TODO: this can make us miss at least a few cycles when doing an ECU knockout
-      self.CI.init(self.CP, *self.can_callbacks)
+      self.CI.init(self.CP, *self.can_callbacks, v_ego=CS.vEgo)
       # signal pandad to switch to car safety mode
       self.params.put_bool_nonblocking("ControlsReady", True)
 

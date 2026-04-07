@@ -248,7 +248,7 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   @staticmethod
-  def init(CP, can_recv, can_send):
+  def init(CP, can_recv, can_send, v_ego=0.0):
 
     Params().put('LongitudinalPersonalityMax', "4")
 
@@ -269,7 +269,7 @@ class CarInterface(CarInterfaceBase):
       if already_configured:
         print("################ Radar Tracks already configured. Skipping to prevent CAN bus disruption. ####################")
       else:
-        result = enable_radar_tracks(CP, can_recv, can_send)
+        result = enable_radar_tracks(CP, can_recv, can_send, v_ego=v_ego)
         params.put_bool("EnableRadarTracksResult", result)
         if result:
           print("################ Radar Tracks enabled successfully. Will skip on next boot. ####################")
@@ -281,9 +281,14 @@ class CarInterface(CarInterfaceBase):
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
       disable_ecu(can_recv, can_send, bus=CanBus(CP).ECAN, addr=0x7B1, com_cont_req=b'\x28\x83\x01')
 
-def enable_radar_tracks(CP, logcan, sendcan):
+def enable_radar_tracks(CP, logcan, sendcan, v_ego=0.0):
   from opendbc.car.isotp_parallel_query import IsoTpParallelQuery
   print("################ Try To Enable Radar Tracks ####################")
+
+  # 安全锁：如果车辆已在行驶中，绝对禁止尝试进入诊断模式，防止仪表盘报警
+  if v_ego > 0.1:
+    print(f"################ 车辆在行驶中({v_ego:.2f} m/s)，跳过雷达激活以确保安全 ####################")
+    return False
 
   ret = False
   sccBus = 2 if CP.flags & HyundaiFlags.CAMERA_SCC.value else 0

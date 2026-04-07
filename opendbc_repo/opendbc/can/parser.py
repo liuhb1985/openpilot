@@ -214,6 +214,19 @@ class CANParser:
     self.can_invalid_cnt = 0 if valid else min(self.can_invalid_cnt + 1, CAN_INVALID_CNT)
     self.can_valid = self.can_invalid_cnt < CAN_INVALID_CNT and counters_valid
 
+  def get_invalid_message_details(self) -> str:
+    invalid_messages = []
+    nanos = time.monotonic_ns()
+    for state in self.message_states.values():
+      if state.counter_fail >= MAX_BAD_COUNTER:
+        invalid_messages.append(f"{state.name}(Counter)")
+      elif not state.valid(nanos, self.bus_timeout):
+        invalid_messages.append(f"{state.name}(Timeout)")
+    
+    if invalid_messages:
+      return f"[Bus {self.bus}]: " + ", ".join(invalid_messages)
+    return ""
+
   def update(self, strings, sendcan: bool = False):
     if strings and not isinstance(strings[0], list | tuple):
       strings = [strings]

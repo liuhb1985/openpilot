@@ -466,7 +466,7 @@ class CarInterfaceBase(ABC):
     raise NotImplementedError
 
   @staticmethod
-  def init(CP: structs.CarParams, can_recv: CanRecvCallable, can_send: CanSendCallable):
+  def init(CP: structs.CarParams, can_recv: CanRecvCallable, can_send: CanSendCallable, v_ego: float = 0.0):
     """Used to disable longitudinal ECUs as needed"""
 
   @staticmethod
@@ -558,6 +558,18 @@ class CarInterfaceBase(ABC):
 
     ret.canValid = all(cp.can_valid for cp in self.can_parsers.values())
     ret.canTimeout = any(cp.bus_timeout for cp in self.can_parsers.values())
+
+    if not ret.canValid or ret.canTimeout:
+      if self.frame % 10 == 0:
+        invalid_details = []
+        for cp in self.can_parsers.values():
+          details = cp.get_invalid_message_details()
+          if details:
+            invalid_details.append(details)
+        if invalid_details:
+          Params().put_nonblocking("CanParserResult", " | ".join(invalid_details))
+    
+    self.frame += 1
 
     if ret.vEgoCluster == 0.0 and not self.v_ego_cluster_seen:
       ret.vEgoCluster = ret.vEgo
