@@ -386,7 +386,7 @@ class CarController(CarControllerBase):
       # 20 Hz LFA MFA message
       # if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
       if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022, CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
-        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal))
+        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal, CS.out.vEgo))
 
       # 5 Hz ACC options
       if self.frame % 20 == 0 and self.CP.openpilotLongitudinalControl:

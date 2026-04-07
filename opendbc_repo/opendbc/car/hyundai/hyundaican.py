@@ -116,7 +116,7 @@ def create_clu11(packer, frame, clu11, button, CP):
   return packer.make_can_msg("CLU11", bus, values)
 
 
-def create_lfahda_mfc(packer, CC, blinking_signal):
+def create_lfahda_mfc(packer, CC, blinking_signal, v_ego=0.0):
   activeCarrot = CC.hudControl.activeCarrot
   hda_active = 1 if CC.longActive and activeCarrot > 0 else 0
   if activeCarrot == 3 and blinking_signal:
@@ -124,12 +124,18 @@ def create_lfahda_mfc(packer, CC, blinking_signal):
   else:
     hda_icon = 2 if CC.longActive else 0
 
+  # [Optimization] 为了防止 2019 款胜达在低速 (< 60km/h) 且仅开启横向模式时报错 "无法开启智能导航系统"
+  # 我们在车速较低或非 OP 纵向模式下，降低 HDA 系统标志位的活跃度。
+  hda_usm = 2
+  if v_ego < 60 / 3.6 or not CC.longActive:
+    hda_usm = 0 # 0: Off/Default
+
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
     "HDA_Active": hda_active,
     "HDA_Icon_State": hda_icon,
     "HDA_VSetReq": 0, #set_speed_in_units if activeCarrot >= 2 else 0,
-    "HDA_USM" : 2,
+    "HDA_USM" : hda_usm,
     "HDA_Icon_Wheel" : 1 if CC.latActive and hda_active == 1 else 0,
     #"HDA_Chime" : 1 if CC.latActive else 0, # comment for K9 chime,
     "HDA_SysWarning": 0,
