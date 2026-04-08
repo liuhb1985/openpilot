@@ -71,7 +71,7 @@ export CAM_W=$CAM_W_SMALL
 export CAM_H=$CAM_H_SMALL
 
 # 确保视频目录存在
-mkdir -p videos
+[ -d videos ] || mkdir -p videos
 
 # 终极健壮的窗口定位函数 (仅用于 UI，摄像头现在自定位)
 robust_place() {
