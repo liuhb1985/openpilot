@@ -70,6 +70,9 @@ export CAM_Y=0
 export CAM_W=$CAM_W_SMALL
 export CAM_H=$CAM_H_SMALL
 
+# 确保视频目录存在
+mkdir -p videos
+
 # 终极健壮的窗口定位函数 (仅用于 UI，摄像头现在自定位)
 robust_place() {
     local key="$1"
@@ -79,13 +82,17 @@ robust_place() {
         local wid=""
         # echo "[wait] Searching for window ($key / class: $class_key) ..."
 
-        for i in {1..100}; do
-            # 缩短采样间隔，快速响应
+        for i in {1..200}; do # 增加循环次数到 200 (约 40 秒)
+            # 移除 --onlyvisible 以防止某些映射中的窗口被跳过
             if [ -n "$class_key" ]; then
-                wid=$(xdotool search --onlyvisible --class "$class_key" 2>/dev/null | tail -n1)
+                wid=$(xdotool search --class "$class_key" 2>/dev/null | tail -n1)
             fi
             if [ -z "$wid" ]; then
-                wid=$(xdotool search --onlyvisible --name "$key" 2>/dev/null | tail -n1)
+                wid=$(xdotool search --name "$key" 2>/dev/null | tail -n1)
+            fi
+            # 兼容性备选搜索：搜索 openpilot 
+            if [ -z "$wid" ]; then
+                wid=$(xdotool search --name "openpilot" 2>/dev/null | tail -n1)
             fi
 
             if [ -n "$wid" ]; then
@@ -99,10 +106,10 @@ robust_place() {
                 done
                 return
             fi
-            sleep 0.1
+            sleep 0.2 # 稍微增加等待间隔
         done
 
-        echo "[error] TIMEOUT: Could not find '$key' or class '$class_key'"
+        echo "[error] TIMEOUT: Could not find '$key' or class '$class_key' after 40s"
         echo "Current windows list (wmctrl -l):"
         wmctrl -l
     ) &
