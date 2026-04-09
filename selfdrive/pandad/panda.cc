@@ -275,7 +275,7 @@ bool Panda::unpack_can_buffer(uint8_t *data, uint32_t &size, std::vector<can_fra
     }
 
     if (calculate_checksum(&data[pos], sizeof(can_header) + data_len) != 0) {
-      LOGE("Panda CAN checksum failed");
+      LOGE("Panda CAN checksum failed: pos=%d, len=%d", pos, (int)data_len);
       size = 0;
       can_reset_communications();
       return false;

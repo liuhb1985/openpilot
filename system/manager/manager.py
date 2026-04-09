@@ -285,6 +285,13 @@ def manager_init() -> None:
   except PermissionError:
     print(f"WARNING: failed to make {Paths.shm_path()}")
 
+  # Create videos folder for camera records
+  try:
+    if not os.path.exists("videos"):
+      os.mkdir("videos")
+  except Exception:
+    print("WARNING: failed to make videos directory")
+
   # set params
   serial = HARDWARE.get_serial()
   params.put("Version", build_metadata.openpilot.version)

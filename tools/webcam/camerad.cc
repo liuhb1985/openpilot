@@ -129,7 +129,8 @@ void camerad::run() {
   }
 
 #ifdef USE_ROADCAMERASTATE
-  std::string output_prefix = PATH_VIDEOS;
+  const char* videos_path = getenv("PATH_VIDEOS");
+  std::string output_prefix = videos_path ? videos_path : PATH_VIDEOS;
   camera *cam_road = new camera(device_path0, "roadCameraState", width, height, CAM_FPS, output_prefix);
   m_cameras.push_back(cam_road);
 #endif
@@ -137,7 +138,7 @@ void camerad::run() {
 #ifdef USE_WIDEROADCAMERASTATE
   // 只有在明确指定了 WIDE_CAM 环境变量时才启用广角相机，避免没有第二个摄像头时的 ENOTTY 错误
   if (wide_cam) {
-    camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, output_prefix);
+    camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, ""); // Disable saving by default on PC
     m_cameras.push_back(cam_wide);
   }
 #endif

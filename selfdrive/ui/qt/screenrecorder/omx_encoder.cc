@@ -323,6 +323,11 @@ OmxEncoder::OmxEncoder(const char* path, int width, int height, int fps, int bit
     this->v_ptr2 = (uint8_t *)malloc(this->width*this->height/4);
   }
 
+#if defined(WSL2) || defined(__x86_64__) || defined(__apple__)
+  this->handle = nullptr;
+  return;
+#endif
+
   auto component = (OMX_STRING)(h265 ? "OMX.qcom.video.encoder.hevc" : "OMX.qcom.video.encoder.avc");
   int err = OMX_GetHandle(&this->handle, component, this, &omx_callbacks);
   if (err != OMX_ErrorNone) {
