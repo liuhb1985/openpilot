@@ -7,6 +7,7 @@
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   main_layout = new QStackedLayout(this);
   main_layout->setMargin(0);
+  setWindowTitle("ui");
 
   homeWindow = new HomeWindow(this);
   main_layout->addWidget(homeWindow);

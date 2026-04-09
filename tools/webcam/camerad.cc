@@ -3,13 +3,26 @@
 
 #include <vector>
 
+#include <sys/stat.h>
+
 #define USE_ROADCAMERASTATE
 #define USE_WIDEROADCAMERASTATE
 #define CAM_WIDTH 1920//2592//1920
 #define CAM_HEIGHT 1080//1944//1080
 #define CAM_FPS 20
 
-const char *PATH_VIDEOS = "./videos/"; // Save record videos.
+static std::string detect_videos_path() {
+  const char* candidates[] = {"./videos/", "../videos/", "../../videos/"};
+  for (const char* path : candidates) {
+    struct stat st;
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+      return path;
+    }
+  }
+  return "./videos/"; // Default fallback
+}
+
+std::string PATH_VIDEOS = detect_videos_path(); // Save record videos.
 
 int mac();
 
