@@ -853,7 +853,7 @@ public:
         if (draw_dist) {
             int wStr = 0, w = 80;
             float dist = radarDist * (s->scene.is_metric ? 1 : METER_TO_FOOT);
-            float speed = radarSpeed * (s->scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
+            float speed = radarSpeed * (s->scene.is_metric ? 1 : 1); // Already in km/h
             NVGcolor text_color = (xState==0) ? COLOR_WHITE : (xState==1) ? COLOR_GREY : COLOR_GREEN;
             if (dist > 0.0) {
                 sprintf(str, "%.1f", dist);
@@ -2547,8 +2547,8 @@ public:
                   nvgFill(s->vg);
                 }
 
-                // 速度文本/框
-                sprintf(str, "%.0f", (s->scene.is_metric) ? v_sum * MS_TO_KPH : v_sum * MS_TO_MPH);
+                // 速度文本/框 (v_sum 已经是 km/h)
+                sprintf(str, "%.0f", v_sum);
                 wStr = 35 * (int)strlen(str);
                 ui_fill_rect(s->vg,
                   { (int)(x - wStr / 2), (int)(y - 35), wStr, 42 },
@@ -2636,15 +2636,21 @@ public:
 			nvgStrokeWidth(s->vg, 20.0f);
 			nvgStroke(s->vg);
 		}
-#elif 1
         if (nav_path_vertex_count > 1) {
             for(int i = 1; i < nav_path_vertex_count; i++) {
                 float x = nav_path_vertex[i].x();
                 float y = nav_path_vertex[i].y();
                 if(isnan(x) || isnan(y)) continue;
-				nvgBeginPath(s->vg);
-                nvgCircle(s->vg, x, y, 10);
-                nvgFillColor(s->vg, COLOR_GREEN);
+                
+                // [Aesthetics] 绘制黄色正三角形
+                nvgBeginPath(s->vg);
+                float size = 12.0f;
+                nvgMoveTo(s->vg, x, y - size); // 顶点
+                nvgLineTo(s->vg, x - size, y + size * 0.5f); // 左下
+                nvgLineTo(s->vg, x + size, y + size * 0.5f); // 右下
+                nvgClosePath(s->vg);
+                
+                nvgFillColor(s->vg, COLOR_YELLOW);
                 nvgFill(s->vg);
 			}
         }

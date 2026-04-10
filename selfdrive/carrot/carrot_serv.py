@@ -198,7 +198,11 @@ class CarrotServ:
     self.carrotCmdIndex = 0
     self.carrotCmd = ""
     self.carrotArg = ""
-    self.carrotCmdIndex_last = 0
+    self.carrotCmdIndex = 0
+    self.local_carrotCmd = ""
+    self.local_carrotArg = ""
+    self.local_carrotCmdIndex = 0
+    self.carrotIndex = 0
 
     self.traffic_light_q = collections.deque(maxlen=int(2.0/0.1))  # 2 secnods
     self.traffic_light_count = -1
@@ -1578,8 +1582,17 @@ class CarrotServ:
 
       self.left_sec = left_sec
 
-    self.check_auto_overtake(sm, v_ego)
+    self.check_auto_overtake(sm, pm, v_ego)
     self._update_cmd()
+    
+    # 优先使用 App 命令，如果最近没有 App 命令则使用本地自动变道命令
+    current_cmd = self.carrotCmd
+    current_arg = self.carrotArg
+    
+    if self.local_carrotCmdIndex > self.carrotCmdIndex:
+      current_cmd = self.local_carrotCmd
+      current_arg = self.local_carrotArg
+
     msg = messaging.new_message('carrotMan')
     msg.valid = True
     msg.carrotMan.activeCarrot = self.active_carrot
@@ -1598,9 +1611,9 @@ class CarrotServ:
     msg.carrotMan.szTBTMainText = self.szTBTMainText
     msg.carrotMan.desiredSpeed = int(desired_speed)
     msg.carrotMan.desiredSource = source
-    msg.carrotMan.carrotCmdIndex = int(self.carrotCmdIndex)
-    msg.carrotMan.carrotCmd = self.carrotCmd
-    msg.carrotMan.carrotArg = self.carrotArg
+    msg.carrotMan.carrotCmd = current_cmd
+    msg.carrotMan.carrotArg = current_arg
+    msg.carrotMan.carrotCmdIndex = int(max(self.carrotCmdIndex, self.local_carrotCmdIndex))
     msg.carrotMan.trafficState = self.traffic_state
 
     #new
@@ -1635,7 +1648,7 @@ class CarrotServ:
     msg.carrotMan.leftSec = int(self.carrot_left_sec)
     pm.send('carrotMan', msg)
  
-  def check_auto_overtake(self, sm, v_ego):
+  def check_auto_overtake(self, sm, pm, v_ego):
     if self.autoOvertake <= 0:
       self.overtake_wait_count = 0
       self.overtake_active_direction = ""
@@ -1705,9 +1718,9 @@ class CarrotServ:
           self.overtake_return_wait_count = int(5.0 / DT_NAV) # 再等等，继续超车
           
         if can_return:
-          self.carrotCmdIndex += 1
-          self.carrotCmd = "OVERTAKE"  
-          self.carrotArg = return_arg
+          self.local_carrotCmdIndex = self.carrotCmdIndex + 1
+          self.local_carrotCmd = "OVERTAKE"  
+          self.local_carrotArg = return_arg
           self.overtake_active_direction = "" # 清除记忆
           print(f"---[{time.strftime('%H:%M:%S')}] AutoOvertakeReturn Executing: Return to {return_arg}")
           return
@@ -1805,9 +1818,9 @@ class CarrotServ:
         overtake_arg = "RIGHT"
 
     if overtake_arg:
-      self.carrotCmdIndex += 1
-      self.carrotCmd = "OVERTAKE"
-      self.carrotArg = overtake_arg
+      self.local_carrotCmdIndex = self.carrotCmdIndex + 1
+      self.local_carrotCmd = "OVERTAKE"
+      self.local_carrotArg = overtake_arg
       
       # [Optimization] 状态机记忆超车方向，用来触发后续自动归位
       self.overtake_active_direction = overtake_arg

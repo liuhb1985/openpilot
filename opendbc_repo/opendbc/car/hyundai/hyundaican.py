@@ -125,10 +125,8 @@ def create_lfahda_mfc(packer, CC, blinking_signal, v_ego=0.0):
     hda_icon = 2 if CC.longActive else 0
 
   # [Optimization] 为了防止 2019 款胜达在低速 (< 60km/h) 且仅开启横向模式时报错 "无法开启智能导航系统"
-  # 我们在车速较低或非 OP 纵向模式下，降低 HDA 系统标志位的活跃度。
-  hda_usm = 2
-  if v_ego < 60 / 3.6 or not CC.longActive:
-    hda_usm = 0 # 0: Off/Default
+  # 我们针对老款车型不再强制设置 HDA_USM 为 0，而是保持与 HDA_Active 同步或取值 2。
+  hda_usm = 2 if hda_active == 1 or v_ego > 10 / 3.6 else 0
 
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,

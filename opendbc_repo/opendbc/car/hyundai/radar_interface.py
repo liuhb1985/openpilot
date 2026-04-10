@@ -166,7 +166,8 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[ii].dRel = msg['ACC_ObjDist']
         self.pts[ii].yRel = -msg['ACC_ObjLatPos']
         self.pts[ii].vRel = msg['ACC_ObjRelSpd']
-        self.pts[ii].vLead = self.pts[ii].vRel + self.v_ego
+        # [Fix] 部分现代车型雷达返回的信号已经是绝对速度，重复累加 v_ego 会导致倍速显示
+        self.pts[ii].vLead = self.pts[ii].vRel
         self.pts[ii].aRel = 0.0
         self.pts[ii].yvRel = 0.0
 

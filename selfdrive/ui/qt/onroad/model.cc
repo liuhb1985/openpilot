@@ -27,8 +27,6 @@ void ModelRenderer::draw(QPainter &painter, const QRect &surface_rect) {
   experimental_mode |= s->scene.carrot_experimental_mode;
   longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
   path_offset_z = sm["liveCalibration"].getLiveCalibration().getHeight()[0];
-
-  return;
   painter.save();
 
   const auto &model = sm["modelV2"].getModelV2();
