@@ -124,6 +124,7 @@ def get_default_params():
     ("RadarReactionFactor", "100"),
     ("EnableRadarTracks", "0"),
     ("RadarLatFactor", "0"),
+    ("EnableEscc", "0"),
     ("EnableCornerRadar", "0"),
     ("HyundaiCameraSCC", "0"),
     ("IsLdwsCar", "0"),

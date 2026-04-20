@@ -710,6 +710,8 @@ class CarState(CarStateBase):
     msgs = [
       ("YRS11", 100),
       ("YRS12", 100),
+      ("ESCC", 50),
+      ("FCA11", 50),
     ]
 
     return {

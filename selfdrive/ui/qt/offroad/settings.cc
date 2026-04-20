@@ -864,6 +864,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   startToggles->addItem(new CValueControl("HyundaiCameraSCC", tr("现代：摄像头SCC"), tr("1:连接SCC的CAN线到CAM, 2:同步巡航状态, 3:原厂纵向"), 0, 3, 1));
   startToggles->addItem(new CValueControl("CanfdHDA2", tr("CANFD：HDA2模式"), tr("1:HDA2,2:HDA2+BSM盲区监测"), 0, 2, 1));
   startToggles->addItem(new CValueControl("EnableRadarTracks", tr("启用雷达跟踪"), tr("1:启用雷达跟踪, -1,2:完全禁用HKG SCC雷达"), -1, 3, 1));
+  startToggles->addItem(new CValueControl("EnableEscc", tr("启用加强型SCC (ESCC)"), tr("启用原车加强型 SCC 消息解析与纵向控制反馈"), 0, 1, 1));
   startToggles->addItem(new CValueControl("AutoCruiseControl", tr("自动巡航控制"), tr("软保持，自动巡航开关控制"), 0, 3, 1));
   startToggles->addItem(new CValueControl("CruiseOnDist", tr("巡航：自动开启距离(0cm)"), tr("当油门/刹车关闭时，前车接近时自动开启巡航"), 0, 2500, 50));
   startToggles->addItem(new CValueControl("AutoEngage", tr("启动时自动启用"), tr("1:启用转向, 2:启用转向/巡航"), 0, 2, 1));

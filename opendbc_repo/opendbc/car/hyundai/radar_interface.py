@@ -15,6 +15,7 @@ RADAR_START_ADDR_CANFD1 = 0x210
 RADAR_MSG_COUNT1 = 16
 RADAR_START_ADDR_CANFD2 = 0x3A5 # Group 2, Group 1: 0x210 2개씩있어서 일단 보류.
 RADAR_MSG_COUNT2 = 32
+ESCC_TID = 1
 
 # POC for parsing corner radars: https://github.com/commaai/openpilot/pull/24221/
 
@@ -31,7 +32,9 @@ def get_radar_can_parser(CP, radar_tracks, msg_start_addr, msg_count):
     return CANParser('hyundai_canfd_radar_generated', messages, CAN.ACAN)
   else:
     messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
-  #return CANParser(DBC[CP.carFingerprint][Bus.radar], messages, 1)
+    if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+      messages += [("ESCC", 50)]
+
     return CANParser('hyundai_kia_mando_front_radar_generated', messages, 1)
 
 def get_radar_can_parser_scc(CP):
@@ -77,9 +80,17 @@ class RadarInterface(RadarInterfaceBase):
     self.track_id = 0
 
     self.radar_off_can = CP.radarUnavailable
+    self.enhanced_scc = CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC
+    self.showDebugLog = self.params.get_int("ShowDebugLog")
+    if self.enhanced_scc:
+      self.trigger_msg_tracks = 0x2ab
 
     self.vRel_last = 0
     self.dRel_last = 0
+
+    self.vRel_k = MyMovingAverage(5)
+    self.dRel_k = MyMovingAverage(5)
+    self.aRel_k = MyMovingAverage(10)
 
     # Initialize pts
     total_tracks = self.radar_msg_count * ( 2 if self.radar_group1 else 1)
@@ -92,6 +103,9 @@ class RadarInterface(RadarInterfaceBase):
     self.pts[SCC_TID] = structs.RadarData.RadarPoint()
     self.pts[SCC_TID].trackId = SCC_TID
 
+    self.pts[ESCC_TID] = structs.RadarData.RadarPoint()
+    self.pts[ESCC_TID].trackId = ESCC_TID
+
     self.frame = 0
 
 
@@ -103,7 +117,7 @@ class RadarInterface(RadarInterfaceBase):
     if self.rcp_scc is not None:
       vls_s = self.rcp_scc.update(can_strings)
       self.updated_scc.update(vls_s)
-      if not self.radar_tracks and self.frame % 5 == 0:
+      if not self.radar_tracks and not self.enhanced_scc and self.frame % 5 == 0:
         self._update_scc(self.updated_scc)
         self.updated_scc.clear()
         ret = structs.RadarData()
@@ -111,7 +125,7 @@ class RadarInterface(RadarInterfaceBase):
           ret.errors.canError = True
         ret.points = list(self.pts.values())
         return ret
-    if self.radar_tracks and self.rcp_tracks is not None:
+    if (self.radar_tracks or self.enhanced_scc) and self.rcp_tracks is not None:
       vls_t = self.rcp_tracks.update(can_strings)
       self.updated_tracks.update(vls_t)
       if self.trigger_msg_tracks in self.updated_tracks:
@@ -125,9 +139,41 @@ class RadarInterface(RadarInterfaceBase):
         ret.points = list(self.pts.values())
         return ret
 
-    return None      
+    return None
 
   def _update(self, updated_messages):
+    if self.enhanced_scc:
+      msg = self.rcp_tracks.vl["ESCC"]
+      valid = msg['ACC_ObjStatus'] and msg['ACC_ObjDist'] < 204.6
+
+      ii = ESCC_TID
+      if valid:
+        dRel = self.dRel_k.add(msg['ACC_ObjDist'])
+        vRel = self.vRel_k.add(msg['ACC_ObjRelSpd'])
+        aRel = self.aRel_k.add((vRel - self.vRel_last) / 0.05) if abs(vRel - self.vRel_last) < 2.0 else 0.0
+        self.vRel_last = vRel
+
+        self.pts[ii].measured = True
+        self.pts[ii].trackId = ESCC_TID
+        self.pts[ii].dRel = dRel
+        self.pts[ii].yRel = -msg['ACC_ObjLatPos']
+        self.pts[ii].vRel = vRel
+        self.pts[ii].vLead = vRel + self.v_ego
+        self.pts[ii].aRel = aRel
+        self.pts[ii].yvRel = 0.0
+        if (self.showDebugLog & 128) > 0:
+          print(f"***update escc: dRel={dRel:.2f}, vRel={vRel:.2f}, aRel={aRel:.2f}")
+      else:
+        self.dRel_k.reset()
+        self.vRel_k.reset()
+        self.aRel_k.reset()
+        self.pts[ii].measured = False
+        self.pts[ii].dRel = 0
+        self.pts[ii].yRel = 0
+        self.pts[ii].vRel = 0
+        self.pts[ii].vLead = 0
+        self.pts[ii].aRel = float('nan')
+        self.pts[ii].yvRel = 0
 
     t_id = 32
     for addr in range(self.radar_start_addr, self.radar_start_addr + self.radar_msg_count):

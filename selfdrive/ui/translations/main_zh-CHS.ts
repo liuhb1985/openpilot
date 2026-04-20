@@ -1675,6 +1675,14 @@
         <source>显示调试日志</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>启用加强型SCC (ESCC)</source>
+        <translation>启用增强型巡航控制 (ESCC)</translation>
+    </message>
+    <message>
+        <source>启用原车加强型 SCC 消息解析与纵向控制反馈</source>
+        <translation>启用原车增强型 SCC 模块的数据解析与纵向控制反馈</translation>
+    </message>
 </context>
 <context>
     <name>ConfirmationDialog</name>
