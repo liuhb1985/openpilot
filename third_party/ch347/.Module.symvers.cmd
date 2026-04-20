@@ -1,0 +1,1 @@
+savedcmd_/home/liruifeng/ajouatom-pc/third_party/ch347/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/liruifeng/ajouatom-pc/third_party/ch347/Module.symvers -T /home/liruifeng/ajouatom-pc/third_party/ch347/modules.order -i Module.symvers -e 
