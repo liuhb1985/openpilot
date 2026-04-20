@@ -1,0 +1,1 @@
+savedcmd_/home/liruifeng/ajouatom-pc/third_party/ch347/ch34x_pis.mod := printf '%s\n'   ch34x_pis.o | awk '!x[$$0]++ { print("/home/liruifeng/ajouatom-pc/third_party/ch347/"$$0) }' > /home/liruifeng/ajouatom-pc/third_party/ch347/ch34x_pis.mod
