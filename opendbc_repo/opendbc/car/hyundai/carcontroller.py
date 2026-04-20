@@ -5,7 +5,8 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai import hyundaicanfd, hyundaican
 from opendbc.car.hyundai.carstate import CarState
 from opendbc.car.hyundai.hyundaicanfd import CanBus
-from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR, CAN_GEARS, HyundaiExtFlags
+from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR, CAN_GEARS, HyundaiExtFlags, HyundaiFlagsSP
+ Elephant
 from opendbc.car.interfaces import CarControllerBase
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
@@ -378,6 +379,7 @@ class CarController(CarControllerBase):
         can_sends.append(hyundaican.create_mdps12(self.packer, self.frame, CS.mdps12))
 
       casper_opt = self.CP.carFingerprint in (CAR.HYUNDAI_CASPER_EV)
+      escc = self.CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC
       if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
         self.hyundai_jerk.make_jerk(self.CP, CS, accel, actuators, hud_control)
         self.hyundai_jerk.check_carrot_cruise(CC, CS, hud_control, stopping, accel, actuators.aTarget)
@@ -391,12 +393,14 @@ class CarController(CarControllerBase):
         else:
           can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
                                                 hud_control, set_speed_in_units, stopping,
-                                                CC.cruiseControl.override, use_fca, self.CP, CS, self.soft_hold_mode))
+                                                CC.cruiseControl.override, use_fca, self.CP, CS, self.soft_hold_mode, escc))
 
 
       # 20 Hz LFA MFA message
-      if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
-        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal))
+      if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or
+                                  self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022,
+                                                             CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
+        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal, CS.out.vEgo))
 
       # 5 Hz ACC options
       if self.frame % 20 == 0 and self.CP.openpilotLongitudinalControl:
@@ -407,7 +411,8 @@ class CarController(CarControllerBase):
               pass
           pass
         else:
-          can_sends.extend(hyundaican.create_acc_opt(self.packer, self.CP))
+          can_sends.extend(hyundaican.create_acc_opt(self.packer, self.CP, escc))
+ Elephant
 
       # 2 Hz front radar options
       if self.frame % 50 == 0 and self.CP.openpilotLongitudinalControl and not camera_scc:

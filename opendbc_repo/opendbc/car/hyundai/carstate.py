@@ -8,7 +8,7 @@ from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs, DT_CTRL
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.hyundaicanfd import CanBus
-from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, Buttons, CarControllerParams, CAMERA_SCC_CAR, HyundaiExtFlags
+from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, Buttons, CarControllerParams, CAMERA_SCC_CAR, HyundaiExtFlags, HyundaiFlagsSP
 from opendbc.car.interfaces import CarStateBase
 
 from openpilot.common.params import Params
@@ -165,6 +165,11 @@ class CarState(CarStateBase):
     self.time_zone = "UTC"
     
     self.controls_ready_count = 0
+    self.escc_aeb_warning = 0
+    self.escc_aeb_dec_cmd_act = 0
+    self.escc_cmd_act = 0
+    self.escc_aeb_dec_cmd = 0
+    self.showDebugLog = Params().get_int("ShowDebugLog")
 
   def update(self, can_parsers) -> structs.CarState:
 
@@ -320,6 +325,30 @@ class CarState(CarStateBase):
       aeb_braking = cp_cruise.vl[aeb_src]["CF_VSM_DecCmdAct"] != 0 or cp_cruise.vl[aeb_src][aeb_sig] != 0
       ret.stockFcw = (aeb_warning or scc_warning) and not aeb_braking
       ret.stockAeb = aeb_warning and aeb_braking
+    #加上ESCC的数据
+    elif self.CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+      aeb_src = "FCA11" if self.CP.flags & HyundaiFlags.USE_FCA.value else "ESCC"
+      aeb_sig = "FCA_CmdAct" if self.CP.flags & HyundaiFlags.USE_FCA.value else "AEB_CmdAct"
+      aeb_warning_sig = "CF_VSM_Warn" if self.CP.flags & HyundaiFlags.USE_FCA.value else "CF_VSM_Warn_SCC12"
+      aeb_braking_sig = "CF_VSM_DecCmdAct" if self.CP.flags & HyundaiFlags.USE_FCA.value else "CF_VSM_DecCmdAct_SCC12"
+      aeb_braking_cmd = "CR_VSM_DecCmd_FCA11" if self.CP.flags & HyundaiFlags.USE_FCA.value else "CR_VSM_DecCmd_SCC12"
+      aeb_warning = cp.vl[aeb_src][aeb_warning_sig] != 0
+      aeb_braking = cp.vl[aeb_src][aeb_braking_sig] != 0 or cp.vl[aeb_src][aeb_sig] != 0
+      ret.stockFcw = aeb_warning and not aeb_braking
+      ret.stockAeb = aeb_warning and aeb_braking
+      if not self.CP.flags & HyundaiFlags.USE_FCA:
+        self.escc_aeb_warning = cp.vl[aeb_src][aeb_warning_sig]
+        self.escc_aeb_dec_cmd_act = cp.vl[aeb_src][aeb_braking_sig]
+        self.escc_cmd_act = cp.vl[aeb_src][aeb_sig]
+        self.escc_aeb_dec_cmd = cp.vl[aeb_src][aeb_braking_cmd]
+
+      try:
+        if (self.showDebugLog & 64) > 0:
+          escc_data = cp.vl["ESCC"]
+          print(f"CarState ESCC: {escc_data}")
+      except KeyError:
+        #print("ESCC消息未找到")
+        pass
 
     if self.CP.enableBsm:
       ret.leftBlindspot = cp.vl["LCA11"]["CF_Lca_IndLeft"] != 0
@@ -393,6 +422,12 @@ class CarState(CarStateBase):
     if prev_main_buttons == 0 and self.main_buttons[-1] != 0:
       self.main_enabled = not self.main_enabled
 
+    if "YRS11" in cp.vl:
+      ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
+      ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+    if "YRS12" in cp.vl:
+      ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
+
     return ret
 
   def update_speed_limit(self, ret, speed_limit_cam):
@@ -453,12 +488,7 @@ class CarState(CarStateBase):
 
     ret.steeringRateDeg = cp.vl["STEERING_SENSORS"]["STEERING_RATE"]
 
-    # steering angle deg값이 이상함. mdps값이 더 신뢰가 가는듯.. torque steering 차량도 확인해야함.
-    #ret.steeringAngleDeg = cp.vl["STEERING_SENSORS"]["STEERING_ANGLE"] * -1
-    if self.CP.flags & HyundaiFlags.ANGLE_CONTROL:
-      ret.steeringAngleDeg = cp.vl["MDPS"]["STEERING_ANGLE_2"] * -1
-    else:
-      ret.steeringAngleDeg = cp.vl["STEERING_SENSORS"]["STEERING_ANGLE"] * -1
+    ret.steeringAngleDeg = cp.vl["STEERING_SENSORS"]["STEERING_ANGLE"] * -1
     
     ret.steeringTorque = cp.vl["MDPS"]["STEERING_COL_TORQUE"]
     ret.steeringTorqueEps = cp.vl["MDPS"]["STEERING_OUT_TORQUE"]
@@ -677,7 +707,12 @@ class CarState(CarStateBase):
     if CP.flags & HyundaiFlags.CANFD:
       return self.get_can_parsers_canfd(CP)
 
+    msgs = [
+      ("YRS11", 100),
+      ("YRS12", 100),
+    ]
+
     return {
-      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 0),
+      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, 0),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 2),
     }

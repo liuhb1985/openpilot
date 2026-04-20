@@ -116,17 +116,27 @@ def create_clu11(packer, frame, clu11, button, CP):
   return packer.make_can_msg("CLU11", bus, values)
 
 
-def create_lfahda_mfc(packer, CC, blinking_signal):
+def create_lfahda_mfc(packer, CC, blinking_signal, v_ego=0.0):
   activeCarrot = CC.hudControl.activeCarrot
+  hda_active = 1 if CC.longActive and activeCarrot > 0 else 0
+  if activeCarrot == 3 and blinking_signal:
+    hda_icon = 0
+  else:
+    hda_icon = 2 if CC.longActive else 0
+
+  # [Optimization] 为了防止 2019 款胜达在低速(< 60km/h) 且仅开启横向模式时报错 "无法开启智能导航系统"
+  # 我们针对老款车型不再强制设置 HDA_USM 为 0，而是保持与 HDA_Active 同步或取为 2.
+  hda_usm = 2 if hda_active == 1 or v_ego > 10 / 3.6 else 0
+
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
-    #"HDA_Active": 1 if activeCarrot >= 2 else 0,
-    #"HDA_Icon_State": 2 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 2 else 0,
-    "HDA_Icon_State": 0 if activeCarrot == 3 and blinking_signal else 2 if activeCarrot >= 1 else 0,
+    "HDA_Active": hda_active,
+    "HDA_Icon_State": hda_icon,
     "HDA_VSetReq": 0, #set_speed_in_units if activeCarrot >= 2 else 0,
-    "HDA_USM" : 2,
-    "HDA_Icon_Wheel" : 1 if CC.latActive else 0,
-    #"HDA_Chime" : 1 if CC.latActive else 0, # comment for K9 chime, 
+    "HDA_USM" : hda_usm,
+    "HDA_Icon_Wheel" : 1 if CC.latActive and hda_active == 1 else 0,
+    #"HDA_Chime" : 1 if CC.latActive else 0, # comment for K9 chime,
+    "HDA_SysWarning": 0,
   }
   return packer.make_can_msg("LFAHDA_MFC", 0, values)
 
@@ -241,7 +251,7 @@ def create_acc_opt_copy(CS, packer):
     values["NEW_SIGNAL_2"]  = 0
   return packer.make_can_msg("SCC13", 0, CS.scc13)
 
-def create_acc_commands(packer, enabled, accel, jerk, idx, hud_control, set_speed, stopping, long_override, use_fca, CP, CS, soft_hold_mode):
+def create_acc_commands(packer, enabled, accel, jerk, idx, hud_control, set_speed, stopping, long_override, use_fca, CP, CS, soft_hold_mode, escc):
   from opendbc.car.hyundai.carcontroller import HyundaiJerk
   cruise_available = CS.out.cruiseState.available
   soft_hold_active = CS.softHoldActive
@@ -298,8 +308,12 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, hud_control, set_spee
   # these signals also prevent a TCS fault on non-FCA cars with alpha longitudinal
   if not use_fca:
     scc12_values["CF_VSM_ConfMode"] = 1
-    scc12_values["AEB_Status"] = 1  # AEB disabled
-
+    scc12_values["AEB_Status"] = 2 if escc else 1  # AEB disabled
+    if escc:
+      scc12_values["AEB_CmdAct"] = CS.escc_cmd_act
+      scc12_values["CF_VSM_Warn"] = CS.escc_aeb_warning
+      scc12_values["CF_VSM_DecCmdAct"] = CS.escc_aeb_dec_cmd_act
+      scc12_values["CR_VSM_DecCmd"] = CS.escc_aeb_dec_cmd
   scc12_dat = packer.make_can_msg("SCC12", 0, scc12_values)[1]
   scc12_values["CR_VSM_ChkSum"] = 0x10 - sum(sum(divmod(i, 16)) for i in scc12_dat) % 0x10
 
@@ -318,7 +332,7 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, hud_control, set_spee
 
   # Only send FCA11 on cars where it exists on the bus
   # On Camera SCC cars, FCA11 is not disabled, so we forward stock FCA11 back to the car forward hooks
-  if use_fca and not (CP.flags & HyundaiFlags.CAMERA_SCC):
+  if use_fca and not (CP.flags & HyundaiFlags.CAMERA_SCC) and not escc:
     # note that some vehicles most likely have an alternate checksum/counter definition
     # https://github.com/commaai/opendbc/commit/9ddcdb22c4929baf310295e832668e6e7fcfa602
     fca11_values = {
@@ -333,7 +347,7 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, hud_control, set_spee
 
   return commands
 
-def create_acc_opt(packer, CP):
+def create_acc_opt(packer, CP, escc):
   commands = []
 
   scc13_values = {
@@ -345,7 +359,7 @@ def create_acc_opt(packer, CP):
 
   # TODO: this needs to be detected and conditionally sent on unsupported long cars
   # On Camera SCC cars, FCA12 is not disabled, so we forward stock FCA12 back to the car forward hooks
-  if not (CP.flags & HyundaiFlags.CAMERA_SCC):
+  if not (CP.flags & HyundaiFlags.CAMERA_SCC) and not escc:
     fca12_values = {
       "FCA_DrvSetState": 2,
       "FCA_USM": 1, # AEB disabled

@@ -2,7 +2,7 @@ from opendbc.car import Bus, get_safety_config, structs
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, CANFD_RADAR_SCC_CAR, \
                                                    CANFD_UNSUPPORTED_LONGITUDINAL_CAR, \
-                                                   UNSUPPORTED_LONGITUDINAL_CAR, HyundaiSafetyFlags, HyundaiExtFlags
+                                                   UNSUPPORTED_LONGITUDINAL_CAR, HyundaiSafetyFlags, HyundaiExtFlags, HyundaiFlagsSP
 from opendbc.car.hyundai.radar_interface import RADAR_START_ADDR
 from opendbc.car.interfaces import CarInterfaceBase
 from opendbc.car.disable_ecu import disable_ecu
@@ -141,6 +141,13 @@ class CarInterface(CarInterfaceBase):
         ret.flags |= HyundaiFlags.USE_FCA.value
         print("$$$USE_FCA")
 
+      if 0x2AB in fingerprint[0]:
+        if params.get_int("EnableEscc") == 1:
+          ret.spFlags |= HyundaiFlagsSP.SP_ENHANCED_SCC.value
+          print("$$$ESCC")
+        else:
+          print("$$$User disable ESCC")
+
       if ret.flags & HyundaiFlags.LEGACY:
         # these cars require a special panda safety mode due to missing counters and checksums in the messages
         ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.hyundaiLegacy)]
@@ -151,6 +158,8 @@ class CarInterface(CarInterfaceBase):
       if ret.flags & HyundaiFlags.CAMERA_SCC:
         ret.safetyConfigs[0].safetyParam |= HyundaiSafetyFlags.CAMERA_SCC.value
         print("$$$CAMERA_SCC")
+      if ret.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+        ret.safetyConfigs[0].safetyParam |= HyundaiSafetyFlags.ESCC.value
 
     # Common lateral control setup
 
@@ -180,7 +189,12 @@ class CarInterface(CarInterfaceBase):
 
     #ret.radarUnavailable = False  # TODO: canfd... carrot, hyundai cars have radar
 
-    ret.radarTimeStep = 0.05 #if params.get_int("EnableRadarTracks") > 0 else 0.02
+    if Bus.radar not in DBC[ret.carFingerprint]:
+      if ret.spFlags & (HyundaiFlagsSP.SP_ENHANCED_SCC | HyundaiFlagsSP.SP_CAMERA_SCC_LEAD):
+        ret.radarUnavailable = False
+        print(f"$$$RadarTracks disable, Escc enable")
+
+    ret.radarTimeStep = 0.05 if params.get_int("EnableRadarTracks") > 0 or (ret.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC) else 0.02
 
     ret.pcmCruise = not ret.openpilotLongitudinalControl
     ret.startingState = False # True  # carrot
@@ -234,11 +248,10 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   @staticmethod
-  def init(CP, can_recv, can_send):
-
+  def init(CP, can_recv, can_send, v_ego=0.0):
     Params().put('LongitudinalPersonalityMax', "4")
 
-    if CP.openpilotLongitudinalControl and not (CP.flags & HyundaiFlags.CANFD_CAMERA_SCC):
+    if CP.openpilotLongitudinalControl and not ((CP.flags & HyundaiFlags.CANFD_CAMERA_SCC.value) or (CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC)):
       addr, bus = 0x7d0, 0
       if CP.flags & HyundaiFlags.CANFD_HDA2.value:
         addr, bus = 0x730, CanBus(CP).ECAN
@@ -246,38 +259,79 @@ class CarInterface(CarInterfaceBase):
 
     params = Params()
     if params.get_int("EnableRadarTracks") > 0 and not CP.flags & HyundaiFlags.CANFD:
-      result = enable_radar_tracks(CP, can_recv, can_send)
-      params.put_bool("EnableRadarTracksResult", result)
-
-    # for blinkers
+      # Check if radar tracks were already successfully configured in a previous session.
+      # EnableRadarTracksResult is now PERSISTENT (not cleared on manager start),
+      # so a True value here means the radar hardware was already flashed — skip the
+      # diagnostic sequence entirely to avoid any CAN bus disruption on subsequent boots.
+      already_configured = params.get_bool("EnableRadarTracksResult")
+      if already_configured:
+        print("################ Radar Tracks already configured. Skipping to prevent CAN bus disruption. ####################")
+      else:
+        result = enable_radar_tracks(CP, can_recv, can_send, v_ego=v_ego)
+        params.put_bool("EnableRadarTracksResult", result)
+        if result:
+          print("################ Radar Tracks enabled successfully. Will skip on next boot. ####################")
+    elif params.get_int("EnableRadarTracks") <= 0:
+      # User disabled EnableRadarTracks — clear the flag so it re-runs if re-enabled later
+      params.put_bool("EnableRadarTracksResult", False)
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
       disable_ecu(can_recv, can_send, bus=CanBus(CP).ECAN, addr=0x7B1, com_cont_req=b'\x28\x83\x01')
 
-def enable_radar_tracks(CP, logcan, sendcan):
+def enable_radar_tracks(CP, logcan, sendcan, v_ego=0.0):
   from opendbc.car.isotp_parallel_query import IsoTpParallelQuery
   print("################ Try To Enable Radar Tracks ####################")
 
+  # 安全锁：如果车辆已在行驶中，绝对禁止尝试进入诊断模式，防止仪表盘报警
+  if v_ego > 0.1:
+    print(f"################ 车辆在行驶中({v_ego:.2f} m/s)，跳过雷达激活以确保安全 ####################")
+    return False
+
   ret = False
   sccBus = 2 if CP.flags & HyundaiFlags.CAMERA_SCC.value else 0
-  rdr_fw = None
-  rdr_fw_address = 0x7d0 #
+  rdr_fw_address = 0x7d0
   try:
+    dataId = b'\x01\x42'
+    new_config = b"\x00\x00\x00\x01\x00\x01"
+
+    # 1. Try reading first in default session to avoid faults.
+    read_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x22' + dataId], [b'\x62' + dataId])
+    read_resp = read_query.get_data(0.1)
+    if rdr_fw_address in read_resp and read_resp[rdr_fw_address] == new_config:
+      print("Radar tracks already enabled. Skipping write command to prevent fault codes.")
+      return True
+
     try:
+      # 2. If not enabled, enter Extended Diagnostic Session
       query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x07'], [b'\x50\x07'])
-      for addr, dat in query.get_data(0.1).items(): # pylint: disable=unused-variable
-        print("ecu write data by id ...")
-        new_config = b"\x00\x00\x00\x01\x00\x01"
-        #new_config = b"\x00\x00\x00\x00\x00\x01"
-        dataId = b'\x01\x42'
-        WRITE_DAT_REQUEST = b'\x2e'
-        WRITE_DAT_RESPONSE = b'\x68'
-        query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
-        result = query.get_data(0)
-        print("result=", result)
-        ret = True
+      for addr, dat in query.get_data(0.1).items(): 
+        # 3. Read again inside the diagnostic session just in case
+        read_query_ext = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x22' + dataId], [b'\x62' + dataId])
+        read_resp_ext = read_query_ext.get_data(0.1)
+        if rdr_fw_address in read_resp_ext and read_resp_ext[rdr_fw_address] == new_config:
+           print("Radar tracks already enabled (in Ext diag). Skipping write.")
+           ret = True
+        else:
+           # 4. Write data by identifier
+           print("ecu write data by id ...")
+           WRITE_DAT_REQUEST = b'\x2e'
+           WRITE_DAT_RESPONSE = b'\x6e'  # Correct UDS positive response for 0x2e is 0x6e
+           query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
+           result = query.get_data(0.5)  # Wait longer for flash memory write
+           print("result=", result)
+           ret = True
+
+        # 5. Send ECU Hard Reset (0x11 0x01) to reboot the radar module gracefully
+        # This forces the radar to reload the new tracks config and crucially restarts SCC11 broadcast 
+        print("ecu hard reset to resume CAN broadcast ...")
+        reset_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x11\x01'], [b'\x51\x01'])
+        reset_query.get_data(0.2)
+        
+        # 6. Bring ECU back to default session rapidly to prevent dashboard faults
+        default_query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x01'], [b'\x50\x01'])
+        default_query.get_data(0.1)
         break
     except Exception as e:
-      print(f"Failed : {e}") 
+      print(f"Failed : {e}")
   except Exception as e:
     print("##############  Failed to enable tracks" + str(e))
   print("################ END Try to enable radar tracks")
