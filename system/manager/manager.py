@@ -366,15 +366,20 @@ def manager_thread() -> None:
 
 def main() -> None:
   manager_init()
-  print(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
-  os.system(f"python ../../opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
-  os.system(f"python ../../opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
-  os.system(f"python ../../opendbc/car/honda/values.py > {Params().get_param_path()}/SupportedCars_honda")
-  os.system(f"python ../../opendbc/car/ford/values.py > {Params().get_param_path()}/SupportedCars_ford")
-  os.system(f"python ../../opendbc/car/tesla/values.py > {Params().get_param_path()}/SupportedCars_tesla")
-  os.system(f"python ../../opendbc/car/volkswagen/values.py > {Params().get_param_path()}/SupportedCars_volkswagen")
+
+  # 获取 openpilot 根目录
+  OPENPILOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  supported_path = Params().get_param_path()
+
+  brands = ["hyundai", "gm", "toyota", "mazda", "tesla", "honda", "volkswagen"]
+  for brand in brands:
+    values_py = os.path.join(OPENPILOT_ROOT, "opendbc", "car", brand, "values.py")
+    output_file = os.path.join(supported_path, f"SupportedCars_{brand}" if brand != "hyundai" else "SupportedCars")
+    # 优化：如果文件已存在则跳过生成，避免每次启动都执行 7 个 python 进程
+    if os.path.isfile(values_py) and not os.path.exists(output_file):
+      os.system(f"python {values_py} > {output_file}")
+    elif not os.path.isfile(values_py):
+      print(f"WARNING: {values_py} not found, skipping.")
 
   if os.getenv("PREPAREONLY") is not None:
     return
