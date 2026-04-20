@@ -2885,19 +2885,31 @@ public:
             dx = bx - 35;
             dy = by - 200;
             mode_color = COLOR_GREEN_ALPHA(190);
-            ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (cpuTemp>80 && blink_timer<=8)?COLOR_RED : mode_color, 15, 2);
+            ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (cpuTemp>90 && blink_timer<=8)?COLOR_RED : mode_color, 15, 2);
+            if (disp_timer < 120) {
             ui_draw_text(s, dx, dy-5, "CPU", 25, COLOR_WHITE, BOLD);
             sprintf(str, "%.0f\u00B0C", cpuTemp);
             ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
+            } else {
+                ui_draw_text(s, dx, dy-5, "CPU", 25, COLOR_WHITE, BOLD);
+                sprintf(str, "%.0f%%", cpuUsage);
+                ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
+            }
 
             dx += 150;
             ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (memoryUsage > 85 && blink_timer <= 8) ? COLOR_RED : mode_color, 15, 2);
+            if (disp_timer < 120) {
+                ui_draw_text(s, dx, dy-5, "GPU", 25, COLOR_WHITE, BOLD);
+                sprintf(str, "%.0f%%", gpuUsage);
+                ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
+            } else {
             ui_draw_text(s, dx, dy-5, "MEM", 25, COLOR_WHITE, BOLD);
             sprintf(str, "%d%%", memoryUsage);
             ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
+            }
 
             dx += 150;
-            if (disp_timer < 32) {
+            if (disp_timer < 120) {
               ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, mode_color, 15, 2);
               ui_draw_text(s, dx, dy - 5, "DISK", 25, COLOR_WHITE, BOLD);
               sprintf(str, "%.0f%%", 100 - freeSpace);
@@ -2974,17 +2986,19 @@ public:
         }
     }
     NVGcolor get_tpms_color(float tpms) {
-        if (tpms < 5 || tpms > 60) // N/A
+        float bar = tpms / 14.5038f;
+        if (bar < 0.5 || bar > 5.0) // N/A or invalid
             return nvgRGBA(255, 255, 255, 220);
-        if (tpms < 31)
+        if (bar < 2.1) // Low pressure warning (< 2.1 bar)
             return nvgRGBA(255, 90, 90, 220);
         return nvgRGBA(255, 255, 255, 220);
     }
 
     const char* get_tpms_text(float tpms) {
-        if (tpms < 5 || tpms > 60) return "  -";
+        float bar = tpms / 14.5038f;
+        if (bar < 0.5 || bar > 5.0) return "  -";
         static char str[32];
-        snprintf(str, sizeof(str), "%.0f", round(tpms));
+        snprintf(str, sizeof(str), "%.1f", bar);
         return str;
     }
     void drawTpms(const UIState* s) {
@@ -3282,17 +3296,19 @@ protected:
     float   a_ego_width = 0.0;
     float steering_angle_pos = 0.0;
     NVGcolor get_tpms_color(float tpms) {
-        if (tpms < 5 || tpms > 60) // N/A
+        float bar = tpms / 14.5038f;
+        if (bar < 0.5 || bar > 5.0) // N/A
             return COLOR_GREEN;
-        if (tpms < 31)
+        if (bar < 2.1)
             return COLOR_RED;
         return COLOR_GREEN;
     }
 
     const char* get_tpms_text(float tpms) {
-        if (tpms < 5 || tpms > 60) return "-";
+        float bar = tpms / 14.5038f;
+        if (bar < 0.5 || bar > 5.0) return "-";
         static char str[32];
-        snprintf(str, sizeof(str), "%.0f", round(tpms));
+        snprintf(str, sizeof(str), "%.1f", bar);
         return str;
     }
 public:

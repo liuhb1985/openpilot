@@ -90,7 +90,7 @@ class RadarInterface(RadarInterfaceBase):
 
     self.vRel_k = MyMovingAverage(5)
     self.dRel_k = MyMovingAverage(5)
-    self.aRel_k = MyMovingAverage(10)
+    self.aRel_k = MyMovingAverage(15)
 
     # Initialize pts
     total_tracks = self.radar_msg_count * ( 2 if self.radar_group1 else 1)
@@ -142,7 +142,7 @@ class RadarInterface(RadarInterfaceBase):
     return None
 
   def _update(self, updated_messages):
-    if self.enhanced_scc:
+    if self.enhanced_scc and "ESCC" in self.rcp_tracks.vl:
       msg = self.rcp_tracks.vl["ESCC"]
       valid = msg['ACC_ObjStatus'] and msg['ACC_ObjDist'] < 204.6
 
@@ -150,7 +150,8 @@ class RadarInterface(RadarInterfaceBase):
       if valid:
         dRel = self.dRel_k.add(msg['ACC_ObjDist'])
         vRel = self.vRel_k.add(msg['ACC_ObjRelSpd'])
-        aRel = self.aRel_k.add((vRel - self.vRel_last) / 0.05) if abs(vRel - self.vRel_last) < 2.0 else 0.0
+        aRel_raw = (vRel - self.vRel_last) / 0.05 if abs(vRel - self.vRel_last) < 2.0 else 0.0
+        aRel = self.aRel_k.add(aRel_raw)
         self.vRel_last = vRel
 
         self.pts[ii].measured = True

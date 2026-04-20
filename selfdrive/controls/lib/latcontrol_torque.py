@@ -189,9 +189,9 @@ class LatControlTorque(LatControl):
       # desired rate is the desired rate of change in the setpoint, not the absolute desired curvature
       # desired_lateral_jerk = desired_curvature_rate * CS.vEgo ** 2
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
-      lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
+      lateral_accel_deadzone = (curvature_deadzone * CS.vEgo ** 2) * np.interp(CS.vEgo, [10.0, 30.0], [1.0, 0.4])
 
-      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
+      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 1.5
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       

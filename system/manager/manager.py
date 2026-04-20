@@ -71,7 +71,7 @@ def get_default_params():
     ("AutoCurveSpeedFactor", "120"),  # 弯道降速灵敏度系数
     ("AutoCurveSpeedAggressiveness", "100"),  # 弯道降速激进程度
 
-    ("AutoTurnControl", "0"),  # 自动转弯控制
+    ("AutoTurnControl", "2"),  # 自动转弯控制
     ("AutoTurnControlSpeedTurn", "20"),  # 转弯目标速度
     ("AutoTurnControlTurnEnd", "6"),  # 转弯提前结束距离
     ("AutoTurnMapChange", "0"),  # 转弯时地图渲染切换
@@ -148,8 +148,8 @@ def get_default_params():
     ("LaneChangeDelay", "0"),  # 自动换道前的延迟确认时间
     ("LaneChangeBsd", "0"),  # 变道盲区监测开关
     ("MaxAngleFrames", "89"),  # 大转角保持最大允许帧数
-    ("LateralTorqueCustom", "0"),  # 启用自定义扭矩控制参数 (忽略预设)
-    ("LateralTorqueAccelFactor", "2500"),  # 侧向扭矩加速度增益系数
+    ("LateralTorqueCustom", "1"),  # 启用自定义扭矩控制参数 (忽略预设)
+    ("LateralTorqueAccelFactor", "2800"),  # 侧向扭矩加速度增益系数
     ("LateralTorqueFriction", "100"),  # 侧向扭矩摩擦力静态补偿
     ("LateralTorqueKpV", "100"),  # 侧向扭矩 P 比例增益
     ("LateralTorqueKiV", "10"),  # 侧向扭矩 I 积分增益
@@ -195,13 +195,10 @@ def get_default_params():
 def set_default_params():
   params = Params()
   default_params = get_default_params()
-  try:
-    default_params.remove(("GMapKey", "0"))
-    default_params.remove(("CompletedTrainingVersion", "0"))
-    default_params.remove(("LanguageSetting", "main_en"))
-    default_params.remove(("GsmMetered", "1"))
-  except ValueError:
-    pass
+  # safe remove to prevent ValueError if keys don't match exactly
+  for key_to_remove in (("GMapKey", "0"), ("CompletedTrainingVersion", "0"), ("LanguageSetting", "main_en"), ("GsmMetered", "1")):
+    if key_to_remove in default_params:
+      default_params.remove(key_to_remove)
   for k, v in default_params:
     params.put(k, v)
     print(f"SetToDefault[{k}]={v}")
