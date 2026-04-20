@@ -21,13 +21,21 @@ check_cameras_ready() {
         local count=$(ls /dev/video* 2>/dev/null | wc -l)
         if [ $count -ge $expected ]; then
              echo "✓ Found $count camera devices."
+             export CAMERAS_EXIST=1
              return 0
         fi
         sleep 0.2
         elapsed=$((elapsed + 2))
         echo "Searching... ($count/$expected)"
     done
-    echo "⚠ Warning: Expected $expected cameras but found $count. Proceeding anyway..."
+    
+    local final_count=$(ls /dev/video* 2>/dev/null | wc -l)
+    if [ $final_count -gt 0 ]; then
+        export CAMERAS_EXIST=1
+    else
+        export CAMERAS_EXIST=0
+    fi
+    echo "⚠ Warning: Expected $expected cameras but found $final_count. Proceeding anyway..."
 }
 check_cameras_ready
 # -----------------------------------------------------------------------------
@@ -64,11 +72,18 @@ fi
 wait_for_device() {
     local dev=$1
     local name=$2
+    
+    # 如果初始扫描完全没发现摄像头，或者设备路径未识别，则跳过长时间等待
+    if [ "$CAMERAS_EXIST" = "0" ]; then
+        echo "[SKIP] $name ($dev) skipped (no cameras detected in initial scan)"
+        return 0
+    fi
+
     echo "Waiting for $name ($dev)..."
-    local timeout=10
+    local timeout=2  # 缩短单项等待超时
     local elapsed=0
     while [ ! -e "$dev" ] && [ $elapsed -lt $timeout ]; do
-        sleep 1
+        sleep 0.5
         elapsed=$((elapsed + 1))
     done
     if [ -e "$dev" ]; then
