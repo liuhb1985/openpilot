@@ -27,7 +27,7 @@ from openpilot.common.params import Params
 # move it at all, this is compensated for too.
 
 LOW_SPEED_X = [0, 10, 20, 30]
-LOW_SPEED_Y = [15, 13, 10, 5]
+LOW_SPEED_Y = [12, 10, 7, 5]
 LOW_SPEED_Y_NN = [12, 3, 1, 0]
 
 LAT_PLAN_MIN_IDX = 5
