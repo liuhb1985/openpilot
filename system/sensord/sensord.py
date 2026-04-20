@@ -470,6 +470,7 @@ def main() -> None:
       cloudlog.exception(f"Error initializing {sensor} sensor")
 
   # Initialize sensors
+  initialized_sensors = []
   exit_event = threading.Event()
   threads = []
   if any(interrupt for _, _, interrupt in sensors_cfg):
@@ -478,6 +479,7 @@ def main() -> None:
   for sensor, service, interrupt in sensors_cfg:
     try:
       sensor.init()
+      initialized_sensors.append(sensor)
       if not interrupt:
         # Start polling thread for sensors without interrupts
         needs_timestamp = service in {"accelerometer", "gyroscope"}
@@ -502,7 +504,7 @@ def main() -> None:
       if t.is_alive():
         t.join()
 
-    for sensor, _, _ in sensors_cfg:
+    for sensor in initialized_sensors:
       try:
         sensor.shutdown()
       except Exception:

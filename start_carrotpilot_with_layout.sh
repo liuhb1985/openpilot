@@ -81,12 +81,16 @@ wait_for_device() {
 wait_for_device "/dev/video$ROAD_CAM_IDX" "Road Camera (Long-focus)"
 wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (BSM)"
 
+# 设置动态库路径，使 cam_blindspot 能找到 libonnxruntime.so.1
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
+
 # 导出环境变量供 cam_blindspot 进程内部使用，确保路径 100% 同步
 export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 
 # 在后台启动 manager
 echo "Starting openpilot manager..."
-SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM WIDE_CAM=$WIDE_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+# 注意：移除 WIDE_CAM=$WIDE_CAM 避免与 cam_blindspot 冲突
+SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 MANAGER_PID=$!
 
 # 等待监控任务完成
