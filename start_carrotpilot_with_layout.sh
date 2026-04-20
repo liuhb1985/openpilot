@@ -14,8 +14,8 @@ source .venv/bin/activate
 # 等待所有 USB 摄像头加载
 check_cameras_ready() {
     echo "Wait for cameras to stabilize..."
-    local expected=4
-    local timeout=30
+    local expected=2
+    local timeout=10
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
         local count=$(ls /dev/video* 2>/dev/null | wc -l)
@@ -23,7 +23,7 @@ check_cameras_ready() {
              echo "✓ Found $count camera devices."
              return 0
         fi
-        sleep 2
+        sleep 0.2
         elapsed=$((elapsed + 2))
         echo "Searching... ($count/$expected)"
     done

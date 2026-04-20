@@ -104,7 +104,7 @@ procs = [
   PythonProcess("modeld", "selfdrive.modeld.modeld", only_onroad),
   PythonProcess("dmonitoringmodeld", "selfdrive.modeld.dmonitoringmodeld", enable_dm, enabled=(WEBCAM or not PC)),
   # PythonProcess("sensord", "system.sensord.ybimu_sensord" if usb_imu_available() else "system.sensord.sensord", always_run, enabled=usb_imu_available() or not PC),  # 自动检测 USB IMU
-  PythonProcess("sensord", "system.sensord.sensord", always_run, enabled=PC, watchdog_max_dt=3),  # 添加3秒看门狗监控
+  PythonProcess("sensord", "system.sensord.sensord", always_run, enabled=(PC and JY62==3), watchdog_max_dt=3),  # 添加3秒看门狗监控
   #使用支持jy62的sendord时开启同时打开sensord_jy62,屏蔽带有jy62参数的locationd进程，不然会串口占用冲突
   PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", only_onroad, enabled=(PC and JY62==1)),
   PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=(PC and JY62==0)),
