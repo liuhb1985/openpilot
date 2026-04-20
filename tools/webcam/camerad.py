@@ -9,24 +9,17 @@ from cereal import messaging
 from openpilot.tools.webcam.camera import CameraMJPG
 from openpilot.common.realtime import Ratekeeper
 
+ROAD_CAM = os.getenv("ROAD_CAM", "0")
 WIDE_CAM = os.getenv("WIDE_CAM")
 USE_CAMPATH = os.getenv("USE_CAMPATH")
+
+# PC standard openpilot webcam settings
 CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id"])
-if USE_CAMPATH:
-  CAMERAS = [
-    CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, "pci-0000:c6:00.4-usb-0:1:1.0-video-index0"),
-    # CameraType("driverCameraState", VisionStreamType.VISION_STREAM_DRIVER, os.getenv("DRIVER_CAM", "2")),
-  ]
-else:
-  CAMERAS = [
-    CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, os.getenv("ROAD_CAM", "0")),
-    # CameraType("driverCameraState", VisionStreamType.VISION_STREAM_DRIVER, os.getenv("DRIVER_CAM", "2")),
-  ]
+CAMERAS = [
+  CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, ROAD_CAM),
+]
 if WIDE_CAM:
-  if USE_CAMPATH:
-    CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, "pci-0000:c4:00.3-usb-0:3.4:1.0-video-index0"))
-  else:
-    CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, WIDE_CAM))
+  CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, WIDE_CAM))
 
 class Camerad:
   def __init__(self):
@@ -35,11 +28,15 @@ class Camerad:
 
     self.cameras = []
     for c in CAMERAS:
-      if USE_CAMPATH:
-        cam_device = f"/dev/v4l/by-path/{c.cam_id}"
+      cam_id = str(c.cam_id)
+      if cam_id.startswith("/") or cam_id.startswith("pci-"):
+        cam_device = cam_id if cam_id.startswith("/") else f"/dev/v4l/by-path/{cam_id}"
+      elif USE_CAMPATH:
+        cam_device = f"/dev/v4l/by-path/{cam_id}"
       else:
-        cam_device = f"/dev/video{c.cam_id}"
-      print(f"opening {c.msg_name} at {cam_device}")
+        cam_device = f"/dev/video{cam_id}"
+
+      print(f"opening {c.msg_name} at {cam_device} [USE_CAMPATH={USE_CAMPATH}]")
       cam = CameraMJPG(c.msg_name, c.stream_type, cam_device)
       self.cameras.append(cam)
       self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)

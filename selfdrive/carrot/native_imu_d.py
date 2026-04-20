@@ -55,8 +55,8 @@ def main():
       # ======================================
 
       yaw = cs.yawRate
-      lon = cs.longitudinalAcceleration
-      lat = cs.lateralAcceleration
+      lon = cs.aEgo
+      lat = cs.vEgo * cs.yawRate
 
       # ======================================
       # 滤波
