@@ -10,6 +10,9 @@ from openpilot.system.manager.process import PythonProcess, NativeProcess, Daemo
 FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
+USBCAM = os.getenv("USE_USBCAM") is not None
+JY62 = int(os.getenv("JY62","0"))
+NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
@@ -89,8 +92,10 @@ procs = [
   NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
   PythonProcess("logmessaged", "system.logmessaged", always_run),
 
-  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not WEBCAM),
-  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM),
+  #NativeProcess("usbcamerad", "camera", ["./usb_camera"], driverview, enabled=USBCAM),
+  NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=USBCAM),
+  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not USBCAM and not WEBCAM),
+  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM and not USBCAM),
   NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad),
   NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad),
   PythonProcess("micd", "system.micd", iscar),
@@ -100,12 +105,18 @@ procs = [
   PythonProcess("dmonitoringmodeld", "selfdrive.modeld.dmonitoringmodeld", enable_dm, enabled=(WEBCAM or not PC)),
   # PythonProcess("sensord", "system.sensord.ybimu_sensord" if usb_imu_available() else "system.sensord.sensord", always_run, enabled=usb_imu_available() or not PC),  # 自动检测 USB IMU
   PythonProcess("sensord", "system.sensord.sensord", always_run, enabled=PC, watchdog_max_dt=3),  # 添加3秒看门狗监控
+  #使用支持jy62的sendord时开启同时打开sensord_jy62,屏蔽带有jy62参数的locationd进程，不然会串口占用冲突
+  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", only_onroad, enabled=(PC and JY62==1)),
+  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=(PC and JY62==0)),
+  NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=(JY62!=2)),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
   # PythonProcess("sensord_jy62_py", "system.sensord.sensors_jy62", only_onroad, enabled=PC),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
-  PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad),
+  #下面这个带参数的locationd，不要和sensord_jy62进程同时开启
+  NativeProcess("locationd_jy62", "selfdrive/locationd", ["./locationd_jy62", "--type=jy62", "--device=/dev/ttyUSB0", "--baud=115200"], only_onroad, enabled=(JY62==2)),
+  #PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad),
   NativeProcess("_pandad", "selfdrive/pandad", ["./pandad"], always_run, enabled=False),
   PythonProcess("calibrationd", "selfdrive.locationd.calibrationd", only_onroad),
   PythonProcess("torqued", "selfdrive.locationd.torqued", only_onroad),
