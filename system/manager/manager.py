@@ -28,7 +28,7 @@ def get_default_params():
     ("DisengageOnAccelerator", "0"),
     ("GsmMetered", "1"),
     ("HasAcceptedTerms", "0"),
-    ("LanguageSetting", "main_en"),
+    ("LanguageSetting", "main_zh-CHS"),
     ("OpenpilotEnabledToggle", "1"),
     ("LongitudinalPersonality", str(log.LongitudinalPersonality.standard)),
     ("IsMetric", "1"),
@@ -45,18 +45,18 @@ def get_default_params():
     ("ShowDateTime", "1"),
     ("ShowPathEnd", "1"),
     ("ShowCustomBrightness", "100"),
-    ("ShowLaneInfo", "1"),
+    ("ShowLaneInfo", "2"),
     ("ShowRadarInfo", "1"),
     ("ShowDeviceState", "1"),
     ("ShowRouteInfo", "1"),
-    ("ShowPathMode", "9"),
+    ("ShowPathMode", "0"),
     ("ShowPathColor", "13"),
     ("ShowPathColorCruiseOff", "19"),
-    ("ShowPathModeLane", "14"),
+    ("ShowPathModeLane", "0"),
     ("ShowPathColorLane", "13"),
     ("ShowPlotMode", "0"),
-    ("AutoCruiseControl", "0"),
-    ("CruiseEcoControl", "2"),
+    ("AutoCruiseControl", "1"),
+    ("CruiseEcoControl", "0"),
     ("CarrotCruiseDecel", "-1"),
     ("CarrotCruiseAtcDecel", "-1"),
     ("CommaLongAcc", "0"),
@@ -99,7 +99,7 @@ def get_default_params():
     ("CruiseButtonTest2", "30"),
     ("CruiseButtonTest3", "1"),
     ("CruiseSpeedUnit", "10"),
-    ("CruiseSpeedUnitBasic", "1"),
+    ("CruiseSpeedUnitBasic", "5"),
     ("CruiseSpeed1", "30"),
     ("CruiseSpeed2", "50"),
     ("CruiseSpeed3", "80"),
@@ -170,7 +170,7 @@ def get_default_params():
     ("SteerActuatorDelay", "0"),
     ("LatSmoothSec", "13"),
     ("MaxTimeOffroadMin", "60"),
-    ("DisableDM", "0"),
+    ("DisableDM", "1"),
     ("EnableConnect", "0"),
     ("MuteDoor", "0"),
     ("MuteSeatbelt", "0"),
@@ -179,9 +179,9 @@ def get_default_params():
     ("CruiseOnDist", "400"),
     ("HotspotOnBoot", "0"),
     ("SoftwareMenu", "1"),
-    ("CustomSR", "0"),
+    ("CustomSR", "145"),
     ("SteerRatioRate", "100"),
-    ("NNFF", "0"),
+    ("NNFF", "1"),
     ("NNFFLite", "0"),
     ("ShareData", "0"),
 
@@ -366,15 +366,20 @@ def manager_thread() -> None:
 
 def main() -> None:
   manager_init()
-  print(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
-  os.system(f"python ../../opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
-  os.system(f"python ../../opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
-  os.system(f"python ../../opendbc/car/honda/values.py > {Params().get_param_path()}/SupportedCars_honda")
-  os.system(f"python ../../opendbc/car/ford/values.py > {Params().get_param_path()}/SupportedCars_ford")
-  os.system(f"python ../../opendbc/car/tesla/values.py > {Params().get_param_path()}/SupportedCars_tesla")
-  os.system(f"python ../../opendbc/car/volkswagen/values.py > {Params().get_param_path()}/SupportedCars_volkswagen")
+
+  # 获取 openpilot 根目录
+  OPENPILOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  supported_path = Params().get_param_path()
+
+  brands = ["hyundai", "gm", "toyota", "mazda", "tesla", "honda", "volkswagen"]
+  for brand in brands:
+    values_py = os.path.join(OPENPILOT_ROOT, "opendbc", "car", brand, "values.py")
+    output_file = os.path.join(supported_path, f"SupportedCars_{brand}" if brand != "hyundai" else "SupportedCars")
+    # 优化：如果文件已存在则跳过生成，避免每次启动都执行 7 个 python 进程
+    if os.path.isfile(values_py) and not os.path.exists(output_file):
+      os.system(f"python {values_py} > {output_file}")
+    elif not os.path.isfile(values_py):
+      print(f"WARNING: {values_py} not found, skipping.")
 
   if os.getenv("PREPAREONLY") is not None:
     return

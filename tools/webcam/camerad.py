@@ -14,7 +14,7 @@ USE_CAMPATH = os.getenv("USE_CAMPATH")
 CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id"])
 if USE_CAMPATH:
   CAMERAS = [
-    CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, "pci-0000:c4:00.3-usb-0:4:1.0-video-index0"),
+    CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, "pci-0000:c6:00.4-usb-0:1:1.0-video-index0"),
     # CameraType("driverCameraState", VisionStreamType.VISION_STREAM_DRIVER, os.getenv("DRIVER_CAM", "2")),
   ]
 else:
