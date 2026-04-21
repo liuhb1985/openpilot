@@ -1,17 +1,7 @@
+#!/usr/bin/env python3
 import threading
 import os
-import sys
-from pathlib import Path
 from collections import namedtuple
-
-# Fix broken symlinks on Windows/WSL
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-for s in ['msgq', 'tinygrad', 'opendbc', 'rednose', 'teleoprtc']:
-  p = BASE_DIR / s
-  if p.is_file() and p.stat().st_size < 100:
-    repo_path = BASE_DIR / f"{s}_repo"
-    if repo_path.is_dir() and str(repo_path) not in sys.path:
-      sys.path.insert(0, str(repo_path))
 
 from msgq.visionipc import VisionIpcServer, VisionStreamType
 from cereal import messaging
@@ -47,14 +37,9 @@ class Camerad:
         cam_device = f"/dev/video{cam_id}"
 
       print(f"opening {c.msg_name} at {cam_device} [USE_CAMPATH={USE_CAMPATH}]")
-      try:
-        cam = CameraMJPG(c.msg_name, c.stream_type, cam_device)
-        self.cameras.append(cam)
-        self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
-      except Exception as e:
-        print(f"Error opening camera {c.msg_name}: {e}")
-        # 继续运行以便其他摄像头（如果存在）能正常工作，或者让 manager 重启进程
-        continue
+      cam = CameraMJPG(c.msg_name, c.stream_type, cam_device)
+      self.cameras.append(cam)
+      self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
 
     self.vipc_server.start_listener()
 

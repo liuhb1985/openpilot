@@ -4,16 +4,6 @@ import os
 import signal
 import sys
 import traceback
-from pathlib import Path
-
-# Fix broken symlinks on Windows/WSL
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-for s in ['msgq', 'tinygrad', 'opendbc', 'rednose', 'teleoprtc']:
-  p = BASE_DIR / s
-  if p.is_file() and p.stat().st_size < 100:
-    repo_path = BASE_DIR / f"{s}_repo"
-    if repo_path.is_dir() and str(repo_path) not in sys.path:
-      sys.path.insert(0, str(repo_path))
 
 from cereal import log
 import cereal.messaging as messaging
@@ -324,10 +314,6 @@ def manager_thread() -> None:
   pm = messaging.PubMaster(['managerState'])
 
   write_onroad_params(False, params)
-  # ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
-  # 延迟启动，避免加载冲突
-  import time
-  time.sleep(1)
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
 
   print_timer = 0
