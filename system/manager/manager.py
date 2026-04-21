@@ -90,7 +90,7 @@ def get_default_params():
     ("ModelTurnSpeedFactor", "0"),  # 模型转弯速度补偿系数
     ("StoppingAccel", "0"),  # 停止时的加速度限制
     ("StopDistanceCarrot", "550"),  # Carrot 停止距离设置
-    ("JLeadFactor3", "0"),  # 跟车距离补偿系数 (前车相关)
+    ("JLeadFactor3", "100"),  # 跟车距离补偿系数 (前车相关)
     ("CruiseButtonMode", "0"),  # 巡航按钮操作模式
     ("CancelButtonMode", "0"),  # 取消按钮操作模式
     ("LfaButtonMode", "0"),  # LFA 按钮操作模式
@@ -121,7 +121,7 @@ def get_default_params():
     ("LongActuatorDelay", "20"),  # 纵向执行机构延迟补偿
     ("VEgoStopping", "50"),  # 车速判定为停止的阈值
     ("RadarReactionFactor", "100"),  # 雷达响应敏感度系数
-    ("EnableRadarTracks", "0"),  # 开启原厂雷达目标点透显
+    ("EnableRadarTracks", "1"),  # 开启原厂雷达目标点透显
     ("RadarLatFactor", "0"),  # 雷达侧向位置修正系数
     ("EnableEscc", "0"),  # 开启增强型 SCC 逻辑 (ESCC)
     ("EnableCornerRadar", "0"),  # 开启角雷达支持
@@ -135,7 +135,7 @@ def get_default_params():
     ("TFollowGap2", "120"),  # 二档跟车距离设置 (秒 x 100)
     ("TFollowGap3", "140"),  # 三档跟车距离设置 (秒 x 100)
     ("TFollowGap4", "160"),  # 四档跟车距离设置 (秒 x 100)
-    ("DynamicTFollow", "0"),  # 开启动态跟车距离调整
+    ("DynamicTFollow", "1"),  # 开启动态跟车距离调整
     ("AChangeCostStarting", "10"),  # 起步时的加速度变化代价 (平顺度限制)
     ("TrafficStopDistanceAdjust", "400"),  # 红绿灯前停止距离偏置
     ("DynamicTFollowLC", "100"),  # 变道时的动态跟车系数
@@ -146,7 +146,7 @@ def get_default_params():
     ("AdjustLaneOffset", "0"),  # 周期性调整车道位置
     ("LaneChangeNeedTorque", "0"),  # 换道是否需要手动介入扭矩触发
     ("LaneChangeDelay", "0"),  # 自动换道前的延迟确认时间
-    ("LaneChangeBsd", "0"),  # 变道盲区监测开关
+    ("LaneChangeBsd", "1"),  # 变道盲区监测开关
     ("MaxAngleFrames", "89"),  # 大转角保持最大允许帧数
     ("LateralTorqueCustom", "1"),  # 启用自定义扭矩控制参数 (忽略预设)
     ("LateralTorqueAccelFactor", "2800"),  # 侧向扭矩加速度增益系数
