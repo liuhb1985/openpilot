@@ -127,7 +127,7 @@ class CarController(CarControllerBase):
     self.LFA_trigger = 0
 
     self.activeCarrot = 0
-    self.camera_scc_params = self.params.get_int("HyundaiCameraSCC")
+    self.camera_scc_params = Params().get_int("HyundaiCameraSCC")
     self.is_ldws_car = Params().get_bool("IsLdwsCar")
 
     self.steerDeltaUpOrg = self.steerDeltaUp = self.steerDeltaUpLC = self.params.STEER_DELTA_UP
