@@ -19,34 +19,28 @@ car_ekf = env.RednoseCompileFilter(
   extra_gen_artifacts=[],
   gen_script_deps=rednose_gen_deps,
 )
-
-# Build live_kf from rednose_repo examples
-# IMPORTANT: target MUST be 'live_kf' to match the include "models/live_kf.h"
-# and the output_dir MUST be 'models' to put it in selfdrive/locationd/models/
-live_ekf = env.RednoseCompileFilter(
-  target='live_kf',
-  filter_gen_script='#rednose_repo/examples/live_kf.py',
-  output_dir='models',
+pose_kf = env.RednoseCompileFilter(
+  target='pose',
+  filter_gen_script='models/pose_kf.py',
+  output_dir=rednose_gen_dir,
+  extra_gen_artifacts=[],
+  gen_script_deps=rednose_gen_deps,
 )
 
-# Build locationd and locationd_jy62
-loc_env = env.Clone()
-loc_env.Append(CPPPATH=['#selfdrive/locationd'])
+# locationd build
+locationd_sources = ["locationd.cc", "models/live_kf.cc"]
 
-Import('common', 'messaging', 'cereal', 'transformations')
+lenv = env.Clone()
+# ekf filter libraries need to be linked, even if no symbols are used
+if arch != "Darwin":
+  lenv["LINKFLAGS"] += ["-Wl,--no-as-needed"]
 
-libs = [rednose, common, messaging, cereal, transformations, 'zmq', 'capnp', 'kj', 'm', 'pthread', 'dl']
+lenv["LIBPATH"].append(Dir(rednose_gen_dir).abspath)
+lenv["RPATH"].append(Dir(rednose_gen_dir).abspath)
+locationd = lenv.Program("locationd", locationd_sources, LIBS=["live", "ekf_sym"] + loc_libs + transformations)
+lenv.Depends(locationd, rednose)
+lenv.Depends(locationd, live_ekf)
 
-# locationd binary
-loc_sources = [
-  'locationd.cc',
-  'models/live_kf.cpp',
-]
-loc_env.Program('locationd', loc_sources, LIBS=libs)
-
-# locationd_jy62 binary
-loc_jy62_sources = [
-  'locationd_jy62.cc',
-  'models/live_kf.cpp',
-]
-loc_env.Program('locationd_jy62', loc_jy62_sources, LIBS=libs)
+locationd_jy62 = lenv.Program("locationd_jy62", ["locationd_jy62.cc", "models/live_kf.cc"], LIBS=["live", "ekf_sym"] + loc_libs + transformations)
+lenv.Depends(locationd_jy62, rednose)
+lenv.Depends(locationd_jy62, live_ekf)
