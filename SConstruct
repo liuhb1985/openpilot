@@ -352,6 +352,7 @@ SConscript(['camera/SConscript'])
 
 # Build rednose library
 SConscript(['rednose/SConscript'])
+SConscript(['rednose_repo/examples/SConscript'])
 
 # Build system services
 SConscript([

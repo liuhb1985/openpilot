@@ -19,3 +19,34 @@ car_ekf = env.RednoseCompileFilter(
   extra_gen_artifacts=[],
   gen_script_deps=rednose_gen_deps,
 )
+
+# Build live_kf from rednose_repo examples
+# IMPORTANT: target MUST be 'live_kf' to match the include "models/live_kf.h"
+# and the output_dir MUST be 'models' to put it in selfdrive/locationd/models/
+live_ekf = env.RednoseCompileFilter(
+  target='live_kf',
+  filter_gen_script='#rednose_repo/examples/live_kf.py',
+  output_dir='models',
+)
+
+# Build locationd and locationd_jy62
+loc_env = env.Clone()
+loc_env.Append(CPPPATH=['#selfdrive/locationd'])
+
+Import('common', 'messaging', 'cereal', 'transformations')
+
+libs = [rednose, common, messaging, cereal, transformations, 'zmq', 'capnp', 'kj', 'm', 'pthread', 'dl']
+
+# locationd binary
+loc_sources = [
+  'locationd.cc',
+  'models/live_kf.cpp',
+]
+loc_env.Program('locationd', loc_sources, LIBS=libs)
+
+# locationd_jy62 binary
+loc_jy62_sources = [
+  'locationd_jy62.cc',
+  'models/live_kf.cpp',
+]
+loc_env.Program('locationd_jy62', loc_jy62_sources, LIBS=libs)
