@@ -3,7 +3,7 @@ import math
 from opendbc.can import CANParser
 from opendbc.car import Bus, structs
 from opendbc.car.interfaces import RadarInterfaceBase
-from opendbc.car.hyundai.values import DBC, HyundaiFlags, HyundaiExtFlags
+from opendbc.car.hyundai.values import DBC, HyundaiFlags, HyundaiExtFlags, HyundaiFlagsSP
 from openpilot.common.params import Params
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from openpilot.common.filter_simple import MyMovingAverage

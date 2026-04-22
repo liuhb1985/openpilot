@@ -104,8 +104,8 @@ export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 
 # 在后台启动 manager
 echo "Starting openpilot manager..."
-# 注意：移除 WIDE_CAM=$WIDE_CAM 避免与 cam_blindspot 冲突
-SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+# 注意：使用 USE_WEBCAM=1 以启动 python 版 camerad.py，兼容性更好
+SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 MANAGER_PID=$!
 
 # 等待监控任务完成
