@@ -109,6 +109,7 @@ class LatControlTorque(LatControl):
 
     if self.use_nnff:
       self.pitch = FirstOrderFilter(0.0, 0.5, 0.01)
+      self._last_pitch = 0.0  # [修复] pitch 历史缓冲，防止 orientationNED 为空时突变
       # NN model takes current v_ego, lateral_accel, lat accel/jerk error, roll, and past/future/planned data
       # of lat accel and roll
       # Past value is computed using previous desired lat accel and observed roll
@@ -181,7 +182,9 @@ class LatControlTorque(LatControl):
           actual_curvature_rate = -VM.calc_curvature(math.radians(CS.steeringRateDeg), CS.vEgo, 0.0)
           actual_lateral_jerk = actual_curvature_rate * CS.vEgo ** 2
       else:
-        actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo #llk.angularVelocityCalibrated.value[2] / CS.vEgo
+        # [修复] angularVelocity[2] / CS.vEgo 低速时有除零风险，限制最小速度
+        v_safe = max(CS.vEgo, 0.1)
+        actual_curvature_llk = CC.angularVelocity[2] / v_safe
         actual_curvature = np.interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
         curvature_deadzone = 0.0
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
@@ -191,13 +194,20 @@ class LatControlTorque(LatControl):
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
       lateral_accel_deadzone = (curvature_deadzone * CS.vEgo ** 2) * np.interp(CS.vEgo, [10.0, 30.0], [1.0, 0.4])
 
-      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 1.5
+      # [修复] NNFF 模式使用专用的低速因子表（更小的增益，避免干扰NN推理）
+      # nnff_lite 与 nnff 一样也应使用 LOW_SPEED_Y_NN，因为它也做了 friction_compensation
+      if self.use_nnff or self.use_nnff_lite:
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.5
+      else:
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 1.5
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
       lateral_jerk_setpoint = 0
       lateral_jerk_measurement = 0
       lookahead_lateral_jerk = 0
+      # [修复] 默认值：model_good=False 时 nnff_lite 分支中 lat_accel_ff 不应引发 NameError
+      lat_accel_ff = self.lat_accel_friction_factor
 
       model_good = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
       if model_good and (self.use_nnff or self.use_nnff_lite):
@@ -211,16 +221,26 @@ class LatControlTorque(LatControl):
         if self.use_steering_angle or lookahead_lateral_jerk == 0.0:
           lookahead_lateral_jerk = 0.0
           actual_lateral_jerk = 0.0
-          self.lat_accel_friction_factor = 1.0
+          # [修复] lat_accel_friction_factor 不应永久改写；此赋值仅影响本帧的 friction_input 计算
+          # 原代码 self.lat_accel_friction_factor = 1.0 会永久修改实例属性，导致下一帧即使 jerk
+          # 非零也使用错误的 1.0。改为使用局部变量保持安全。
+          lat_accel_ff = 1.0
+        else:
+          lat_accel_ff = self.lat_accel_friction_factor
         lateral_jerk_setpoint = self.lat_jerk_friction_factor * lookahead_lateral_jerk
         lateral_jerk_measurement = self.lat_jerk_friction_factor * actual_lateral_jerk
 
       if self.use_nnff and model_good:
         # update past data
-        pitch = 0
         roll = params.roll
         if len(CC.orientationNED) > 1:
+          # [修复] orientationNED 有效时更新 pitch，并缓存
           pitch = self.pitch.update(CC.orientationNED[1])
+          self._last_pitch = pitch
+          roll = roll_pitch_adjust(roll, pitch)
+        else:
+          # [修复] orientationNED 为空时用上一帧缓存值，防止 pitch 突变为 0
+          pitch = self._last_pitch
           roll = roll_pitch_adjust(roll, pitch)
         self.roll_deque.append(roll)
         self.lateral_accel_desired_deque.append(desired_lateral_accel)
@@ -254,7 +274,8 @@ class LatControlTorque(LatControl):
 
         # compute feedforward (same as nn setpoint output)
         error = setpoint - measurement
-        friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
+        # [修复] 使用局部变量 lat_accel_ff，而非可能已被永久改写的 self.lat_accel_friction_factor
+        friction_input = lat_accel_ff * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         nn_input = [CS.vEgo, desired_lateral_accel, friction_input, roll] \
                    + past_lateral_accels_desired + future_planned_lateral_accels \
                    + past_rolls + future_rolls
@@ -275,7 +296,8 @@ class LatControlTorque(LatControl):
         pid_log.error = float(torque_from_setpoint - torque_from_measurement)
         error = desired_lateral_accel - actual_lateral_accel
         if self.use_nnff_lite:
-          friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
+          # [修复] 同样使用局部变量 lat_accel_ff
+          friction_input = lat_accel_ff * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         else:
           friction_input = error
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,

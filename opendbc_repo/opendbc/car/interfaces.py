@@ -189,12 +189,18 @@ def get_nn_model_path(car, eps_firmware) -> tuple[str | None, float]:
   else:
     check_model = car
   model_path, max_similarity = check_nn_path(check_model)
-  if car not in model_path or 0.0 <= max_similarity < 0.9:
+  # [修复] 使用 os.path.basename 比较车型名，避免与完整路径做 in 运算误判
+  # [修复] 阈值从 0.9 降低到 0.7，避免误拒合理模型
+  SIMILARITY_THRESHOLD = 0.7
+  model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
+  if car not in model_basename or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
     check_model = car
     model_path, max_similarity = check_nn_path(check_model)
-    if car not in model_path or 0.0 <= max_similarity < 0.9:
+    model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
+    if car not in model_basename or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
       model_path = None
   return model_path
+
 
 def get_nn_model(car, eps_firmware) -> tuple[FluxModel | None, float]:
   model = get_nn_model_path(car, eps_firmware)
