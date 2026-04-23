@@ -56,25 +56,19 @@ else
 fi
 
 # 2. 广角摄像头 (Wide-angle / BSM, 默认 index 0)
+# 注意：video0 的 MJPG 流由 cam_blindspot 独占，webcamerad 不再打开广角摄像头。
+# 只记录 BSM 设备索引，供 cam_blindspot 进程使用。
 WIDE_PATH=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
-    WIDE_BASE_IDX=${WIDE_DEV#/dev/video}
-    # cam_blindspot 使用 video${WIDE_BASE_IDX} (index0)
-    # webcamerad 广角用 index1 (同一物理摄像头，不同节点，避免冲突)
-    export WIDE_CAM_IDX=$((WIDE_BASE_IDX + 1))
-    WIDE_PATH1=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index1 2>/dev/null | head -n 1)
-    if [ -n "$WIDE_PATH1" ]; then
-        export WIDE_CAM=$(basename "$WIDE_PATH1")
-    else
-        export WIDE_CAM="$WIDE_CAM_IDX"
-    fi
-    echo "[INFO] cam_blindspot uses video${WIDE_BASE_IDX}, webcamerad wideRoad uses video${WIDE_CAM_IDX}"
+    export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
+    echo "[INFO] BSM cam_blindspot uses video${WIDE_CAM_IDX} (webcamerad will NOT open wide camera)"
 else
-    export WIDE_CAM=1
-    export WIDE_CAM_IDX=1
-    echo "[WARN] Wide Cam path not found, falling back to default index 1"
+    export WIDE_CAM_IDX=0
+    echo "[WARN] Wide Cam path not found, falling back to default index 0"
 fi
+# 不设置 WIDE_CAM，webcamerad 只负责长焦摄像头
+unset WIDE_CAM
 
 # 启动前硬件预检查
 wait_for_device() {
@@ -102,7 +96,7 @@ wait_for_device() {
 }
 
 wait_for_device "/dev/video$ROAD_CAM_IDX" "Road Camera (Long-focus)"
-wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (BSM)"
+wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (BSM, cam_blindspot)"
 
 # 设置动态库路径，使 cam_blindspot 能找到 libonnxruntime.so.1
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
@@ -113,6 +107,7 @@ export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 # 在后台启动 manager
 echo "Starting openpilot manager..."
 # 注意：使用 USE_WEBCAM=1 以启动 python 版 camerad.py，兼容性更好
+# WIDE_CAM 未设置，webcamerad 只打开长焦摄像头（ROAD_CAM），广角由 cam_blindspot 独立管理
 SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 MANAGER_PID=$!
 
