@@ -194,17 +194,19 @@ def get_nn_model_path(car, eps_firmware) -> tuple[str | None, float]:
   else:
     check_model = car
   model_path, max_similarity = check_nn_path(check_model)
-  # [修复] 使用 os.path.basename 比较车型名，避免与完整路径做 in 运算误判
-  # [修复] 阈值从 0.9 降低到 0.7，避免误拒合理模型
+  # [修复] car 指纹格式为 HYUNDAI_SANTA_FE（下划线），而模型文件名为 "HYUNDAI SANTA FE.json"（空格）
+  # 直接做 car not in model_basename 永远为 False，改为统一转换成空格格式再比较
   SIMILARITY_THRESHOLD = 0.7
+  car_name_normalized = car.replace('_', ' ')
   model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
-  if car not in model_basename or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
+  if car_name_normalized.upper() not in model_basename.upper() or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
     check_model = car
     model_path, max_similarity = check_nn_path(check_model)
     model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
-    if car not in model_basename or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
+    if car_name_normalized.upper() not in model_basename.upper() or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
       model_path = None
   return model_path
+
 
 
 def get_nn_model(car, eps_firmware) -> tuple[FluxModel | None, float]:
