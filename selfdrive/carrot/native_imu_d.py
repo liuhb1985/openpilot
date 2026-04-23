@@ -3,6 +3,7 @@ import time
 
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
+from openpilot.common.swaglog import cloudlog
 
 
 # ======================================
@@ -48,8 +49,6 @@ def main():
 
       cs = sm['carState']
 
-      timestamp = int(time.monotonic() * 1e9)
-
       # ======================================
       # 原车 IMU 数据
       # ======================================
@@ -81,11 +80,14 @@ def main():
 
       # ======================================
       # Gyroscope
+      # 注意：timestamp 必须紧靠 send() 之前采样，
+      # locationd.py 会比较 sensor_time=msg.timestamp*1e-9
+      # 与 t=logMonoTime*1e-9 的差，超过 100ms 即丢弃！
       # ======================================
 
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {
-        'timestamp': timestamp,
+        'timestamp': time.monotonic_ns(),  # 紧靠send前采样，与logMonoTime对齐
         'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
         'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
         'source': 0, # log.SensorEventData.SensorSource.android
@@ -103,7 +105,7 @@ def main():
 
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {
-        'timestamp': timestamp,
+        'timestamp': time.monotonic_ns(),  # 再次采样，确保精准
         'type': 1,   # SENSOR_TYPE_ACCELEROMETER
         'sensor': 1, # SENSOR_ACCELEROMETER
         'source': 0, # log.SensorEventData.SensorSource.android
