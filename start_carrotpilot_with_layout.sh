@@ -59,13 +59,21 @@ fi
 WIDE_PATH=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
-    export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
-    export WIDE_CAM=$(basename "$WIDE_PATH")
-    echo "[INFO] Identified Wide Cam (BSM) via path $WIDE_PATH at index: $WIDE_CAM_IDX"
+    WIDE_BASE_IDX=${WIDE_DEV#/dev/video}
+    # cam_blindspot 使用 video${WIDE_BASE_IDX} (index0)
+    # webcamerad 广角用 index1 (同一物理摄像头，不同节点，避免冲突)
+    export WIDE_CAM_IDX=$((WIDE_BASE_IDX + 1))
+    WIDE_PATH1=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index1 2>/dev/null | head -n 1)
+    if [ -n "$WIDE_PATH1" ]; then
+        export WIDE_CAM=$(basename "$WIDE_PATH1")
+    else
+        export WIDE_CAM="$WIDE_CAM_IDX"
+    fi
+    echo "[INFO] cam_blindspot uses video${WIDE_BASE_IDX}, webcamerad wideRoad uses video${WIDE_CAM_IDX}"
 else
-    export WIDE_CAM=0
-    export WIDE_CAM_IDX=0
-    echo "[WARN] Wide Cam path not found, falling back to default index 0"
+    export WIDE_CAM=1
+    export WIDE_CAM_IDX=1
+    echo "[WARN] Wide Cam path not found, falling back to default index 1"
 fi
 
 # 启动前硬件预检查
