@@ -3,6 +3,9 @@ Import('env', 'rednose', 'common', 'messaging', 'cereal', 'arch', 'transformatio
 loc_libs = [common, messaging, cereal]
 
 rednose_gen_dir = 'models/generated'
+# Use absolute path for linker to find liblive_kf.so
+gen_lib_path = Dir('#selfdrive/locationd/models/generated')
+
 rednose_gen_deps = [
   "models/constants.py",
 ]
@@ -32,7 +35,11 @@ live_ekf = env.RednoseCompileFilter(
 )
 
 # locationd build
+
 lenv = env.Clone()
+lenv.Append(LIBPATH=[gen_lib_path.abspath])
+lenv.Append(LINKFLAGS=['-L'+gen_lib_path.abspath])
+lenv.Append(LIBPATH=[rednose_gen_dir])
 # Crucial: Add absolute project root to CPPPATH for system headers
 lenv.Append(CPPPATH=[Dir('#').abspath, '#selfdrive/locationd'])
 
