@@ -253,6 +253,21 @@ class LatControlTorque(LatControl):
           # [修复] orientationNED 为空时用上一帧缓存值，防止 pitch 突变为 0
           pitch = self._last_pitch
           roll = roll_pitch_adjust(roll, pitch)
+
+        # ── NNFF IMU 数据诊断打印（每100帧约1秒）──
+        if self.frame % 100 == 1:
+          ned = list(CC.orientationNED)   # [roll, pitch, yaw] in rad
+          av  = list(CC.angularVelocity)  # [x, y, z] rad/s (vehicle frame)
+          ned_str = f"[{ned[0]:.4f}, {ned[1]:.4f}, {ned[2]:.4f}]" if len(ned) >= 3 else f"{ned}(不完整!)"
+          av_str  = f"[{av[0]:.4f}, {av[1]:.4f}, {av[2]:.4f}]"   if len(av)  >= 3 else f"{av}(不完整!)"
+          print(
+            f"[NNFF-IMU] vEgo={CS.vEgo:.1f}m/s | "
+            f"orientationNED={ned_str}(rad)[roll,pitch,yaw] | "
+            f"angularVelocity={av_str}(rad/s) | "
+            f"params.roll={params.roll:.4f} → pitch_corrected_roll={roll:.4f} | "
+            f"pitch_filter={pitch:.4f}"
+          )
+
         self.roll_deque.append(roll)
         self.lateral_accel_desired_deque.append(desired_lateral_accel)
 
