@@ -28,6 +28,7 @@ live_ekf = env.RednoseCompileFilter(
   target='live_kf',
   filter_gen_script='models/live_kf.py',
   output_dir=rednose_gen_dir,
+  extra_gen_artifacts=['live_kf_constants.h'],
 )
 
 # locationd build
@@ -45,6 +46,8 @@ libs = ["live_kf", "ekf_sym"] + loc_libs + [transformations, 'zmq', 'capnp', 'kj
 locationd = lenv.Program("locationd", locationd_sources, LIBS=libs)
 lenv.Depends(locationd, rednose)
 lenv.Depends(locationd, live_ekf)
+lenv.Depends("models/live_kf.o", "models/generated/live_kf_constants.h")
+
 
 locationd_jy62 = lenv.Program("locationd_jy62", ["locationd_jy62.cc", "models/live_kf.cc", "models/generated/live_kf.cpp"], LIBS=libs)
 lenv.Depends(locationd_jy62, rednose)
