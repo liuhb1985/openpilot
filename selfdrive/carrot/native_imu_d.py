@@ -41,9 +41,13 @@ def main():
 
   print("******** Native Vehicle IMU Started ********")
 
+  frame = 0
+  PRINT_INTERVAL = 50  # 每50帧打印一次（约1秒）
+
   while True:
 
     sm.update(0)
+    frame += 1
 
     if sm.updated['carState']:
 
@@ -116,6 +120,21 @@ def main():
       }
 
       pm.send('accelerometer', accel_msg)
+
+      # ======================================
+      # 周期性打印 IMU 数据（每50帧约1秒）
+      # 用于调试各方向数据是否正确传入 locationd
+      # ======================================
+      if frame % PRINT_INTERVAL == 0:
+        raw_yaw = cs.yawRate
+        raw_lon = cs.aEgo
+        raw_lat = cs.vEgo * cs.yawRate
+        print(
+          f"[IMU] vEgo={cs.vEgo:.2f}m/s  "
+          f"Raw: yawRate={raw_yaw:.4f}rad/s  aEgo={raw_lon:.4f}m/s²  lat_a={raw_lat:.4f}m/s²  |  "
+          f"Filtered: gyro_z={yaw:.4f}  accel_x={lon:.4f}  accel_y={lat:.4f}  |  "
+          f"→ gyro[0,0,{yaw:.4f}]  accel[{lon:.4f},{lat:.4f},0]"
+        )
 
     rk.keep_time()
 
