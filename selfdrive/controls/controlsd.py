@@ -350,8 +350,8 @@ def main():
   try:
     import os
     os.nice(-20)
-  except PermissionError:
-    cloudlog.warning("controlsd: Could not set nice -20, permission denied. Running with standard priority.")
+  except (PermissionError, AttributeError):
+    cloudlog.warning("controlsd: Could not set nice -20, permission denied or not supported on this OS. Running with standard priority.")
 
   config_realtime_process(4, Priority.CTRL_HIGH)
   controls = Controls()
