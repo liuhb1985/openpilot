@@ -12,6 +12,7 @@ from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, Buttons, CarContr
 from opendbc.car.interfaces import CarStateBase
 
 from openpilot.common.params import Params
+from openpilot.common.filter_simple import FirstOrderFilter
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -169,12 +170,14 @@ class CarState(CarStateBase):
     self.escc_aeb_dec_cmd_act = 0
     self.escc_cmd_act = 0
     self.escc_aeb_dec_cmd = 0
-    self.showDebugLog = Params().get_int("ShowDebugLog")
+    self.pm = Params()
+    self.showDebugLog = self.pm.get_int("ShowDebugLog")
+    self.lat_accel_filter = FirstOrderFilter(0.0, 5.0, DT_CTRL) # 5.0Hz 低通滤波，平衡去噪与相位延迟
 
   def update(self, can_parsers) -> structs.CarState:
 
     if self.controls_ready_count <= 200:
-      if Params().get_bool("ControlsReady"):
+      if self.pm.get_bool("ControlsReady"):
         self.controls_ready_count += 1
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
@@ -423,7 +426,8 @@ class CarState(CarStateBase):
 
     if "YRS11" in cp.vl:
       ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
-      ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+      raw_lat_accel = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+      ret.lateralAcceleration = self.lat_accel_filter.update(raw_lat_accel)
     if "YRS12" in cp.vl:
       ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
 

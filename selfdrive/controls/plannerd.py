@@ -11,6 +11,12 @@ from openpilot.selfdrive.carrot.carrot_functions import CarrotPlanner
 
 
 def main():
+  try:
+    import os
+    os.nice(-10)
+  except PermissionError:
+    cloudlog.warning("plannerd: Could not set nice -10, permission denied. Running with standard priority.")
+
   config_realtime_process(5, Priority.CTRL_LOW)
 
   cloudlog.info("plannerd is waiting for CarParams")
