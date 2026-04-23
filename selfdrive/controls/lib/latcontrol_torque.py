@@ -82,6 +82,10 @@ class LatControlTorque(LatControl):
     self.latAccelFactor_default = self.torque_params.latAccelFactor
     self.latAccelOffset_default = self.torque_params.latAccelOffset
     self.friction_default = self.torque_params.friction
+    self.kp_default = self.torque_params.kp
+    self.ki_default = self.torque_params.ki
+    self.kf_default = self.torque_params.kf
+    self.kd_default = 0.0 # Torque 模式默认 Kd 通常为 0
 
     # Twilsonco's Lateral Neural Network Feedforward
     self.use_nnff = CI.use_nnff
@@ -157,10 +161,14 @@ class LatControlTorque(LatControl):
         self.pid._k_d = [[0], [lateralTorqueKd]]
         self.torque_params.latAccelOffset = self.latAccelOffset_default
       elif self.lateralTorqueCustom > 0:  # [修复] 新值=0，旧值>0 → 用户关闭了自定义，恢复默认
-        # 原条件 "self.lateralTorqueCustom > 1" 永远无法在旧值=1时触发，导致无法从1重置到0
+        # [修复] 补全 PID 增益的重置，防止关闭自定义后增益残留
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
+        self.pid._k_p = [[0], [self.kp_default]]
+        self.pid._k_i = [[0], [self.ki_default]]
+        self.pid.k_f = self.kf_default
+        self.pid._k_d = [[0], [self.kd_default]]
       self.lateralTorqueCustom = lateralTorqueCustom
 
     pid_log = log.ControlsState.LateralTorqueState.new_message()
