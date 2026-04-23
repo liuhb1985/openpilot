@@ -156,7 +156,8 @@ class LatControlTorque(LatControl):
         self.pid.k_f = lateralTorqueKf
         self.pid._k_d = [[0], [lateralTorqueKd]]
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-      elif self.lateralTorqueCustom > 1:  # 1 -> 0, reset to default
+      elif self.lateralTorqueCustom > 0:  # [修复] 新值=0，旧值>0 → 用户关闭了自定义，恢复默认
+        # 原条件 "self.lateralTorqueCustom > 1" 永远无法在旧值=1时触发，导致无法从1重置到0
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
@@ -206,8 +207,10 @@ class LatControlTorque(LatControl):
       lateral_jerk_setpoint = 0
       lateral_jerk_measurement = 0
       lookahead_lateral_jerk = 0
-      # [修复] 默认值：model_good=False 时 nnff_lite 分支中 lat_accel_ff 不应引发 NameError
-      lat_accel_ff = self.lat_accel_friction_factor
+      # lat_accel_ff: 仅在 use_nnff/use_nnff_lite 时使用，且 self.lat_accel_friction_factor
+      # 也只在这两种模式下初始化。默认值仅在使用时才赋，避免纯传统模式 AttributeError。
+      if self.use_nnff or self.use_nnff_lite:
+        lat_accel_ff = self.lat_accel_friction_factor  # 默认值，可能被下方 model_good 块覆盖
 
       model_good = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
       if model_good and (self.use_nnff or self.use_nnff_lite):

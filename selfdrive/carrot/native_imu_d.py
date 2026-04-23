@@ -192,8 +192,13 @@ def main():
     # 周期性打印 IMU 数据（每50帧约1秒）
     # ======================================
     if frame % PRINT_INTERVAL == 0:
-      cs = sm['carState']
-      v_display = cs.vEgo if sm.updated['carState'] else -1.0
+      # [修复] 直接使用本帧已处理的局部变量，避免在非carState更新帧时
+      # sm.updated['carState']=False 但 sm['carState'] 仍返回旧值导致的信息混乱
+      if has_valid_data:
+        # 从 sm['carState'] 取 vEgo 仅用于显示（sm 保存最近一次有效值）
+        v_display = sm['carState'].vEgo
+      else:
+        v_display = -1.0
       print(
         f"[IMU] vEgo={v_display:.2f}m/s  "
         f"Filtered: yaw={yaw:.4f}rad/s  lon={lon:.4f}m/s²  lat={lat:.4f}m/s²  |  "

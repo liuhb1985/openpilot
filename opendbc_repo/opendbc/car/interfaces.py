@@ -143,10 +143,15 @@ class FluxModel:
     if in_len != self.input_size:
       # If the input is length 2-4, then it's a simplified evaluation.
       # In that case, need to add on zeros to fill out the input array to match the correct length.
-      if 2 <= in_len:
+      if 2 <= in_len < self.input_size:
         input_array = input_array + [0] * (self.input_size - in_len)
+      elif in_len > self.input_size:
+        # [修复] 原代码 in_len > input_size 时 [0]*(负数)=[] 不填充，导致维度不匹配
+        # 这里明确截断并警告，防止静默错误
+        input_array = input_array[:self.input_size]
       else:
         raise ValueError(f"Input array length {len(input_array)} must be length 2 or greater")
+
 
     input_array = np.array(input_array, dtype=np.float32)
 
