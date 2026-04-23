@@ -38,7 +38,7 @@ live_ekf = env.RednoseCompileFilter(
 
 lenv = env.Clone()
 lenv.Append(LIBPATH=[gen_lib_path.abspath])
-lenv.Append(LINKFLAGS=['-L'+gen_lib_path.abspath])
+lenv.Append(LINKFLAGS=['-L'+gen_lib_path.abspath, '-Wl,-rpath=' + gen_lib_path.abspath])
 lenv.Append(LIBPATH=[rednose_gen_dir])
 # Crucial: Add absolute project root to CPPPATH for system headers
 lenv.Append(CPPPATH=[Dir('#').abspath, '#selfdrive/locationd'])
