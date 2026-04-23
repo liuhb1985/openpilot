@@ -116,7 +116,7 @@ def create_clu11(packer, frame, clu11, button, CP):
   return packer.make_can_msg("CLU11", bus, values)
 
 
-def create_lfahda_mfc(packer, CC, blinking_signal, v_ego=0.0):
+def create_lfahda_mfc(packer, CC, blinking_signal, CP, v_ego=0.0):
   activeCarrot = CC.hudControl.activeCarrot
   hda_active = 1 if CC.longActive and activeCarrot > 0 else 0
   if activeCarrot == 3 and blinking_signal:
@@ -124,9 +124,9 @@ def create_lfahda_mfc(packer, CC, blinking_signal, v_ego=0.0):
   else:
     hda_icon = 2 if CC.longActive else 0
 
-  # [Optimization] 为了防止 2019 款胜达在低速(< 60km/h) 且仅开启横向模式时报错 "无法开启智能导航系统"
-  # 我们针对老款车型不再强制设置 HDA_USM 为 0，而是保持与 HDA_Active 同步或取为 2.
-  hda_usm = 2 if hda_active == 1 or v_ego > 10 / 3.6 else 0
+  # [Optimization] 为了防止 2019 款胜达报错 "无法开启智能导航系统"
+  # 强制将 HDA_USM 设为 2 (表示已安装但非活动)，这是老款车型最兼容的模式。
+  hda_usm = 2 if CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE,) else (2 if hda_active == 1 or v_ego > 10 / 3.6 else 0)
 
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,

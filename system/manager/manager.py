@@ -121,7 +121,7 @@ def get_default_params():
     ("LongActuatorDelay", "20"),  # 纵向执行机构延迟补偿
     ("VEgoStopping", "50"),  # 车速判定为停止的阈值
     ("RadarReactionFactor", "100"),  # 雷达响应敏感度系数
-    ("EnableRadarTracks", "1"),  # 开启原厂雷达目标点透显
+    ("EnableRadarTracks", "0"),  # 开启原厂雷达目标点透显
     ("RadarLatFactor", "0"),  # 雷达侧向位置修正系数
     ("EnableEscc", "0"),  # 开启增强型 SCC 逻辑 (ESCC)
     ("EnableCornerRadar", "0"),  # 开启角雷达支持

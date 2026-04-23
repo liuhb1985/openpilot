@@ -343,11 +343,10 @@ class CarState(CarStateBase):
         self.escc_aeb_dec_cmd = cp.vl[aeb_src][aeb_braking_cmd]
 
       try:
-        if (self.showDebugLog & 64) > 0:
+        if (self.showDebugLog & 64) > 0 and "ESCC" in cp.vl:
           escc_data = cp.vl["ESCC"]
           print(f"CarState ESCC: {escc_data}")
       except KeyError:
-        #print("ESCC消息未找到")
         pass
 
     if self.CP.enableBsm:
@@ -424,9 +423,9 @@ class CarState(CarStateBase):
 
     if "YRS11" in cp.vl:
       ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
-      #ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
-    #if "YRS12" in cp.vl:
-      #ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
+      ret.lateralAcceleration = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
+    if "YRS12" in cp.vl:
+      ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
 
     return ret
 
@@ -707,12 +706,12 @@ class CarState(CarStateBase):
     if CP.flags & HyundaiFlags.CANFD:
       return self.get_can_parsers_canfd(CP)
 
-    msgs = [
-      ("YRS11", 100),
-      ("YRS12", 100),
-      ("ESCC", 50),
-      ("FCA11", 50),
-    ]
+    msgs = []
+    if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+      msgs.append(("ESCC", 50))
+    
+    if CP.flags & HyundaiFlags.USE_FCA:
+      msgs.append(("FCA11", 50))
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, 0),
