@@ -49,7 +49,7 @@ public:
   MatrixXdr H(const Eigen::VectorXd &in);
 
 private:
-  std::string name = "live";
+  std::string name = "live_kf";
 
   std::shared_ptr<EKFSym> filter;
 

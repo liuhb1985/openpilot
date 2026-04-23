@@ -40,7 +40,7 @@ class States:
 
 
 class LiveKalman:
-  name = 'live'
+  name = 'live_kf'
 
   initial_x = np.array([3.88e6, -3.37e6, 3.76e6,
                         0.42254641, -0.31238054, -0.83602975, -0.15788347,  # NED [0,0,0] -> ECEF Quat
