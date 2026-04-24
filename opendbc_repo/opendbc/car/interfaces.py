@@ -194,16 +194,19 @@ def get_nn_model_path(car, eps_firmware) -> tuple[str | None, float]:
   else:
     check_model = car
   model_path, max_similarity = check_nn_path(check_model)
-  # [修复] car 指纹格式为 HYUNDAI_SANTA_FE（下划线），而模型文件名为 "HYUNDAI SANTA FE.json"（空格）
-  # 直接做 car not in model_basename 永远为 False，改为统一转换成空格格式再比较
+
+  # 比较时统一将 model_basename 中的空格替换为下划线（与 car 指纹格式一致）
+  # 模型文件名可能是 "HYUNDAI_SANTA_FE.json" 或 "HYUNDAI SANTA FE.json"，两种都要兼容
   SIMILARITY_THRESHOLD = 0.7
-  car_name_normalized = car.replace('_', ' ')
   model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
-  if car_name_normalized.upper() not in model_basename.upper() or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
+  model_basename_norm = model_basename.replace(' ', '_').upper()  # 统一用下划线比较
+  car_norm = car.upper()                                           # car 本身已是下划线格式
+  if car_norm not in model_basename_norm or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
     check_model = car
     model_path, max_similarity = check_nn_path(check_model)
     model_basename = os.path.splitext(os.path.basename(model_path))[0] if model_path else ""
-    if car_name_normalized.upper() not in model_basename.upper() or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
+    model_basename_norm = model_basename.replace(' ', '_').upper()
+    if car_norm not in model_basename_norm or 0.0 <= max_similarity < SIMILARITY_THRESHOLD:
       model_path = None
   return model_path
 
@@ -400,21 +403,26 @@ class CarInterfaceBase(ABC):
     nnff_supported = self.initialize_lat_torque_nn(CP.carFingerprint, eps_firmware)
 
     # [修复] Params("NNFF") 未被显式设置时 get_bool 返回 False，导致 NNFF 即使有模型也不激活
-    # 若模型存在且从未设置过该参数，自动默认启用（首次运行兜底）
-    if nnff_supported and not comma_nnff_supported:
-      if Params().get("NNFF") is None:  # 从未被 UI 设置过
-        Params().put_bool_nonblocking("NNFF", True)
-      # 同步写入 NNFFModelName，供 UI carrot.cc 显示
-      # 这里无论是否已写过都刷新，确保车型名始终正确
-      if Params().get_bool("NNFF"):
-        model_name = CP.carFingerprint.replace("_", " ")
-        Params().put_nonblocking("NNFFModelName", model_name)
-        print(f"[NNFF] Model loaded for {model_name}, NNFFModelName updated")
+    # 首次运行兜底：若模型存在且参数从未设置过，自动写入 True
+    if nnff_supported and not comma_nnff_supported and Params().get("NNFF") is None:
+      Params().put_bool("NNFF", True)  # 同步写，立即生效（只在首次运行执行一次）
 
-    self.use_nnff = not comma_nnff_supported and nnff_supported and Params().get_bool("NNFF")
+    # 直接用本地变量决定，避免 put_nonblocking 未完成时 get_bool 仍读到旧值的 race condition
+    nnff_enabled = Params().get_bool("NNFF")
+    self.use_nnff = not comma_nnff_supported and nnff_supported and nnff_enabled
     self.use_nnff_lite = not self.use_nnff and Params().get_bool("NNFFLite")
-    print(f"[NNFF] use_nnff={self.use_nnff}, use_nnff_lite={self.use_nnff_lite}, "
-          f"comma_supported={comma_nnff_supported}, model_found={nnff_supported}")
+
+    # 写入 NNFFModelName 供 UI 显示（carrot.cc 读此参数判断是否附加 ",NNFF" 字样）
+    if self.use_nnff:
+      model_name = CP.carFingerprint.replace("_", " ")
+      Params().put_nonblocking("NNFFModelName", model_name)
+      print(f"[NNFF] ACTIVE: model={model_name}")
+    elif not nnff_supported:
+      print(f"[NNFF] INACTIVE: no model file found for {CP.carFingerprint}")
+    elif not nnff_enabled:
+      print(f"[NNFF] INACTIVE: Params(NNFF)=False (disabled in UI)")
+    else:
+      print(f"[NNFF] INACTIVE: comma_nnff_supported={comma_nnff_supported}")
 
   def get_ff_nn(self, x):
     return self.lat_torque_nn_model.evaluate(x)
@@ -463,14 +471,21 @@ class CarInterfaceBase(ABC):
     ret = cls._get_params(ret, candidate, fingerprint, car_fw, alpha_long, is_release, docs)
    
     # Enable torque controller for all cars that do not use angle based steering
-    if ret.steerControlType != structs.CarParams.SteerControlType.angle and Params().get_bool("NNFF"):
-      CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
-      eps_firmware = str(next((fw.fwVersion for fw in car_fw if fw.ecu == "eps"), ""))
-      model = get_nn_model_path(candidate, eps_firmware)
-      if model is not None:
-        Params().put_nonblocking("NNFFModelName", candidate.replace("_", " "))
-        print(f"NNFF loaded... {model}")
-    
+    # [修复] 首次运行兜底：若参数未设置且模型存在，提前同步写入 True
+    # 必须在 get_bool("NNFF") 之前执行，否则 configure_torque_tune 首次不会触发
+    if ret.steerControlType != structs.CarParams.SteerControlType.angle:
+      if Params().get("NNFF") is None:
+        # 预检查模型是否存在，避免无模型时写入 True
+        eps_firmware_check = str(next((fw.fwVersion for fw in car_fw if fw.ecu == "eps"), ""))
+        if get_nn_model_path(candidate, eps_firmware_check) is not None:
+          Params().put_bool("NNFF", True)  # 同步写，立即生效
+      if Params().get_bool("NNFF"):
+        CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
+        eps_firmware = str(next((fw.fwVersion for fw in car_fw if fw.ecu == "eps"), ""))
+        model = get_nn_model_path(candidate, eps_firmware)
+        if model is not None:
+          Params().put_nonblocking("NNFFModelName", candidate.replace("_", " "))
+          print(f"NNFF loaded... {model}")
 
     if Params().get_bool("DisableMinSteerSpeed"):
       ret.minSteerSpeed = 0.
