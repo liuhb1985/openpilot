@@ -226,11 +226,21 @@ class CarController(CarControllerBase):
     #  alpha = min(0.1 + 0.9 * CS.out.vEgoRaw / (30.0 * CV.KPH_TO_MS), 1.0)
     #  apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 
+    # [优化] 横向控制平滑逻辑：解决低速摆幅大、高速过敏频繁调整问题
     v_ego_kph = CS.out.vEgoRaw * CV.MS_TO_KPH
-    if abs(apply_angle - self.apply_angle_last) < 0.1:
-      alpha = min(0.05 + 0.45 * v_ego_kph / 30.0, 0.5)
-    else:
-      alpha = 1.0 # min(0.1 + 0.9 * v_ego_kph / 30.0, 1.0)
+    error_mag = abs(apply_angle - self.apply_angle_last)
+    
+    # 1. 基础 alpha：随速度动态调整。低速更稳，高速不过敏。
+    # 0km/h -> 0.1, 100km/h -> 0.35
+    base_alpha = np.interp(v_ego_kph, [0, 100], [0.1, 0.35])
+    
+    # 2. 误差补偿：当误差较大（如进入急弯）时，平滑增加响应速度，避免转向不足
+    # 误差在 0.2度以内保持 base_alpha，超过 1.5度时完全跟随 (alpha=1.0)
+    alpha = np.interp(error_mag, [0.2, 1.5], [base_alpha, 1.0])
+    
+    # 3. 低速死区抑制：针对低速蠕行时的方向盘抖动/摆幅
+    if v_ego_kph < 20 and error_mag < 0.1:
+      alpha = 0.05
 
     apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 
