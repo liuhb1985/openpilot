@@ -220,6 +220,22 @@ class LatControlTorque(LatControl):
       if self.use_nnff or self.use_nnff_lite:
         lat_accel_ff = self.lat_accel_friction_factor  # 默认值，可能被下方 model_good 块覆盖
 
+      # ── IMU 数据诊断打印（每100帧约1秒，所有控制模式均输出）──
+      if self.frame % 100 == 1:
+        ned = list(CC.orientationNED)   # [roll, pitch, yaw] in rad，来自 locationd/calibrationd
+        av  = list(CC.angularVelocity)  # [x, y, z] rad/s，车辆坐标系角速度
+        ned_str = f"[{ned[0]:.4f},{ned[1]:.4f},{ned[2]:.4f}]" if len(ned) >= 3 else f"{ned}(空!)"
+        av_str  = f"[{av[0]:.4f},{av[1]:.4f},{av[2]:.4f}]"   if len(av)  >= 3 else f"{av}(空!)"
+        mode = "NNFF" if self.use_nnff else ("LITE" if self.use_nnff_lite else "Classic")
+        model_good_now = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
+        print(
+          f"[LAT-IMU|{mode}|model={'OK' if model_good_now else 'NO'}] "
+          f"vEgo={CS.vEgo:.1f}m/s "
+          f"orientationNED={ned_str}(rad)[r,p,y] "
+          f"angularVel={av_str}(rad/s) "
+          f"params.roll={params.roll:.4f}"
+        )
+
       model_good = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
       if model_good and (self.use_nnff or self.use_nnff_lite):
         # prepare "look-ahead" desired lateral jerk
@@ -253,20 +269,6 @@ class LatControlTorque(LatControl):
           # [修复] orientationNED 为空时用上一帧缓存值，防止 pitch 突变为 0
           pitch = self._last_pitch
           roll = roll_pitch_adjust(roll, pitch)
-
-        # ── NNFF IMU 数据诊断打印（每100帧约1秒）──
-        if self.frame % 100 == 1:
-          ned = list(CC.orientationNED)   # [roll, pitch, yaw] in rad
-          av  = list(CC.angularVelocity)  # [x, y, z] rad/s (vehicle frame)
-          ned_str = f"[{ned[0]:.4f}, {ned[1]:.4f}, {ned[2]:.4f}]" if len(ned) >= 3 else f"{ned}(不完整!)"
-          av_str  = f"[{av[0]:.4f}, {av[1]:.4f}, {av[2]:.4f}]"   if len(av)  >= 3 else f"{av}(不完整!)"
-          print(
-            f"[NNFF-IMU] vEgo={CS.vEgo:.1f}m/s | "
-            f"orientationNED={ned_str}(rad)[roll,pitch,yaw] | "
-            f"angularVelocity={av_str}(rad/s) | "
-            f"params.roll={params.roll:.4f} → pitch_corrected_roll={roll:.4f} | "
-            f"pitch_filter={pitch:.4f}"
-          )
 
         self.roll_deque.append(roll)
         self.lateral_accel_desired_deque.append(desired_lateral_accel)
