@@ -99,6 +99,8 @@ class CarController(CarControllerBase):
     self.apply_torque_last = 0
     self.car_fingerprint = CP.carFingerprint
     self.last_button_frame = 0
+    
+    self.params_op = Params()
 
     self.hyundai_jerk = HyundaiJerk()
     self.speedCameraHapticEndFrame = 0
@@ -127,22 +129,21 @@ class CarController(CarControllerBase):
     self.LFA_trigger = 0
 
     self.activeCarrot = 0
-    self.camera_scc_params = Params().get_int("HyundaiCameraSCC")
-    self.is_ldws_car = Params().get_bool("IsLdwsCar")
+    self.camera_scc_params = self.params_op.get_int("HyundaiCameraSCC")
+    self.is_ldws_car = self.params_op.get_bool("IsLdwsCar")
 
     self.steerDeltaUpOrg = self.steerDeltaUp = self.steerDeltaUpLC = self.params.STEER_DELTA_UP
     self.steerDeltaDownOrg = self.steerDeltaDown = self.steerDeltaDownLC = self.params.STEER_DELTA_DOWN
 
   def update(self, CC, CS, now_nanos):
 
-    if self.frame % 50 == 0:
-      params = Params()
-      self.max_angle_frames = params.get_int("MaxAngleFrames")
-      steerMax = params.get_int("CustomSteerMax")
-      steerDeltaUp = params.get_int("CustomSteerDeltaUp")
-      steerDeltaDown = params.get_int("CustomSteerDeltaDown")
-      steerDeltaUpLC = params.get_int("CustomSteerDeltaUpLC")
-      steerDeltaDownLC = params.get_int("CustomSteerDeltaDownLC")
+    if self.frame % 100 == 0:
+      self.max_angle_frames = self.params_op.get_int("MaxAngleFrames")
+      steerMax = self.params_op.get_int("CustomSteerMax")
+      steerDeltaUp = self.params_op.get_int("CustomSteerDeltaUp")
+      steerDeltaDown = self.params_op.get_int("CustomSteerDeltaDown")
+      steerDeltaUpLC = self.params_op.get_int("CustomSteerDeltaUpLC")
+      steerDeltaDownLC = self.params_op.get_int("CustomSteerDeltaDownLC")
       if steerMax > 0:
         self.params.STEER_MAX = steerMax
       if steerDeltaUp > 0:
@@ -165,16 +166,16 @@ class CarController(CarControllerBase):
       else:
         self.steerDeltaDownLC = self.steerDeltaDown
         
-      self.soft_hold_mode = 1 if params.get_int("AutoCruiseControl") > 1 else 2
-      self.hapticFeedbackWhenSpeedCamera = int(params.get_int("HapticFeedbackWhenSpeedCamera"))
+      self.soft_hold_mode = 1 if self.params_op.get_int("AutoCruiseControl") > 1 else 2
+      self.hapticFeedbackWhenSpeedCamera = int(self.params_op.get_int("HapticFeedbackWhenSpeedCamera"))
 
-      self.button_spam1 = params.get_int("CruiseButtonTest1")
-      self.button_spam2 = params.get_int("CruiseButtonTest2")
-      self.button_spam3 = params.get_int("CruiseButtonTest3")
-      self.speed_from_pcm = params.get_int("SpeedFromPCM")
+      self.button_spam1 = self.params_op.get_int("CruiseButtonTest1")
+      self.button_spam2 = self.params_op.get_int("CruiseButtonTest2")
+      self.button_spam3 = self.params_op.get_int("CruiseButtonTest3")
+      self.speed_from_pcm = self.params_op.get_int("SpeedFromPCM")
 
-      self.canfd_debug = params.get_int("CanfdDebug")
-      self.camera_scc_params = params.get_int("HyundaiCameraSCC")
+      self.canfd_debug = self.params_op.get_int("CanfdDebug")
+      self.camera_scc_params = self.params_op.get_int("HyundaiCameraSCC")
 
     actuators = CC.actuators
     hud_control = CC.hudControl
@@ -194,8 +195,8 @@ class CarController(CarControllerBase):
 
     # >90 degree steering fault prevention
     self.angle_limit_counter, apply_steer_req = common_fault_avoidance(abs(CS.out.steeringAngleDeg) >= MAX_ANGLE, CC.latActive,
-                                                                       self.angle_limit_counter, self.max_angle_frames,
-                                                                       MAX_ANGLE_CONSECUTIVE_FRAMES)
+                                                                        self.angle_limit_counter, self.max_angle_frames,
+                                                                        MAX_ANGLE_CONSECUTIVE_FRAMES)
 
     #apply_angle = apply_std_steer_angle_limits(actuators.steeringAngleDeg, self.apply_angle_last, CS.out.vEgoRaw, 
     #                                           CS.out.steeringAngleDeg, CC.latActive, self.params.ANGLE_LIMITS)
@@ -353,11 +354,11 @@ class CarController(CarControllerBase):
         if self.frame % 2 == 0:
           if self.CP.flags & HyundaiFlags.CAMERA_SCC.value:
             can_sends.append(hyundaicanfd.create_acc_control_scc2(self.packer, self.CAN, CC.enabled, self.accel_last, accel, stopping, CC.cruiseControl.override,
-                                                             set_speed_in_units, hud_control, self.hyundai_jerk, CS))
+                                                              set_speed_in_units, hud_control, self.hyundai_jerk, CS))
             can_sends.extend(hyundaicanfd.create_tcs_messages(self.packer, self.CAN, CS)) # for sorento SCC radar...
           else:
             can_sends.append(hyundaicanfd.create_acc_control(self.packer, self.CAN, CC.enabled, self.accel_last, accel, stopping, CC.cruiseControl.override,
-                                                             set_speed_in_units, hud_control, self.hyundai_jerk.jerk_u, self.hyundai_jerk.jerk_l, CS))
+                                                              set_speed_in_units, hud_control, self.hyundai_jerk.jerk_u, self.hyundai_jerk.jerk_l, CS))
           self.accel_last = accel
       else:
         # button presses
@@ -399,7 +400,7 @@ class CarController(CarControllerBase):
       # 20 Hz LFA MFA message
       if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or
                                   self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022,
-                                                             CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
+                                                               CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
         can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal, self.CP, CS.out.vEgo))
 
       # 5 Hz ACC options
@@ -639,4 +640,3 @@ class HyundaiJerk:
         self.jerk_l = min(max(1.0, -self.jerk * 1.5), jerk_max_l)
         self.cb_upper = np.clip(0.9 + accel * 0.2, 0, 1.2)
         self.cb_lower = np.clip(0.8 + accel * 0.2, 0, 1.2)
-

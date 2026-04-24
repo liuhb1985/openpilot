@@ -241,27 +241,25 @@ DetectionResult detect_cars(cv::Mat& frame) {
     int pad_x = (YOLO_PIX - new_w) / 2;
     int pad_y = (YOLO_PIX - new_h) / 2;
 
+    thread_local cv::Mat input_blob = cv::Mat::zeros(YOLO_PIX, YOLO_PIX, CV_8UC3);
     cv::Mat resized_image;
     cv::resize(frame, resized_image, cv::Size(new_w, new_h));
-    cv::Mat input_blob = cv::Mat::zeros(YOLO_PIX, YOLO_PIX, frame.type());
+    
+    input_blob.setTo(cv::Scalar(114, 114, 114)); // YOLO constant padding color
     resized_image.copyTo(input_blob(cv::Rect(pad_x, pad_y, new_w, new_h)));
-    cv::cvtColor(input_blob, input_blob, cv::COLOR_BGR2RGB);
-    input_blob.convertTo(input_blob, CV_32F, 1.0 / 255.0);
 
     // ---------------- ONNX Runtime ----------------
+    // 使用 cv::dnn::blobFromImage 进行高效转码 (HWC -> CHW, 归一化, BGR->RGB)
+    thread_local cv::Mat blob;
+    cv::dnn::blobFromImage(input_blob, blob, 1.0/255.0, cv::Size(YOLO_PIX, YOLO_PIX), cv::Scalar(0,0,0), true, false);
+
     std::vector<int64_t> input_shape = {1, 3, YOLO_PIX, YOLO_PIX}; // NCHW
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
-    std::vector<float> blob_data(1*3*YOLO_PIX*YOLO_PIX);
-    for(int c = 0; c < 3; c++)
-        for(int y = 0; y < YOLO_PIX; y++)
-            for(int x = 0; x < YOLO_PIX; x++)
-                blob_data[c*YOLO_PIX*YOLO_PIX + y*YOLO_PIX + x] = input_blob.at<cv::Vec3f>(y, x)[c];
-
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
         memory_info,
-        blob_data.data(),
-        blob_data.size(),
+        (float*)blob.data,
+        blob.total(),
         input_shape.data(),
         input_shape.size()
     );
@@ -409,8 +407,9 @@ void capture_from_camera(const std::string& device, int cam_id) {
         unsigned char* data = (unsigned char*)buffer;
         if (data[0] != 0xFF || data[1] != 0xD8) continue;
 
-        std::vector<uchar> jpeg_data(data, data + buf.bytesused);
-        cv::Mat img = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
+        // 优化：直接封装内存指针解码，避免冗余的 std::vector 拷贝
+        cv::Mat jpeg_raw(1, buf.bytesused, CV_8UC1, data);
+        cv::Mat img = cv::imdecode(jpeg_raw, cv::IMREAD_COLOR);
 
         {
             std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
@@ -973,7 +972,12 @@ void display_loop() {
                     rows_n = (valid_cam_count + 2) / 3;
                 }
 
-                cv::Mat combined = cv::Mat::zeros(rows_n * height, cols_n * width, type);
+                static cv::Mat combined;
+                if (combined.empty() || combined.cols != cols_n * width || combined.rows != rows_n * height) {
+                    combined = cv::Mat::zeros(rows_n * height, cols_n * width, type);
+                } else {
+                    combined.setTo(cv::Scalar(0, 0, 0));
+                }
 
                 bool has_any_frame = false;
                 int frame_idx = 0;  // 有效帧连续序号
@@ -1774,7 +1778,6 @@ int main() {
     comm.running = false;
     dashcam_running = false;
 
-    // 通知所有等待条件变量的推理线程
     for (int i = 0; i < cam_max_num; i++)
         queue_conds[i]->notify_all();
 

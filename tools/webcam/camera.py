@@ -1,4 +1,4 @@
-import av
+import numpy as np
 import cv2
 import threading
 import queue
@@ -6,10 +6,28 @@ import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 
-def bgr_to_nv12_bytes(bgr_frame):
-    """Convert a BGR ndarray to NV12 bytes. Module-level so it can be used with ProcessPoolExecutor."""
-    frame = av.VideoFrame.from_ndarray(bgr_frame, format='bgr24')
-    return frame.reformat(format='nv12').to_ndarray().data.tobytes()
+def bgr_to_nv12_bytes(bgr):
+    """Convert a BGR ndarray to NV12 bytes using optimized OpenCV/NumPy.
+    NV12 format: Y plane followed by interleaved UV plane.
+    """
+    h, w = bgr.shape[:2]
+    # 1. Convert BGR to YUV I420 (Y plane followed by U and V planes)
+    yuv_i420 = cv2.cvtColor(bgr, cv2.COLOR_BGR2YUV_I420)
+    
+    # 2. Extract Y plane
+    y_plane = yuv_i420[:h, :]
+    
+    # 3. Extract U and V planes and interleave them for NV12
+    # I420 layout: Y(h*w), U(h*w/4), V(h*w/4)
+    u_plane = yuv_i420[h : h + h // 4, :].reshape(-1)
+    v_plane = yuv_i420[h + h // 4 :, :].reshape(-1)
+    
+    # Use numpy to interleave U and V efficiently
+    uv_interleaved = np.empty(h * w // 2, dtype=np.uint8)
+    uv_interleaved[0::2] = u_plane
+    uv_interleaved[1::2] = v_plane
+    
+    return y_plane.tobytes() + uv_interleaved.tobytes()
 
 class Camera:
     def __init__(self, cam_type_state, stream_type, camera_id):
@@ -21,6 +39,7 @@ class Camera:
         self.stream_type = stream_type
         self.cur_frame_id = 0
 
+        import av
         self.container = av.open(camera_id)
         assert self.container.streams.video, f"Can't open video stream for camera {camera_id}"
         self.video_stream = self.container.streams.video[0]
@@ -29,14 +48,13 @@ class Camera:
 
     @classmethod
     def bgr2nv12(self, bgr):
-        frame = av.VideoFrame.from_ndarray(bgr, format='bgr24')
-        return frame.reformat(format='nv12').to_ndarray()
+        return bgr_to_nv12_bytes(bgr)
 
     def read_frames(self):
         for frame in self.container.decode(self.video_stream):
             img = frame.to_rgb().to_ndarray()[:,:, ::-1] # convert to bgr24
             yuv = Camera.bgr2nv12(img)
-            yield yuv.data.tobytes()
+            yield yuv
         self.container.close()
 
 class CameraMJPG:
@@ -78,7 +96,7 @@ class CameraMJPG:
         # 支持线程池或进程池用于帧转码（BGR -> NV12）
         self.use_processes = use_processes
         if self.use_processes:
-            # 使用进程池时，确保转码函数可被 pickled（已在模块顶层）
+            # 使用进程池时，确保转码函数可 be pickled（已在模块顶层）
             self.executor = ProcessPoolExecutor(max_workers=self.num_workers)
         else:
             self.executor = ThreadPoolExecutor(max_workers=self.num_workers)
@@ -99,8 +117,7 @@ class CameraMJPG:
 
     @staticmethod
     def _bgr_to_nv12(bgr_frame):
-        frame = av.VideoFrame.from_ndarray(bgr_frame, format='bgr24')
-        return frame.reformat(format='nv12').to_ndarray().data.tobytes()
+        return bgr_to_nv12_bytes(bgr_frame)
 
     def _frame_reader(self):
         while not self.stop_event.is_set():
