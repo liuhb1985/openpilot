@@ -399,9 +399,23 @@ class CarInterfaceBase(ABC):
     comma_nnff_supported = self.check_comma_nn_ff_support(CP.carFingerprint)
     nnff_supported = self.initialize_lat_torque_nn(CP.carFingerprint, eps_firmware)
 
+    # [修复] Params("NNFF") 未被显式设置时 get_bool 返回 False，导致 NNFF 即使有模型也不激活
+    # 若模型存在且从未设置过该参数，自动默认启用（首次运行兜底）
+    if nnff_supported and not comma_nnff_supported:
+      if Params().get("NNFF") is None:  # 从未被 UI 设置过
+        Params().put_bool_nonblocking("NNFF", True)
+      # 同步写入 NNFFModelName，供 UI carrot.cc 显示
+      # 这里无论是否已写过都刷新，确保车型名始终正确
+      if Params().get_bool("NNFF"):
+        model_name = CP.carFingerprint.replace("_", " ")
+        Params().put_nonblocking("NNFFModelName", model_name)
+        print(f"[NNFF] Model loaded for {model_name}, NNFFModelName updated")
+
     self.use_nnff = not comma_nnff_supported and nnff_supported and Params().get_bool("NNFF")
     self.use_nnff_lite = not self.use_nnff and Params().get_bool("NNFFLite")
-    
+    print(f"[NNFF] use_nnff={self.use_nnff}, use_nnff_lite={self.use_nnff_lite}, "
+          f"comma_supported={comma_nnff_supported}, model_found={nnff_supported}")
+
   def get_ff_nn(self, x):
     return self.lat_torque_nn_model.evaluate(x)
 
