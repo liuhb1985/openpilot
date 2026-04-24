@@ -949,8 +949,21 @@ void display_loop() {
                 int height = shared_images[valid_index].rows;
                 int type = shared_images[valid_index].type();
 
-                int cols = (cam_count > 4) ? 3 : 2;
-                int rows = (cam_count + cols - 1) / cols;
+                int cols, rows;
+                if (cam_count == 1) {
+                    // 单摄像头：直接1列1行，不拼接，消除右侧黑边
+                    cols = 1;
+                    rows = 1;
+                } else if (cam_count <= 2) {
+                    cols = 2;
+                    rows = 1;
+                } else if (cam_count <= 4) {
+                    cols = 2;
+                    rows = 2;
+                } else {
+                    cols = 3;
+                    rows = (cam_count + 2) / 3;
+                }
 
                 cv::Mat combined = cv::Mat::zeros(rows * height, cols * width, type);
 
