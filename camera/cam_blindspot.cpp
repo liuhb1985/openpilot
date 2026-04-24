@@ -948,6 +948,10 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
+                int width = shared_images[valid_index].cols;
+                int height = shared_images[valid_index].rows;
+                int type = shared_images[valid_index].channels() == 1 ? CV_8UC3 : shared_images[valid_index].type();
+
                 // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
                 int valid_cam_count = 0;
                 for (int i = 0; i < cam_count; ++i) {
