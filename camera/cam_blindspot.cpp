@@ -878,8 +878,10 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
             }
         }
         // 没有选中顶点，新增顶点
-        roi.polygon.push_back(cv::Point(x, y));
-        changed = true;
+        if (flags & cv::EVENT_FLAG_CTRLKEY) {
+            roi.polygon.push_back(cv::Point(x, y));
+            changed = true;
+        }
     }
     else if (event == cv::EVENT_MOUSEMOVE) {
         if (roi.selected_idx != -1 && (flags & cv::EVENT_FLAG_LBUTTON)) {
@@ -892,15 +894,17 @@ void mouse_callback(int event, int x, int y, int flags, void* userdata) {
     }
     else if (event == cv::EVENT_RBUTTONDOWN) {
         // 删除最近顶点
-        int idx = -1;
-        float min_dist = select_radius;
-        for (int i = 0; i < roi.polygon.size(); i++) {
-            float d = distance(roi.polygon[i], cv::Point(x, y));
-            if (d < min_dist) { min_dist = d; idx = i; }
-        }
-        if (idx != -1) {
-            roi.polygon.erase(roi.polygon.begin() + idx);
-            changed = true;
+        if (flags & cv::EVENT_FLAG_CTRLKEY) {
+            int idx = -1;
+            float min_dist = select_radius;
+            for (int i = 0; i < roi.polygon.size(); i++) {
+                float d = distance(roi.polygon[i], cv::Point(x, y));
+                if (d < min_dist) { min_dist = d; idx = i; }
+            }
+            if (idx != -1) {
+                roi.polygon.erase(roi.polygon.begin() + idx);
+                changed = true;
+            }
         }
     }
 
@@ -945,29 +949,34 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
-                int width = shared_images[valid_index].cols;
-                int height = shared_images[valid_index].rows;
-                int type = shared_images[valid_index].type();
+                // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
+                int valid_cam_count = 0;
+                for (int i = 0; i < cam_count; ++i) {
+                    if (!shared_images[i].empty() && shared_images[i].cols > 10 && shared_images[i].rows > 10)
+                        valid_cam_count++;
+                }
+                if (valid_cam_count == 0) goto wait_next;
 
-                int cols, rows;
-                if (cam_count == 1) {
-                    // 单摄像头：直接1列1行，不拼接，消除右侧黑边
-                    cols = 1;
-                    rows = 1;
-                } else if (cam_count <= 2) {
-                    cols = 2;
-                    rows = 1;
-                } else if (cam_count <= 4) {
-                    cols = 2;
-                    rows = 2;
+                // 根据实际有效摄像头数决定拼接列数：单摄像头不拼接，窗口宽度=摄像头宽度
+                int cols_n, rows_n;
+                if (valid_cam_count == 1) {
+                    cols_n = 1;  // 单摄像头：1列1行，不拼接，不留黑边
+                    rows_n = 1;
+                } else if (valid_cam_count <= 2) {
+                    cols_n = 2;
+                    rows_n = 1;
+                } else if (valid_cam_count <= 4) {
+                    cols_n = 2;
+                    rows_n = 2;
                 } else {
-                    cols = 3;
-                    rows = (cam_count + 2) / 3;
+                    cols_n = 3;
+                    rows_n = (valid_cam_count + 2) / 3;
                 }
 
-                cv::Mat combined = cv::Mat::zeros(rows * height, cols * width, type);
+                cv::Mat combined = cv::Mat::zeros(rows_n * height, cols_n * width, type);
 
                 bool has_any_frame = false;
+                int frame_idx = 0;  // 有效帧连续序号
 
                 for (int i = 0; i < cam_count; ++i) {
                     if (shared_images[i].empty() || shared_images[i].cols < 10 || shared_images[i].rows < 10)
@@ -981,11 +990,12 @@ void display_loop() {
                         cv::resize(img, img, cv::Size(width, height));
                     }
 
-                    int c = i / cols;
-                    int r = i % cols;
-                    cv::Rect roi(c * width, r * height, width, height);
+                    // col 决定 x 偏移（左右），row 决定 y 偏移（上下）
+                    int col = frame_idx % cols_n;
+                    int row = frame_idx / cols_n;
+                    cv::Rect roi(col * width, row * height, width, height);
                     img.copyTo(combined(roi));
-
+                    frame_idx++;
                     has_any_frame = true;
                 }
 
@@ -1018,7 +1028,13 @@ void display_loop() {
             }
         }
 
+        static int last_key = -1;
         key = cv::waitKey(1);
+        // 防止按键连发
+        if (key == last_key)
+            key = -1;
+        last_key = key;
+        
         if (key == 27) { // ESC
             dcout << "display_loop end" << std::endl;
             running = false;

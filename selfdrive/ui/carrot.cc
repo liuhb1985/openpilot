@@ -3089,33 +3089,41 @@ public:
         auto peripheralState = sm["peripheralState"].getPeripheralState();
         voltage = peripheralState.getVoltage() / 1000.0;
 
-        // 读取 GPU 利用率（PC环境：优先读 NVIDIA，其次读 Intel/AMD）
-        gpuUsage = 0.0f;
-        // 方法1：读取 /sys/kernel/debug/dri/*/name（需要root，不可靠）
-        // 方法2：读取 Intel i915 GPU 频率比估算利用率
+        // [优化] GPU 利用率限速读取：每200帧（约10秒@20fps）读一次
+        // popen(shell) 开销约1-5ms，每帧读会消耗20-100ms/s的CPU，必须限速
         {
-            // 尝试 NVIDIA：读 /proc/driver/nvidia/gpus/*/information
-            FILE* f_nvidia = popen("cat /proc/driver/nvidia/gpus/*/information 2>/dev/null | grep -i 'utilization' | head -1 | awk '{print $NF}' | tr -d '%'", "r");
-            if (f_nvidia) {
+            static int gpu_read_counter = 0;
+            static float cached_gpu_usage = 0.0f;
+            gpu_read_counter++;
+            if (gpu_read_counter >= 200) {
+                gpu_read_counter = 0;
                 float val = 0.0f;
-                if (fscanf(f_nvidia, "%f", &val) == 1 && val >= 0.0f && val <= 100.0f) {
-                    gpuUsage = val;
-                }
-                pclose(f_nvidia);
-            }
-            // 如果 NVIDIA 没读到，尝试 Intel i915 rc6 残留率（频率比估算）
-            if (gpuUsage <= 0.0f) {
-                FILE* f_cur  = fopen("/sys/class/drm/card0/gt_cur_freq_mhz", "r");
-                FILE* f_max  = fopen("/sys/class/drm/card0/gt_max_freq_mhz", "r");
+                // 方法1：Intel i915 - 直接读sysfs文件（无fork，无shell，极低开销）
+                FILE* f_cur = fopen("/sys/class/drm/card0/gt_cur_freq_mhz", "r");
+                FILE* f_max = fopen("/sys/class/drm/card0/gt_max_freq_mhz", "r");
                 if (f_cur && f_max) {
                     int cur_mhz = 0, max_mhz = 1;
-                    fscanf(f_cur,  "%d", &cur_mhz);
-                    fscanf(f_max,  "%d", &max_mhz);
-                    if (max_mhz > 0) gpuUsage = (float)cur_mhz * 100.0f / max_mhz;
+                    if (fscanf(f_cur, "%d", &cur_mhz) == 1 && fscanf(f_max, "%d", &max_mhz) == 1 && max_mhz > 0)
+                        val = (float)cur_mhz * 100.0f / max_mhz;
                 }
                 if (f_cur) fclose(f_cur);
                 if (f_max) fclose(f_max);
+                // 方法2：NVIDIA SMI（仅在i915读不到时才用popen，且已限速）
+                if (val <= 0.0f) {
+                    FILE* f_nv = fopen("/proc/driver/nvidia/gpus", "r");
+                    if (f_nv) {
+                        fclose(f_nv);
+                        // 确认有NVIDIA驱动才执行popen，避免无意义的shell fork
+                        FILE* fp = popen("cat /proc/driver/nvidia/gpus/*/information 2>/dev/null | grep -i 'utilization' | head -1 | awk '{print $NF}' | tr -d '%'", "r");
+                        if (fp) {
+                            fscanf(fp, "%f", &val);
+                            pclose(fp);
+                        }
+                    }
+                }
+                cached_gpu_usage = (val >= 0.0f && val <= 100.0f) ? val : 0.0f;
             }
+            gpuUsage = cached_gpu_usage;
         }
     }
     void drawDeviceInfo(const UIState* s) {
