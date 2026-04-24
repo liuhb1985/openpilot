@@ -2673,7 +2673,7 @@ public:
     void drawHud(UIState* s) {
         int show_device_state = params.getInt("ShowDeviceState");
         blink_timer = (blink_timer + 1) % 16;
-        disp_timer = (disp_timer + 1) % 240;
+        disp_timer = (disp_timer + 1) % 160;  // 8秒一轮（20fps×160帧），前后各4秒均衡切换
         nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BOTTOM);
 
         int x = 140;// 120;
@@ -2887,7 +2887,7 @@ public:
             dy = by - 200;
             mode_color = COLOR_GREEN_ALPHA(190);
             ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (cpuTemp>90 && blink_timer<=8)?COLOR_RED : mode_color, 15, 2);
-            if (disp_timer < 120) {
+            if (disp_timer < 80) {
             ui_draw_text(s, dx, dy-5, "CPU", 25, COLOR_WHITE, BOLD);
             sprintf(str, "%.0f\u00B0C", cpuTemp);
             ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
@@ -2899,7 +2899,7 @@ public:
 
             dx += 150;
             ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, (memoryUsage > 85 && blink_timer <= 8) ? COLOR_RED : mode_color, 15, 2);
-            if (disp_timer < 120) {
+            if (disp_timer < 80) {
                 ui_draw_text(s, dx, dy-5, "GPU", 25, COLOR_WHITE, BOLD);
                 sprintf(str, "%.0f%%", gpuUsage);
                 ui_draw_text(s, dx, dy + 40, str, 40, COLOR_WHITE, BOLD);
@@ -2910,7 +2910,7 @@ public:
             }
 
             dx += 150;
-            if (disp_timer < 120) {
+            if (disp_timer < 80) {
               ui_fill_rect(s->vg, { dx - 65, dy - 38, 130, 90 }, mode_color, 15, 2);
               ui_draw_text(s, dx, dy - 5, "DISK", 25, COLOR_WHITE, BOLD);
               sprintf(str, "%.0f%%", 100 - freeSpace);
@@ -3088,6 +3088,35 @@ public:
 
         auto peripheralState = sm["peripheralState"].getPeripheralState();
         voltage = peripheralState.getVoltage() / 1000.0;
+
+        // 读取 GPU 利用率（PC环境：优先读 NVIDIA，其次读 Intel/AMD）
+        gpuUsage = 0.0f;
+        // 方法1：读取 /sys/kernel/debug/dri/*/name（需要root，不可靠）
+        // 方法2：读取 Intel i915 GPU 频率比估算利用率
+        {
+            // 尝试 NVIDIA：读 /proc/driver/nvidia/gpus/*/information
+            FILE* f_nvidia = popen("cat /proc/driver/nvidia/gpus/*/information 2>/dev/null | grep -i 'utilization' | head -1 | awk '{print $NF}' | tr -d '%'", "r");
+            if (f_nvidia) {
+                float val = 0.0f;
+                if (fscanf(f_nvidia, "%f", &val) == 1 && val >= 0.0f && val <= 100.0f) {
+                    gpuUsage = val;
+                }
+                pclose(f_nvidia);
+            }
+            // 如果 NVIDIA 没读到，尝试 Intel i915 rc6 残留率（频率比估算）
+            if (gpuUsage <= 0.0f) {
+                FILE* f_cur  = fopen("/sys/class/drm/card0/gt_cur_freq_mhz", "r");
+                FILE* f_max  = fopen("/sys/class/drm/card0/gt_max_freq_mhz", "r");
+                if (f_cur && f_max) {
+                    int cur_mhz = 0, max_mhz = 1;
+                    fscanf(f_cur,  "%d", &cur_mhz);
+                    fscanf(f_max,  "%d", &max_mhz);
+                    if (max_mhz > 0) gpuUsage = (float)cur_mhz * 100.0f / max_mhz;
+                }
+                if (f_cur) fclose(f_cur);
+                if (f_max) fclose(f_max);
+            }
+        }
     }
     void drawDeviceInfo(const UIState* s) {
 #ifdef WSL2
