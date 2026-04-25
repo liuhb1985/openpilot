@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import time
+import math
 import numpy as np
 
 import cereal.messaging as messaging
@@ -79,14 +80,14 @@ def main():
       # 原车 IMU 数据
       # ======================================
 
-      raw_yaw = cs.yawRate            # 横摆角速度 (rad/s)
+      raw_yaw = math.radians(cs.yawRate) if cs.yawRate != 0 else 0.0  # 横摆角速度 (rad/s)
       raw_lon = cs.aEgo               # 纵向加速度 (m/s²)
 
       # [优化] 侧向加速度：低速时线性淡出，避免低速 yawRate 噪声被 vEgo 放大
       # 在 vEgo < 1.0 m/s 时直接用 0，1.0~3.0 m/s 线性插值
       v = cs.vEgo
       lat_scale = float(np.interp(abs(v), [1.0, 3.0], [0.0, 1.0]))
-      raw_lat = v * cs.yawRate * lat_scale
+      raw_lat = v * raw_yaw * lat_scale
 
       # ======================================
       # [修复] 先做异常保护，再滤波（防止异常值污染滤波器状态）
