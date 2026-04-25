@@ -1250,26 +1250,26 @@ protected:
             case 3: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_lane_change_l", 1.0f); break;
             case 4: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_lane_change_r", 1.0f); break;
             case 7: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_turn_u", 1.0f); break;
-            case 6: ui_draw_text(s, bx, by + 20, "TG", 35, COLOR_WHITE, BOLD); break;
-            case 8: ui_draw_text(s, bx, by + 20, "목적지", 35, COLOR_WHITE, BOLD); break;
+            case 6: ui_draw_text(s, bx, by + 20, "收费站", 35, COLOR_WHITE, BOLD); break;
+            case 8: ui_draw_text(s, bx, by + 20, "目的地", 35, COLOR_WHITE, BOLD); break;
             default:
-                sprintf(str, "감속:%d", xTurnInfo);
+                sprintf(str, "减速:%d", xTurnInfo);
                 ui_draw_text(s, bx, by + 20, str, 35, COLOR_WHITE, BOLD);
                 break;
             }
             if (s->scene.is_metric) {
-              if (xDistToTurn < 1000) sprintf(str, "%d m", xDistToTurn);
-              else  sprintf(str, "%.1f km", xDistToTurn / 1000.f);
+              if (xDistToTurn < 1000) sprintf(str, "%d 米", xDistToTurn);
+              else  sprintf(str, "%.1f 公里", xDistToTurn / 1000.f);
             }
             else {
-              if (xDistToTurn < 1609) sprintf(str, "%d ft", (int)(xDistToTurn * 3.28084));
-              else sprintf(str, "%.1f mi", xDistToTurn / 1609.344f);
+              if (xDistToTurn < 1609) sprintf(str, "%d 英尺", (int)(xDistToTurn * 3.28084));
+              else sprintf(str, "%.1f 英里", xDistToTurn / 1609.344f);
             }
             ui_draw_text(s, bx, by + 120, str, 40, COLOR_WHITE, BOLD);
         }
         nvgTextAlign(s->vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
         if (szSdiDescr.length() > 0) {
-            float bounds[4];  // [xmin, ymin, xmax, ymax]를 저장하는 배열
+            float bounds[4];  // 存储 [xmin, ymin, xmax, ymax] 的数组
             nvgFontSize(s->vg, 40);
             nvgTextBounds(s->vg, tbt_x + 200, tbt_y + 200, szSdiDescr.toStdString().c_str(), NULL, bounds);
             float text_width = bounds[2] - bounds[0];
@@ -3068,6 +3068,7 @@ public:
         memoryUsage = deviceState.getMemoryUsagePercent();
         const auto cpuTempC = deviceState.getCpuTempC();
         const auto cpuUsagePercent = deviceState.getCpuUsagePercent();
+        gpuUsage = deviceState.getGpuUsagePercent();
         cpuTemp = 0.0f;
         if (cpuTempC.size() > 0) {
             for (int i = 0; i < cpuTempC.size(); i++) {
@@ -3088,43 +3089,6 @@ public:
 
         auto peripheralState = sm["peripheralState"].getPeripheralState();
         voltage = peripheralState.getVoltage() / 1000.0;
-
-        // [优化] GPU 利用率限速读取：每200帧（约10秒@20fps）读一次
-        // popen(shell) 开销约1-5ms，每帧读会消耗20-100ms/s的CPU，必须限速
-        {
-            static int gpu_read_counter = 0;
-            static float cached_gpu_usage = 0.0f;
-            gpu_read_counter++;
-            if (gpu_read_counter >= 200) {
-                gpu_read_counter = 0;
-                float val = 0.0f;
-                // 方法1：Intel i915 - 直接读sysfs文件（无fork，无shell，极低开销）
-                FILE* f_cur = fopen("/sys/class/drm/card0/gt_cur_freq_mhz", "r");
-                FILE* f_max = fopen("/sys/class/drm/card0/gt_max_freq_mhz", "r");
-                if (f_cur && f_max) {
-                    int cur_mhz = 0, max_mhz = 1;
-                    if (fscanf(f_cur, "%d", &cur_mhz) == 1 && fscanf(f_max, "%d", &max_mhz) == 1 && max_mhz > 0)
-                        val = (float)cur_mhz * 100.0f / max_mhz;
-                }
-                if (f_cur) fclose(f_cur);
-                if (f_max) fclose(f_max);
-                // 方法2：NVIDIA SMI（仅在i915读不到时才用popen，且已限速）
-                if (val <= 0.0f) {
-                    FILE* f_nv = fopen("/proc/driver/nvidia/gpus", "r");
-                    if (f_nv) {
-                        fclose(f_nv);
-                        // 确认有NVIDIA驱动才执行popen，避免无意义的shell fork
-                        FILE* fp = popen("cat /proc/driver/nvidia/gpus/*/information 2>/dev/null | grep -i 'utilization' | head -1 | awk '{print $NF}' | tr -d '%'", "r");
-                        if (fp) {
-                            fscanf(fp, "%f", &val);
-                            pclose(fp);
-                        }
-                    }
-                }
-                cached_gpu_usage = (val >= 0.0f && val <= 100.0f) ? val : 0.0f;
-            }
-            gpuUsage = cached_gpu_usage;
-        }
     }
     void drawDeviceInfo(const UIState* s) {
 #ifdef WSL2
