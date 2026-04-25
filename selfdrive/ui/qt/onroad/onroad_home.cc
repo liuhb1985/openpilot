@@ -23,9 +23,9 @@ class OverlayDialog : public QWidget {
 
 public:
   explicit OverlayDialog(QWidget* parent = nullptr) : QWidget(parent) {
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint); // 다이얼로그처럼 동작
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint); // 像对话框一样运作
     setStyleSheet("background-color: rgba(0, 0, 0, 0.8); border-radius: 10px;");
-    resize(400, 300); // 기본 크기 설정
+    resize(400, 300); // 设置基本大小
   }
 
   void setContent(QWidget* content) {
@@ -254,7 +254,7 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
     }
     
     UIState* s = uiState();
-    s->scene._current_carrot_display = (s->scene._current_carrot_display % 3) + 1;  // 4번: full map은 안보여줌.
+    s->scene._current_carrot_display = (s->scene._current_carrot_display % 3) + 1;  // 选项4：全地图不显示
     //printf("_current_carrot_display1=%d\n", s->scene._current_carrot_display);  // [优化]
     QWidget::mousePressEvent(e);
   }
@@ -280,15 +280,15 @@ void OnroadWindow::offroadTransition(bool offroad) {
       mapDialog->setAttribute(Qt::WA_TranslucentBackground);
       mapDialog->setAttribute(Qt::WA_NoSystemBackground);
 
-      // MapPanel 추가
+      // 添加 MapPanel
       auto m = new MapPanel(get_mapbox_settings(), mapDialog);
       map = m;
       mapDialog->setContent(m);
 
-      // 특정 위치에 배치 (오른쪽 하단)
+      // 配置特定位置（右下角）
       mapDialog->setGeometry(topWidget(this)->width() - 790 - UI_BORDER_SIZE, UI_BORDER_SIZE + 15, 775, topWidget(this)->height() - 400);
 
-      //mapDialog->hide(); // 기본적으로 숨김 상태
+      //mapDialog->hide(); // 默认隐藏状态
       mapDialog->show();
       mapDialog->raise();
       uiState()->scene._current_carrot_display = 1;
@@ -310,11 +310,11 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 }
 
 
-// OnroadWindow.cpp에서 OpenGL 초기화 및 그리기 구현
+// 在 OnroadWindow.cpp 中实现 OpenGL 初始化与渲染
 void OnroadWindow::initializeGL() {
-    initializeOpenGLFunctions(); // QOpenGLFunctions 초기화
+    initializeOpenGLFunctions(); // QOpenGLFunctions 初始化
 
-    // Parent widget을 위한 NanoVG 컨텍스트 생성
+    // 为父控件创建 NanoVG 上下文
     //s->vg = nvgCreate(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
     //if (s->vg == nullptr) {
     //    printf("Could not init nanovg.\n");

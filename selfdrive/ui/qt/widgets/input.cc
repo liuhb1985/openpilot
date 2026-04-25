@@ -289,7 +289,7 @@ MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringLi
   int total_button = 0;
   int current_selected_button = 0;
   for (const QString &s : l) {
-    // 현재 선택된 버튼의 인덱스를 저장
+    // 保存当前选定按钮的索引
     if (s == current) current_selected_button = total_button;
 
     QPushButton *selectionLabel = new QPushButton(s);
@@ -314,9 +314,9 @@ MultiOptionDialog::MultiOptionDialog(const QString &prompt_text, const QStringLi
   ScrollView *scroll_view = new ScrollView(listWidget, this);
   scroll_view->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
-  // current_selected_button의 인덱스 widget을 가져온 뒤 스크롤 위치 조정
+  // 获取 current_selected_button 索引对应的 widget，然后调整滚动位置
   QWidget *target_btn = listLayout->itemAt(current_selected_button)->widget();
-  scroll_view->ensureWidgetVisible(target_btn, 0, -300);  // -300은 선택된 버튼으로 스크롤된 뒤 중앙에 오도록 조정한 것
+  scroll_view->ensureWidgetVisible(target_btn, 0, -300);  // -300 是将选中按钮滚动到中间位置的调整值
 
   main_layout->addWidget(scroll_view);
   main_layout->addSpacing(35);

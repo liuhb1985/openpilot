@@ -133,7 +133,7 @@ class LocationEstimator:
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
-      gyro_camodo_yawrate_err_threshold = YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1]
+      gyro_camodo_yawrate_err_threshold = max(0.05, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
       gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
 
       if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:

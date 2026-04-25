@@ -3,7 +3,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include <thread> //차선캘리
+#include <thread> //车道线校准
 
 #include <QDebug>
 #include <QProcess>
@@ -189,7 +189,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   reboot_btn->setObjectName("reboot_btn");
   power_layout->addWidget(reboot_btn);
   QObject::connect(reboot_btn, &QPushButton::clicked, this, &DevicePanel::reboot);
-  //차선캘리
+  //车道线校准
   QPushButton *reset_CalibBtn = new QPushButton(tr("ReCalibration"));
   reset_CalibBtn->setObjectName("reset_CalibBtn");
   power_layout->addWidget(reset_CalibBtn);
@@ -405,7 +405,7 @@ void DevicePanel::reboot() {
   }
 }
 
-//차선캘리
+//车道线校准
 void execAndReboot(const std::string& cmd) {
     system(cmd.c_str());
     Params().putBool("DoReboot", true);

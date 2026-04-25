@@ -32,7 +32,7 @@ def main() -> NoReturn:
         record = dat[1:].decode("utf-8", errors="replace")
       except Exception as e:
         print(f"decode error: {e}, skipping log")
-        print(f"Raw bytes (hex): {raw_bytes.hex()[:200]}...")  # 앞부분만 출력
+        print(f"Raw bytes (hex): {raw_bytes.hex()[:200]}...")  # 仅输出前半部分
         Params().put_bool("CarrotException", True)
         continue
 
