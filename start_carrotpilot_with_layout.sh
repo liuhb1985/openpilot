@@ -28,7 +28,7 @@ check_cameras_ready() {
         elapsed=$((elapsed + 2))
         echo "Searching... ($count/$expected)"
     done
-    
+
     local final_count=$(ls /dev/video* 2>/dev/null | wc -l)
     if [ $final_count -gt 0 ]; then
         export CAMERAS_EXIST=1
@@ -74,7 +74,7 @@ unset WIDE_CAM
 wait_for_device() {
     local dev=$1
     local name=$2
-    
+
     # 如果初始扫描完全没发现摄像头，或者设备路径未识别，则跳过长时间等待
     if [ "$CAMERAS_EXIST" = "0" ]; then
         echo "[SKIP] $name ($dev) skipped (no cameras detected in initial scan)"
@@ -108,7 +108,9 @@ export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 echo "Starting openpilot manager..."
 # 注意：使用 USE_WEBCAM=1 以启动 python 版 camerad.py，兼容性更好
 # WIDE_CAM 未设置，webcamerad 只打开长焦摄像头（ROAD_CAM），广角由 cam_blindspot 独立管理
-SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+#SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+
 MANAGER_PID=$!
 
 # 等待监控任务完成
