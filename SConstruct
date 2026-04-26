@@ -345,10 +345,13 @@ Import('socketmaster', 'msgq')
 messaging = [socketmaster, msgq, 'capnp', 'kj',]
 Export('messaging')
 
+# Build other submodules
+
 
 # Build other submodules
 SConscript(['panda/SConscript'])
 SConscript(['camera/SConscript'])
+SConscript(['tools/webcam/SConscript'])
 
 # Build rednose library
 SConscript(['rednose/SConscript'])
@@ -362,6 +365,7 @@ SConscript([
 ])
 if arch != "Darwin":
   SConscript([
+    'system/sensord/SConscript',
     'system/logcatd/SConscript',
   ])
 
