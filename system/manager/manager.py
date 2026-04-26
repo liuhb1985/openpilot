@@ -144,6 +144,7 @@ def get_default_params():
     ("PathOffset", "0"),  # 路径侧向偏移调整
     ("UseLaneLineCurveSpeed", "0"),  # 弯道中根据车道线预测降速
     ("AdjustLaneOffset", "0"),  # 周期性调整车道位置
+    ("AdjustCurveOffset", "0"),  # 弯道偏移调整
     ("LaneChangeNeedTorque", "0"),  # 换道是否需要手动介入扭矩触发
     ("LaneChangeDelay", "0"),  # 自动换道前的延迟确认时间
     ("LaneChangeBsd", "1"),  # 变道盲区监测开关
