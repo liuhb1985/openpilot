@@ -41,18 +41,18 @@ check_cameras_ready
 # -----------------------------------------------------------------------------
 # 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
 # -----------------------------------------------------------------------------
-# 1. 长焦摄像头 (Long-focus, 默认 index 2)
-# 使用通配符匹配，解决 usb-0 vs usbv2-0 或微小路径变动
-ROAD_PATH=$(ls /dev/v4l/by-path/*usb*-0:2.3:1.0-video-index0 2>/dev/null | head -n 1)
+# 1. 长焦摄像头 (Road Cam)
+# 自动检测首个非 metadata 的 video-index0 设备
+ROAD_PATH=$(ls /dev/v4l/by-path/*video-index0 2>/dev/null | grep -v "metadata" | head -n 1)
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
     export ROAD_CAM=$(basename "$ROAD_PATH")
-    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+    echo "[INFO] Identified Road Cam at $ROAD_PATH (Index: $ROAD_CAM_IDX)"
 else
-    export ROAD_CAM=2
-    export ROAD_CAM_IDX=2
-    echo "[WARN] Road Cam path not found, falling back to default index 2"
+    export ROAD_CAM=0
+    export ROAD_CAM_IDX=0
+    echo "[WARN] Road Cam not found via path, falling back to /dev/video0"
 fi
 
 # 2. 广角摄像头 (Wide-angle / BSM, 默认 index 0)
