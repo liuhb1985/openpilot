@@ -9,7 +9,7 @@ from openpilot.common.params import Params
 
 TRAJECTORY_SIZE = 33
 # positive numbers go right
-CAMERA_OFFSET = 0 #0.08
+CAMERA_OFFSET = 0.04 # 修正摄像头物理安装偏右导致的车辆偏右行驶
 MIN_LANE_DISTANCE = 2.6
 MAX_LANE_DISTANCE = 3.7
 MAX_LANE_CENTERING_AWAY = 1.85

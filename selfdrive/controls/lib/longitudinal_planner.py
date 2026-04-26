@@ -167,7 +167,7 @@ class LongitudinalPlanner:
       accel_limits = [A_CRUISE_MIN, carrot.get_carrot_accel(v_ego)]
       steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
       #accel_limits_turns = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_limits, self.CP)
-      a_lat_max = 4.0
+      a_lat_max = 3.2
       accel_limits_turns = limit_accel_in_turns(v_ego, sm['controlsState'].desiredCurvature, accel_limits, a_lat_max)
     else:
       accel_limits = [ACCEL_MIN, ACCEL_MAX]
@@ -179,7 +179,8 @@ class LongitudinalPlanner:
       self.a_desired = np.clip(sm['carState'].aEgo, accel_limits[0], accel_limits[1])
       
       self.mpc.prev_a = np.full(N+1, self.a_desired) ## carrot
-      accel_limits_turns[0] = accel_limits_turns[0] = 0.0 ## carrot
+      accel_limits_turns[0] = 0.0 ## carrot
+      accel_limits_turns[1] = 0.0
 
     # Prevent divergence, smooth in current v_ego
     self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
