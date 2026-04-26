@@ -148,7 +148,7 @@ int camera::open_camera(const char* device) {
     m_fd = open(device, O_RDWR);
 
     if (m_fd == -1) {
-        std::cerr << "Failed to open device: " << device << std::endl;
+        std::cerr << "Failed to open device: " << device << " (errno=" << errno << ": " << strerror(errno) << ")" << std::endl;
         return -1;
     }
 
@@ -165,11 +165,11 @@ bool camera::set_camera_format(int fd, int width, int height, uint32_t pixel_for
     format.fmt.pix.field = V4L2_FIELD_ANY;
 
     if (ioctl(fd, VIDIOC_S_FMT, &format) == -1) {
-        std::cerr << "Failed to set format" << std::endl;
+        std::cerr << "Failed to set format to " << width << "x" << height << " MJPEG (errno=" << errno << ": " << strerror(errno) << ")" << std::endl;
         return false;
     }
     if (format.fmt.pix.pixelformat != pixel_format) {
-        std::cerr << "The camera does not support the requested format." << std::endl;
+        std::cerr << "The camera does not support the requested format (MJPEG)." << std::endl;
         return false;
     }
     return true;
@@ -702,7 +702,10 @@ bool camera::init_cam() {
 }
 
 bool camera::run() {
-    init_cam();
+    if (!init_cam()) {
+        std::cerr << "Camera initialization failed for " << m_device << ". Aborting runner." << std::endl;
+        return false;
+    }
 
     // reading_loop
     std::vector<std::thread> threads;

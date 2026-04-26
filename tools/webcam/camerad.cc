@@ -31,6 +31,28 @@ int is_video_device(const char *name) {
     return strncmp(name, "video", 5) == 0;
 }
 
+static std::string resolve_camera_path(const char* cam_id) {
+  if (!cam_id || strlen(cam_id) == 0) return "";
+  std::string id = cam_id;
+
+  // 如果已经是绝对路径，直接返回
+  if (id[0] == '/') return id;
+  
+  // 如果是 pci- 开头的总线路径
+  if (id.find("pci-") == 0) {
+    return "/dev/v4l/by-path/" + id;
+  }
+
+  // 如果设置了 USE_CAMPATH
+  const char* use_campath = getenv("USE_CAMPATH");
+  if (use_campath && strlen(use_campath) > 0) {
+    return "/dev/v4l/by-path/" + id;
+  }
+
+  // 默认视为数字索引
+  return "/dev/video" + id;
+}
+
 // 获取视频设备信息
 const char * query_device(const char *device_path, char *result) {
     int fd = open(device_path, O_RDWR | O_NONBLOCK);
@@ -126,32 +148,22 @@ void camerad::run() {
   int width = cam_width_env ? atoi(cam_width_env) : CAM_WIDTH;
   int height = cam_height_env ? atoi(cam_height_env) : CAM_HEIGHT;
 
-  char device_path0[512] = {0};
-  char device_path1[512] = {0};
+  std::string device_path0 = resolve_camera_path(road_cam);
+  if (device_path0.empty()) device_path0 = "/dev/video0";
 
-  if (road_cam) {
-    snprintf(device_path0, sizeof(device_path0), "/dev/video%s", road_cam);
-  } else {
-    strcpy(device_path0, "/dev/video0");
-  }
-
-  if (wide_cam) {
-    snprintf(device_path1, sizeof(device_path1), "/dev/video%s", wide_cam);
-  } else {
-    strcpy(device_path1, "/dev/video2");
-  }
+  std::string device_path1 = resolve_camera_path(wide_cam);
 
 #ifdef USE_ROADCAMERASTATE
   const char* videos_path = getenv("PATH_VIDEOS");
   std::string output_prefix = videos_path ? videos_path : PATH_VIDEOS;
-  camera *cam_road = new camera(device_path0, "roadCameraState", width, height, CAM_FPS, output_prefix);
+  camera *cam_road = new camera(device_path0.c_str(), "roadCameraState", width, height, CAM_FPS, output_prefix);
   m_cameras.push_back(cam_road);
 #endif
 
 #ifdef USE_WIDEROADCAMERASTATE
-  // 只有在明确指定了 WIDE_CAM 环境变量时才启用广角相机，避免没有第二个摄像头时的 ENOTTY 错误
-  if (wide_cam) {
-    camera *cam_wide = new camera(device_path1, "wideRoadCameraState", width, height, CAM_FPS, ""); // Disable saving by default on PC
+  // 只有在明确指定了 WIDE_CAM 环境变量时才启用广角相机，避免冲突和 ENOTTY 错误
+  if (wide_cam && !device_path1.empty()) {
+    camera *cam_wide = new camera(device_path1.c_str(), "wideRoadCameraState", width, height, CAM_FPS, ""); // Disable saving by default on PC
     m_cameras.push_back(cam_wide);
   }
 #endif

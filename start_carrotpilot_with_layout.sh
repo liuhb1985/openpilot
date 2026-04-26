@@ -106,10 +106,10 @@ export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 
 # 在后台启动 manager
 echo "Starting openpilot manager..."
-# 注意：使用 USE_WEBCAM=1 以启动 python 版 camerad.py，兼容性更好
-# WIDE_CAM 未设置，webcamerad 只打开长焦摄像头（ROAD_CAM），广角由 cam_blindspot 独立管理
-#SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
-SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+# 使用 USE_USBCAM=1 启动高效的 C++ 版 camerad (usbcamerad)
+# 我们已经在 C++ 代码中修复了路径解析逻辑，现在它能正确处理 $ROAD_CAM (pci-... 字符串)
+# 设置 CAM_WIDTH/HEIGHT 以确保以 1080p 模式启动
+CAM_WIDTH=1920 CAM_HEIGHT=1080 SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 
 MANAGER_PID=$!
 
