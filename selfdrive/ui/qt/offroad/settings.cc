@@ -732,6 +732,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("UseLaneLineSpeed", tr("车道线模式速度(0)"), tr("车道线模式下使用横向控制"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("UseLaneLineCurveSpeed", tr("车道线模式弯道速度(0)"), tr("车道线模式，仅限高速"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("AdjustLaneOffset", tr("调整车道偏移(0)cm"), tr("调整车道居中偏移量"), 0, 500, 5));
+  latLongToggles->addItem(new CValueControl("AdjustCurveOffset", tr("调整弯道偏移(0)cm"), tr("调整弯道时的路径偏移量"), 0, 500, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", tr("变道需要扭矩"), tr("-1:禁用变道, 0: 不需要扭矩, 1:需要扭矩"), -1, 1, 1));
   latLongToggles->addItem(new CValueControl("LaneChangeDelay", tr("变道延迟"), tr("变道延迟时间(x0.1秒)"), 0, 100, 5));
   latLongToggles->addItem(new CValueControl("LaneChangeBsd", tr("变道盲区检测"), tr("-1:忽略BSD, 0:BSD检测, 1: 阻止转向扭矩"), -1, 1, 1));

@@ -254,6 +254,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"UseLaneLineSpeed", PERSISTENT},
     {"UseLaneLineCurveSpeed", PERSISTENT},
     {"AdjustLaneOffset", PERSISTENT},
+    {"AdjustCurveOffset", PERSISTENT},
     {"LaneChangeNeedTorque", PERSISTENT},
     {"LaneChangeDelay", PERSISTENT },
     {"LaneChangeBsd", PERSISTENT},
