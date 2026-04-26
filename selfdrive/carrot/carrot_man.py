@@ -7,6 +7,7 @@ import struct
 import subprocess
 import threading
 import time
+import traceback
 import numpy as np
 import zmq
 from datetime import datetime
@@ -343,6 +344,13 @@ class CarrotMan:
                 self.navi_points = []
                 self.navi_points_active = False
 
+          except OSError as e:
+            if e.errno != 101:  # Silence Network is unreachable spam on PC
+              if self.connection:
+                self.connection.close()
+              self.connection = None
+              print(f"##### broadcast_error...: {e}")
+              traceback.print_exc()
           except Exception as e:
             if self.connection:
               self.connection.close()
