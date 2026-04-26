@@ -1,6 +1,6 @@
-Import('env', 'arch', 'messaging', 'common', 'gpucommon', 'visionipc')
+Import('env', 'arch', 'messaging', 'common', 'visionipc')
 
-libs = [common, 'OpenCL', messaging, visionipc, gpucommon, "turbojpeg", "avformat", "avcodec", "avutil", "swscale"]
+libs = [common, 'OpenCL', messaging, visionipc, "turbojpeg", "avformat", "avcodec", "avutil", "swscale"]
 #sudo apt install -y libturbojpeg0-dev
 
 if arch == "x86_64":
