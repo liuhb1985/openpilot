@@ -176,7 +176,7 @@ class LatControlTorque(LatControl):
         self.pid._k_i = [[0], [lateralTorqueKi]]
         self.pid.k_f = lateralTorqueKf
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-      elif self.lateralTorqueCustom > 0:  # 从 ON 到 OFF
+      else:
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
@@ -184,14 +184,8 @@ class LatControlTorque(LatControl):
         self.pid._k_i = [[0], [self.ki_default]]
         self.pid.k_f = self.kf_default
 
-      # 始终更新 Kd 和滤波器
+      # 始终更新 Kd
       self.pid._k_d = [[0], [self.lat_kd_v]]
-      if self.lat_error_filter_t > 0:
-        self.error_filter.k = 0.01 / (0.01 + self.lat_error_filter_t)
-      else:
-        self.error_filter.k = 1.0
-
-      self.lateralTorqueCustom = lateralTorqueCustom
 
     pid_log = log.ControlsState.LateralTorqueState.new_message()
     nn_log = None
