@@ -607,8 +607,8 @@ class DesireHelper:
 
         # LaneChangeState.laneChangeStarting
         elif self.lane_change_state == LaneChangeState.laneChangeStarting:
-          # 원래 차선라인을 0.5초 동안 서서히 fade-out
-          self.lane_change_ll_prob = max(self.lane_change_ll_prob - 2 * DT_MDL, 0.0)
+          # 원래 차선라인을 1.0초 동안 서서히 fade-out (기존 0.5초에서 연장)
+          self.lane_change_ll_prob = max(self.lane_change_ll_prob - 1 * DT_MDL, 0.0)
           if lane_change_prob < 0.02 and self.lane_change_ll_prob < 0.01:
             self.lane_change_state = LaneChangeState.laneChangeFinishing
 

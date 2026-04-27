@@ -165,8 +165,8 @@ def get_default_params():
     ("CustomSteerMax", "0"),  # 自定义最大转向扭矩上限
     ("CustomSteerDeltaUp", "0"),  # 自定义最大增扭速率
     ("CustomSteerDeltaDown", "0"),  # 自定义最大减扭速率
-    ("CustomSteerDeltaUpLC", "0"),  # 变道时自定义最大增扭速率
-    ("CustomSteerDeltaDownLC", "0"),  # 变道时自定义最大减扭速率
+    ("CustomSteerDeltaUpLC", "3"),  # 变道时自定义最大增扭速率
+    ("CustomSteerDeltaDownLC", "5"),  # 变道时自定义最大减扭速率
     ("SpeedFromPCM", "2"),  # 巡航速度来源 (1: 车辆仪表, 2: openpilot)
     ("SteerActuatorDelay", "25"),  # 转向执行延迟补偿时间
     ("LatSmoothSec", "18"),  # 横向平滑处理时长系数
