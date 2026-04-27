@@ -61,7 +61,7 @@ def calculate_lane_width_frog(lane, current_lane, road_edge):
 
 
 def calculate_lane_width(lane, lane_prob, current_lane, road_edge):
-  # t ≈ 1초 앞 기준으로 차선/도로 가장자리까지의 거리 계산
+  # 以 t ≈ 1秒前为基准计算到车道/道路边缘的距离
   t = 1.0
   current_lane_y = np.interp(t, ModelConstants.T_IDXS, current_lane.y)
   lane_y = np.interp(t, ModelConstants.T_IDXS, lane.y)
@@ -77,15 +77,15 @@ def calculate_lane_width(lane, lane_prob, current_lane, road_edge):
 
 class ExistCounter:
   """
-  존재 여부가 노이즈처럼 튀는 신호를 히스테리시스로 안정화해 주는 카운터.
-  - true가 일정 시간 이상 지속되면 counter를 양수로 증가
-  - false가 일정 시간 이상 지속되면 counter를 음수로 감소
+  使用滞后逻辑稳定由于噪声导致的信号波动计数器。
+  - 如果 true 持续一定时间以上，则增加 counter（正数）
+  - 如果 false 持续一定时间以上，则减少 counter（负数）
   """
   def __init__(self):
     self.counter = 0
     self.true_count = 0
     self.false_count = 0
-    self.threshold = int(0.2 / DT_MDL)  # 약 0.2초 이상 지속 시 유효로 판단
+    self.threshold = int(0.2 / DT_MDL)  # 持续约 0.2 秒以上判定为有效
 
   def update(self, exist_flag: bool):
     if exist_flag:
@@ -106,7 +106,7 @@ class DesireHelper:
     self.params = Params()
     self.frame = 0
 
-    # Lane change / turn 상태
+    # 车道变更 / 转向状态
     self.lane_change_state = LaneChangeState.off
     self.lane_change_direction = LaneChangeDirection.none
     self.lane_change_timer = 0.0
@@ -114,15 +114,15 @@ class DesireHelper:
     self.lane_change_delay = 0.0
     self.maneuver_type = "none"  # "none" / "turn" / "lane_change"
 
-    # Desire / turn 관련
+    # Desire / 转向相关
     self.desire = log.Desire.none
     self.turn_direction = TurnDirection.none
     self.enable_turn_desires = True
     self.turn_desire_state = False
-    self.desire_disable_count = 0   # turn 후 일정 시간 동안 차선변경 금지
-    self.turn_disable_count = 0     # steeringAngle 매우 클 때 turn 금지
+    self.desire_disable_count = 0   # 转向后一定时间内禁止变道
+    self.turn_disable_count = 0     # steeringAngle 非常大时禁止转向
 
-    # Lane / road edge 상태
+    # 车道 / 道路边缘状态
     self.lane_width_left = 0.0
     self.lane_width_right = 0.0
     self.lane_width_left_diff = 0.0
@@ -153,41 +153,41 @@ class DesireHelper:
     self.lane_appeared = False
     self.lane_line_info = 0
 
-    # Blinkers / ATC
+    # 转向灯 / ATC
     self.blinker_ignore = False
     self.driver_blinker_state = BLINKER_NONE
     self.carrot_blinker_state = BLINKER_NONE
     self.carrot_lane_change_count = 0
     self.carrot_cmd_index_last = 0
     self.atc_type = ""
-    self.atc_active = 0  # 0: 없음, 1: ATC 동작 중, 2: 운전자와 ATC 상충
+    self.atc_active = 0  # 0: 无, 1: ATC 运行中, 2: 驾驶员与 ATC 冲突
 
-    # Auto lane change 관련
+    # 自动变道相关
     self.auto_lane_change_enable = False
     self.next_lane_change = False
     self.blindspot_detected_counter = 0
 
-    # Keep pulse
+    # 保持脉冲
     self.keep_pulse_timer = 0.0
 
-    # 파라미터
+    # 参数
     self.laneChangeNeedTorque = 0
     self.laneChangeBsd = 0
     self.laneChangeDelay = 0.0
     self.modelTurnSpeedFactor = 0.0
     self.model_turn_speed = 0.0
 
-    # 기타
+    # 其他
     self.prev_desire_enabled = False
     self.desireLog = ""
     self.object_detected_count = 0
 
-    # ★ 현재 차선 확률 (Ego 기준 좌/우)
+    # ★ 当前车道概率 (以 Ego 为基准 左/右)
     self.cur_left_prob = 1.0   # laneLineProbs[1]
     self.cur_right_prob = 1.0  # laneLineProbs[2]
     self.current_lane_missing = False
   # ─────────────────────────────────────────────
-  #  Config / Model 관련
+  #  配置 / 模型相关
   # ─────────────────────────────────────────────
 
   def _update_params_periodic(self):
@@ -207,25 +207,25 @@ class DesireHelper:
       self.model_turn_speed = 200.0
 
   # ─────────────────────────────────────────────
-  #  Lane / Edge 상태 계산
+  #  车道 / 边缘状态计算
   # ─────────────────────────────────────────────
 
   def _check_lane_state(self, modeldata):
-    # 왼쪽: laneLines[0] vs 현재차선 laneLines[1], roadEdges[0]
+    # 左侧: laneLines[0] vs 当前车道 laneLines[1], roadEdges[0]
     lane_width_left, self.distance_to_road_edge_left, self.distance_to_road_edge_left_far, lane_prob_left = \
       calculate_lane_width(modeldata.laneLines[0], modeldata.laneLineProbs[0],
                            modeldata.laneLines[1], modeldata.roadEdges[0])
 
-    # 오른쪽: laneLines[3] vs 현재차선 laneLines[2], roadEdges[1]
+    # 右侧: laneLines[3] vs 当前车道 laneLines[2], roadEdges[1]
     lane_width_right, self.distance_to_road_edge_right, self.distance_to_road_edge_right_far, lane_prob_right = \
       calculate_lane_width(modeldata.laneLines[3], modeldata.laneLineProbs[3],
                            modeldata.laneLines[2], modeldata.roadEdges[1])
 
-    # 차선 존재 카운터 업데이트
+    # 更新车道存在计数器
     self.lane_exist_left_count.update(lane_prob_left)
     self.lane_exist_right_count.update(lane_prob_right)
 
-    # 1초 이동 평균 (노이즈 줄이기)
+    # 1秒移动平均 (减少噪声)
     self.lane_width_left_queue.append(lane_width_left)
     self.lane_width_right_queue.append(lane_width_right)
 
@@ -235,7 +235,7 @@ class DesireHelper:
     self.lane_width_left_diff = self.lane_width_left_queue[-1] - self.lane_width_left_queue[0]
     self.lane_width_right_diff = self.lane_width_right_queue[-1] - self.lane_width_right_queue[0]
 
-    # 유효 차선/엣지 판단
+    # 有效车道/边缘判定
     min_lane_width = 2.5
     self.lane_width_left_count.update(self.lane_width_left > min_lane_width)
     self.lane_width_right_count.update(self.lane_width_right > min_lane_width)
@@ -252,12 +252,12 @@ class DesireHelper:
     self.cur_right_prob = modeldata.laneLineProbs[2]
 
   # ─────────────────────────────────────────────
-  #  모델 내 desire 상태 (turn 예측 등)
+  #  模型内 desire 状态 (转向预测等)
   # ─────────────────────────────────────────────
 
   def _check_desire_state(self, modeldata, carstate, maneuver_type):
     desire_state = modeldata.meta.desireState
-    # turnLeft + turnRight 확률
+    # turnLeft + turnRight 概率
     self.turn_desire_state = (desire_state[1] + desire_state[2]) > 0.1
 
     #if self.turn_desire_state:
@@ -265,14 +265,14 @@ class DesireHelper:
     #else:
     #  self.desire_disable_count = max(0, self.desire_disable_count - 1)
 
-    # steeringAngle 너무 크면 turn 자체를 일정 시간 막기
+    # 如果 steeringAngle 太大，暂时阻止转向
     if abs(carstate.steeringAngleDeg) > 80:
       self.turn_disable_count = int(10.0 / DT_MDL)
     else:
       self.turn_disable_count = max(0, self.turn_disable_count - 1)
 
   # ─────────────────────────────────────────────
-  #  Blinkers / ATC 상태 업데이트
+  #  转向灯 / ATC 状态更新
   # ─────────────────────────────────────────────
 
   def _update_driver_blinker(self, carstate):
@@ -282,19 +282,19 @@ class DesireHelper:
 
     driver_desire_enabled = driver_blinker_state in [BLINKER_LEFT, BLINKER_RIGHT]
     if self.laneChangeNeedTorque < 0:
-      # 운전자 깜빡이를 무시하고 차선변경 안 하는 설정
+      # 忽略驾驶员转向灯且不进行变道的设置
       driver_desire_enabled = False
 
     return driver_blinker_state, driver_blinker_changed, driver_desire_enabled
 
   def _update_atc_blinker(self, carrotMan, v_ego, driver_blinker_state):
     """
-    ATC에서 온 turn/lanechange 명령 기반 깜빡이 상태 갱신.
+    基于 ATC 传来的转向/变道命令更新转向灯状态。
     """
     atc_type = carrotMan.atcType
     atc_blinker_state = BLINKER_NONE
 
-    # ATC 기반 자동 차선변경 유지 시간
+    # 基于 ATC 的自动变道保持时间
     if self.carrot_lane_change_count > 0:
       atc_blinker_state = self.carrot_blinker_state
     elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and carrotMan.carrotCmd == "LANECHANGE":
@@ -303,27 +303,27 @@ class DesireHelper:
       self.carrot_blinker_state = BLINKER_LEFT if carrotMan.carrotArg == "LEFT" else BLINKER_RIGHT
       atc_blinker_state = self.carrot_blinker_state
     elif atc_type in ["turn left", "turn right"]:
-      # 네비 turn 안내: 속도 조건을 턴 쪽으로 강제
+      # 导航转向引导：强制转向侧的速度条件
       if self.atc_active != 2:
         atc_blinker_state = BLINKER_LEFT if atc_type == "turn left" else BLINKER_RIGHT
         self.atc_active = 1
         self.blinker_ignore = False
     elif atc_type in ["fork left", "fork right", "atc left", "atc right"]:
-      # 분기(lanechange에 가까움)
+      # 分支 (更接近变道)
       if self.atc_active != 2:
         atc_blinker_state = BLINKER_LEFT if atc_type in ["fork left", "atc left"] else BLINKER_RIGHT
         self.atc_active = 1
     else:
       self.atc_active = 0
 
-    # 운전자 깜빡이와 ATC 깜빡이가 충돌할 경우 ATC 무효화
+    # 如果驾驶员转向灯与 ATC 转向灯冲突，则 ATC 无效
     if driver_blinker_state != BLINKER_NONE and atc_blinker_state != BLINKER_NONE and driver_blinker_state != atc_blinker_state:
       atc_blinker_state = BLINKER_NONE
       self.atc_active = 2
 
     atc_desire_enabled = atc_blinker_state in [BLINKER_LEFT, BLINKER_RIGHT]
 
-    # blinker_ignore일 때는 깜빡이 신호를 잠시 무시
+    # blinker_ignore 时暂时忽略转向灯信号
     if driver_blinker_state == BLINKER_NONE:
       self.blinker_ignore = False
     if self.blinker_ignore:
@@ -331,7 +331,7 @@ class DesireHelper:
       atc_blinker_state = BLINKER_NONE
       atc_desire_enabled = False
 
-    # ATC 타입이 바뀌었으면 이번 프레임은 무시 (안정화 목적)
+    # 如果 ATC 类型发生变化，忽略当前帧 (为了稳定)
     if self.atc_type != atc_type:
       atc_desire_enabled = False
     self.atc_type = atc_type
@@ -339,13 +339,13 @@ class DesireHelper:
     return atc_blinker_state, atc_desire_enabled
 
   # ─────────────────────────────────────────────
-  #  Turn / LaneChange 모드 분류
+  #  转向 / 变道模式分类
   # ─────────────────────────────────────────────
 
   def _classify_maneuver_type(self, blinker_state, carstate, old_type):
     """
-    깜빡이가 들어왔을 때 이번 조작이 turn인지 lane_change인지 분류.
-    - 너무 복잡하게 가지 않고, 현재 속도/감속/차선상태/모델 turn 상태 기준으로 점수화.
+    当转向灯开启时，对当前操作是转向还是变道进行分类。
+    - 结合当前速度/减速/车道状态/模型转向状态进行评分。
     """
     if blinker_state == BLINKER_NONE:
       return "none"
@@ -353,7 +353,7 @@ class DesireHelper:
     v_kph = carstate.vEgo * CV.MS_TO_KPH
     accel = carstate.aEgo
 
-    # 깜빡이 방향에 따라 참조할 lane/edge 선택
+    # 根据转向灯方向选择要参考的车道/边缘
     if blinker_state == BLINKER_LEFT:
       lane_exist_counter = self.lane_exist_left_count.counter
       lane_available = self.available_left_lane
@@ -374,36 +374,36 @@ class DesireHelper:
     elif v_kph < 40.0 and accel < -1.0:
       score_turn += 1
 
-    # 차로가 없고, 로드에지도 여유없고..
+    # 没有车道，道路边缘也比较局促
     if v_kph < 40.0 and not lane_available and not edge_available:
       score_turn += 1
 
-    # 차선이 잘 안 보이거나(교차로/삼거리 등)
+    # 车道不清晰 (路口/三岔路口等)
     if v_kph < 40.0 and lane_exist_counter < int(0.5 / DT_MDL):
       score_turn += 1
 
-    # steeringAngle이 크면 턴에 가깝다고 본다
+    # steeringAngle 较大则认为更接近转向
     #if abs(carstate.steeringAngleDeg) > 45.0:
     #  score_turn += 1
 
-    # 모델이 이미 turn을 예측 중이면 가중치
+    # 如果模型已经在预测转向，则加权
     if self.turn_desire_state:
       score_turn += 1
 
-    # ATC가 turn 안내 중이면 가중치
+    # 如果 ATC 正在引导转向，则加权
     if self.atc_type in ["turn left", "turn right"]:
       score_turn += 2
     elif self.atc_type in ["fork left", "fork right", "atc left", "atc right"]:
-      score_turn -= 2  # fork/atc는 lanechange 쪽에 더 가깝게
+      score_turn -= 2  # fork/atc 更倾向于变道
 
-    # ★ road edge가 충분히 멀면(교차로/넓은 공간으로 판단) 턴 쪽으로 가산점
-    edge_far = edge_dist > 4.0  # 튜닝 포인트 (4~6m 정도가 무난)
+    # ★ 如果道路边缘足够远 (判定为路口/开阔空间)，给转向加分
+    edge_far = edge_dist > 4.0  # 调优参数 (4~6m 比较合适)
     #if edge_far:
     #  score_turn += 1
       
     current_lane_missing = lane_prob_side < 0.3
     self.current_lane_missing = current_lane_missing
-    # 튜닝 포인트: score_turn 임계값
+    # 调优参数：转向评分阈值
     if score_turn >= 2:
       #if current_lane_missing and edge_far:
       if edge_far:
@@ -414,7 +414,7 @@ class DesireHelper:
       return "lane_change"
 
   # ─────────────────────────────────────────────
-  #  메인 업데이트 루틴
+  #  主更新例程
   # ─────────────────────────────────────────────
 
   def update(self, carstate, modeldata, lateral_active, lane_change_prob, carrotMan, radarState):
@@ -422,7 +422,7 @@ class DesireHelper:
     self._update_params_periodic()
     self._make_model_turn_speed(modeldata)
 
-    # 카운터 감소
+    # 计数器递减
     self.carrot_lane_change_count = max(0, self.carrot_lane_change_count - 1)
     self.lane_change_delay = max(0.0, self.lane_change_delay - DT_MDL)
     self.blindspot_detected_counter = max(0, self.blindspot_detected_counter - 1)
@@ -430,28 +430,28 @@ class DesireHelper:
     v_ego = carstate.vEgo
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
 
-    # Lane / desire 상태 갱신
+    # 车道 / desire 状态更新
     self._check_lane_state(modeldata)
     self._check_desire_state(modeldata, carstate, self.maneuver_type)
 
-    # 운전자 깜빡이
+    # 驾驶员转向灯
     driver_blinker_state, driver_blinker_changed, driver_desire_enabled = self._update_driver_blinker(carstate)
 
-    # BSD 설정
+    # BSD 设置
     ignore_bsd = (self.laneChangeBsd < 0)
     block_lanechange_bsd = (self.laneChangeBsd == 1)
 
-    # ATC 깜빡이
+    # ATC 转向灯
     atc_blinker_state, atc_desire_enabled = self._update_atc_blinker(carrotMan, v_ego, driver_blinker_state)
 
-    # 최종 깜빡이/Desire enabled 판단
+    # 最终转向灯 / Desire enabled 判定
     desire_enabled = driver_desire_enabled or atc_desire_enabled
     blinker_state = driver_blinker_state if driver_desire_enabled else atc_blinker_state
 
-    # lane_line_info (HUD용 등)
+    # lane_line_info (用于 HUD 等)
     lane_line_info = carstate.leftLaneLine if blinker_state == BLINKER_LEFT else carstate.rightLaneLine
 
-    # BSD / 주변 차량 감지
+    # BSD / 周边车辆感应
     if desire_enabled:
       lane_exist_counter = self.lane_exist_left_count.counter if blinker_state == BLINKER_LEFT else self.lane_exist_right_count.counter
       lane_available = self.available_left_lane if blinker_state == BLINKER_LEFT else self.available_right_lane
@@ -478,10 +478,10 @@ class DesireHelper:
       lane_line_info_edge_detect = False
       self.lane_line_info = lane_line_info % 10
 
-    # 차선/엣지 기반 lane change 가능 여부
-    lane_change_available = (lane_available or edge_available) and lane_line_info < 20  # 20 미만이면 흰색 라인
+    # 基于车道/边缘的变道可能判定
+    lane_change_available = (lane_available or edge_available) and lane_line_info < 20  # 小于 20 为白色线
 
-    # lane_available 변화 & 폭 변화로 lane_available_trigger 계산
+    # 根据 lane_available 变化 & 宽度变化计算 lane_available_trigger
     self.lane_available_trigger = False
     if blinker_state == BLINKER_LEFT:
       lane_width_diff = self.lane_width_left_diff
@@ -499,7 +499,7 @@ class DesireHelper:
     side_object_detected = self.object_detected_count > -0.3 / DT_MDL
     self.lane_appeared = self.lane_appeared and distance_to_road_edge < 4.0
 
-    # Auto lane change 트리거
+    # 自动变道触发
     if self.carrot_lane_change_count > 0:
       auto_lane_change_blocked = False
       auto_lane_change_trigger = lane_change_available
@@ -509,16 +509,16 @@ class DesireHelper:
       auto_lane_change_trigger = self.auto_lane_change_enable and edge_available and (self.lane_available_trigger or self.lane_appeared) and not side_object_detected
       self.desireLog = f"L:{self.auto_lane_change_enable},{auto_lane_change_blocked},E:{lane_available},{edge_available},A:{self.lane_available_trigger},{self.lane_appeared},{lane_width_diff:.1f},{lane_width_side:.1f},{distance_to_road_edge:.1f}={auto_lane_change_trigger}"
 
-    # 메인 상태머신
+    # 主状态机
 
-    # 0) lateral 끊기거나 너무 오래 지속되면 리셋
+    # 0) lateral 断开或持续时间过长则重置
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
       self.turn_direction = TurnDirection.none
       self.maneuver_type = "none"
 
-    # 1) turn 후 일정시간 동안은 아무 것도 하지 않음
+    # 1) 转向后一定时间内不执行任何操作
     elif self.desire_disable_count > 0:
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
@@ -526,22 +526,22 @@ class DesireHelper:
       self.maneuver_type = "none"
 
     else:
-      # 깜빡이 켜져 있을 때, 이번 조작이 turn인지 lane_change인지 먼저 분류
+      # 转向灯开启时，先分类当前操作是转向还是变道
       if desire_enabled:
         new_type = self._classify_maneuver_type(blinker_state, carstate, self.maneuver_type)
       else:
         new_type = "none"
 
-      # ★ 1) 원래 lane_change였는데 새로 보니 turn 조건 + 차선 없음이면 → 강제 전환 허용
+      # ★ 1) 原本是变道，但新判定符合转向条件 + 车道缺失 → 允许强制切换
       if self.maneuver_type == "lane_change" and new_type == "turn" and self.lane_change_state not in [LaneChangeState.preLaneChange, LaneChangeState.laneChangeStarting]:
-        # 차선변경 도중에도 조건 만족 시 턴으로 스위칭
+        # 变道过程中如果满足条件也可切换到转向
         self.maneuver_type = "turn"
-        self.lane_change_state = LaneChangeState.off  # FSM 리셋 후 turn 루트로
-      # ★ 2) 그 외에는 off/pre 상태에서만 모드 변경
+        self.lane_change_state = LaneChangeState.off  # 重置 FSM 后进入转向路径
+      # ★ 2) 其他情况仅在 off/pre 状态下允许变更模式
       elif self.lane_change_state in (LaneChangeState.off, LaneChangeState.preLaneChange):
         self.maneuver_type = new_type
 
-      # ─ TURN 모드 처리 ─
+      # ─ 转向 (TURN) 模式处理 ─
       if desire_enabled and self.maneuver_type == "turn" and self.enable_turn_desires: # and not carstate.standstill:
         self.lane_change_state = LaneChangeState.off
         if self.turn_disable_count > 0:
@@ -549,10 +549,10 @@ class DesireHelper:
           self.lane_change_direction = LaneChangeDirection.none
         else:
           self.turn_direction = TurnDirection.turnLeft if blinker_state == BLINKER_LEFT else TurnDirection.turnRight
-          # 호환성을 위해 lane_change_direction도 turn과 동일하게 세팅
+          # 为了兼容性，将 lane_change_direction 也设置为与转向一致
           self.lane_change_direction = self.turn_direction
 
-      # ─ Lane Change FSM 처리 ─
+      # ─ 变道 (Lane Change) FSM 处理 ─
       else:
         self.turn_direction = TurnDirection.none
 
@@ -563,7 +563,7 @@ class DesireHelper:
             self.lane_change_ll_prob = 1.0
             self.lane_change_delay = self.laneChangeDelay
 
-            # 맨 끝 차선이 아니면, ATC 자동 차선변경 비활성
+            # 如果不是最外侧车道，则禁用 ATC 自动变道
             lane_exist_counter_side = self.lane_exist_left_count.counter if blinker_state == BLINKER_LEFT else self.lane_exist_right_count.counter
             self.auto_lane_change_enable = False if lane_exist_counter_side > 0 or lane_change_available else True
             self.next_lane_change = False
@@ -579,12 +579,12 @@ class DesireHelper:
           torque_applied = carstate.steeringPressed and torque_cond
           blindspot_detected = blindspot_cond
 
-          # 차선이 일정시간 이상 안보이면 자동차선변경 허용
+          # 如果车道持续一定时间不可见，允许自动变道
           lane_exist_counter_side = self.lane_exist_left_count.counter if blinker_state == BLINKER_LEFT else self.lane_exist_right_count.counter
           if not lane_available or lane_exist_counter_side < int(2.0 / DT_MDL):
             self.auto_lane_change_enable = True
 
-          # BSD
+          # BSD 盲区检测
           if blindspot_detected and not ignore_bsd:
             self.blindspot_detected_counter = int(1.5 / DT_MDL)
 
@@ -592,7 +592,7 @@ class DesireHelper:
             self.lane_change_state = LaneChangeState.off
             self.lane_change_direction = LaneChangeDirection.none
           else:
-            # 차선변경 시작 조건
+            # 变道开始条件
             if (lane_change_available and self.lane_change_delay == 0) or lane_line_info_edge_detect:
               if self.blindspot_detected_counter > 0 and not ignore_bsd:
                 if torque_applied and not block_lanechange_bsd:
@@ -607,14 +607,14 @@ class DesireHelper:
 
         # LaneChangeState.laneChangeStarting
         elif self.lane_change_state == LaneChangeState.laneChangeStarting:
-          # 원래 차선라인을 1.0초 동안 서서히 fade-out (기존 0.5초에서 연장)
+          # 原车道线在 1.0 秒内逐渐淡出 (从 0.5 秒拉长)
           self.lane_change_ll_prob = max(self.lane_change_ll_prob - 1 * DT_MDL, 0.0)
           if lane_change_prob < 0.02 and self.lane_change_ll_prob < 0.01:
             self.lane_change_state = LaneChangeState.laneChangeFinishing
 
         # LaneChangeState.laneChangeFinishing
         elif self.lane_change_state == LaneChangeState.laneChangeFinishing:
-          # 1초 동안 서서히 lane line 복귀
+          # 车道线在 1.0 秒内逐渐恢复
           self.lane_change_ll_prob = min(self.lane_change_ll_prob + DT_MDL, 1.0)
           if self.lane_change_ll_prob > 0.99:
             self.lane_change_direction = LaneChangeDirection.none
@@ -624,7 +624,7 @@ class DesireHelper:
             else:
               self.lane_change_state = LaneChangeState.off
 
-    # lane_change_timer 관리
+    # lane_change_timer 管理
     if self.lane_change_state in (LaneChangeState.off, LaneChangeState.preLaneChange):
       self.lane_change_timer = 0.0
     else:
@@ -635,23 +635,23 @@ class DesireHelper:
 
     self.prev_desire_enabled = desire_enabled
 
-    # 운전자가 반대 방향으로 강하게 조향하면 해당 차선변경/턴 취소
+    # 如果驾驶员向相反方向猛打方向盘，则取消该变道/转向
     steering_pressed_cancel = carstate.steeringPressed and \
-                              ((carstate.steeringTorque < 0 and blinker_state == BLINKER_LEFT) or
-                               (carstate.steeringTorque > 0 and blinker_state == BLINKER_RIGHT))
+                               ((carstate.steeringTorque < 0 and blinker_state == BLINKER_LEFT) or
+                                (carstate.steeringTorque > 0 and blinker_state == BLINKER_RIGHT))
     if steering_pressed_cancel and self.lane_change_state != LaneChangeState.off:
       self.lane_change_direction = LaneChangeDirection.none
       self.lane_change_state = LaneChangeState.off
       self.blinker_ignore = True
 
-    # 최종 desire 결정
+    # 决定最终 desire
     if self.turn_direction != TurnDirection.none:
       self.desire = TURN_DESIRES[self.turn_direction]
       self.lane_change_direction = self.turn_direction
     else:
       self.desire = DESIRES[self.lane_change_direction][self.lane_change_state]
 
-    # keep pulse (LaneChangeState.preLaneChange에서 유지)
+    # 保持脉冲 (在 LaneChangeState.preLaneChange 状态下维持)
     if self.lane_change_state in (LaneChangeState.off, LaneChangeState.laneChangeStarting):
       self.keep_pulse_timer = 0.0
     elif self.lane_change_state == LaneChangeState.preLaneChange:

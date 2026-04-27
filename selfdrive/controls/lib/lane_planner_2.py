@@ -8,7 +8,7 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.common.params import Params
 
 TRAJECTORY_SIZE = 33
-# positive numbers go right
+# 正数代表向右
 CAMERA_OFFSET = 0.04 # 修正摄像头物理安装偏右导致的车辆偏右行驶
 MIN_LANE_DISTANCE = 2.6
 MAX_LANE_DISTANCE = 3.7
@@ -17,10 +17,10 @@ KEEP_MIN_DISTANCE_FROM_LANE = 1.35
 KEEP_MIN_DISTANCE_FROM_EDGELANE = 1.15
 
 def clamp(num, min_value, max_value):
-  # weird broken case, do something reasonable
+  # 处理异常范围情况
   if min_value > num > max_value:
     return (min_value + max_value) * 0.5
-  # ok, basic min/max below
+  # 基础的 min/max 限制
   if num < min_value:
     return min_value
   if num > max_value:
@@ -81,7 +81,7 @@ class LanePlanner:
 
     if len(lane_lines) >= 4 and len(lane_lines[0].t) == TRAJECTORY_SIZE:
       self.ll_t = (np.array(lane_lines[1].t) + np.array(lane_lines[2].t))/2
-      # left and right ll x is the same
+      # 左右车道线的 x 坐标通常一致
       self.ll_x = lane_lines[1].x
       self.lll_y = np.array(lane_lines[1].y)
       self.rll_y = np.array(lane_lines[2].y)
@@ -105,8 +105,7 @@ class LanePlanner:
   def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed):
     #if v_ego > 0.1:
     #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
-    # Reduce reliance on lanelines that are too far apart or
-    # will be in a few seconds
+    # 减少对间距过大或几秒后间距会过大的车道线的依赖
     l_prob, r_prob = self.lll_prob, self.rll_prob
     width_pts = self.rll_y - self.lll_y
     prob_mods = []
@@ -118,7 +117,7 @@ class LanePlanner:
     l_prob *= mod
     r_prob *= mod
 
-    # Reduce reliance on uncertain lanelines
+    # 减少对不确定车道线的依赖
     l_std_mod = np.interp(self.lll_std, [.15, .3], [1.0, 0.0])
     r_std_mod = np.interp(self.rll_std, [.15, .3], [1.0, 0.0])
     l_prob *= l_std_mod
@@ -126,7 +125,7 @@ class LanePlanner:
 
     self.l_prob, self.r_prob = l_prob, r_prob
 
-    # Find current lanewidth
+    # 计算当前车道宽度
     current_lane_width = abs(self.rll_y[0] - self.lll_y[0])
 
     max_updated_count = 10.0 * DT_MDL
@@ -137,7 +136,7 @@ class LanePlanner:
       #self.lane_width_updated_count = max_updated_count
       self.lane_width_estimate.update(current_lane_width)
       self.lane_width_last = self.lane_width_estimate.x
-    #elif self.lane_width_updated_count <= 0 and v_ego > 0.1:   # 양쪽차선이 없을때.... 일정시간후(10초)부터 speed차선폭 적용함.
+    #elif self.lane_width_updated_count <= 0 and v_ego > 0.1:   # 两侧都没有车道线时，一定时间（10秒）后应用基于速度的车道宽度
     #  self.lane_width_estimate.update(speed_lane_width)
     else:
       self.lane_width_estimate.update(self.lane_width_last)
@@ -147,36 +146,36 @@ class LanePlanner:
     path_from_left_lane = self.lll_y + clipped_lane_width / 2.0
     path_from_right_lane = self.rll_y - clipped_lane_width / 2.0
 
-    # 가장 차선이 진한쪽으로 골라서..
+    # 选择概率更高的车道线
     self.d_prob = max(l_prob, r_prob) if not both_lane_available else 1.0
 
-    # 좌/우의 차선폭을 필터링.
+    # 对左右车道宽度进行滤波
     if self.lane_width_left > 0:
       self.lane_width_left_filtered.update(self.lane_width_left)
-      #self.lane_width_left_filtered.x = self.lane_width_left #바로적용
+      #self.lane_width_left_filtered.x = self.lane_width_left # 立即应用
     if self.lane_width_right > 0:
       self.lane_width_right_filtered.update(self.lane_width_right)
-      #self.lane_width_right_filtered.x = self.lane_width_right #바로적용
+      #self.lane_width_right_filtered.x = self.lane_width_right # 立即应用
 
     self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
     self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
     ADJUST_OFFSET_LIMIT = 0.4 #max(self.adjustLaneOffset, self.adjustCurveOffset)
     offset_curve = 0.0
-    ## curve offset
+    ## 弯道偏移 (curve offset)
     offset_curve = np.interp(abs(curve_speed), [50, 200], [self.adjustCurveOffset, 0.0]) * np.sign(curve_speed)
 
     offset_lane = 0.0
-    if self.lane_width_left_filtered.x > 2.2 and self.lane_width_right_filtered.x > 2.2: #양쪽에 차로가 여유 있는경우
+    if self.lane_width_left_filtered.x > 2.2 and self.lane_width_right_filtered.x > 2.2: # 两侧车道都有余量的情况
       offset_lane = 0.0
-    elif self.lane_width_left_filtered.x < 2.0 and self.lane_width_right_filtered.x < 2.0: #양쪽에 차로가 여유 없는경우
+    elif self.lane_width_left_filtered.x < 2.0 and self.lane_width_right_filtered.x < 2.0: # 两侧车道都没有余量的情况
       offset_lane = 0.0
     elif self.lane_width_left_filtered.x > self.lane_width_right_filtered.x:
-      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, self.adjustLaneOffset]) # 차선이 좁으면 안함..
+      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, self.adjustLaneOffset]) # 车道过窄时不进行偏移
     else:
-      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, -self.adjustLaneOffset]) # 차선이 좁으면 안함..
+      offset_lane = np.interp(self.lane_width, [2.5, 2.9], [0.0, -self.adjustLaneOffset]) # 车道过窄时不进行偏移
 
-    #select lane path
-    # 차선이 좁아지면, 도로경계쪽에 있는 차선 위주로 따라가도록함.
+    # 选择车道路径
+    # 如果车道变窄，优先跟随靠近道路边缘的一侧车道
     if self.lane_width < 2.5:
       if r_prob > 0.5 and self.lane_width_right_filtered.x < self.lane_width_left_filtered.x:
         lane_path_y = path_from_right_lane
@@ -186,18 +185,18 @@ class LanePlanner:
         lane_path_y = path_from_left_lane if l_prob > 0.5 or l_prob > r_prob else path_from_right_lane
     elif l_prob > 0.7 and r_prob > 0.7:
       lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
-      # lane_width filtering에 의해서, 점점 줄어들때, 중앙선으로 붙어가는 현상이 생김.. 
+      # 由于 lane_width 滤波，在变窄时可能会出现向中心线偏移的现象
       #if self.lane_width > 3.2:
       #  lane_path_y = path_from_right_lane
       #else:
       #  lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
-    # 그외 진한차선을 따라가도록함.
+    # 否则跟随概率较高的车道线
     else:
       lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
 
     use_laneless_center_adjust = False
     if use_laneless_center_adjust:
-      ## 0.5초 앞의 중심을 보도록함.
+      ## 观察 0.5 秒前的中心
       lane_path_y_center = np.interp(0.5, path_t, lane_path_y)
       path_xyz_y_center = np.interp(0.5, path_t, path_xyz[:,1])
       #lane_path_y_center = lane_path_y[0]
@@ -205,37 +204,29 @@ class LanePlanner:
       diff_center = (lane_path_y_center - path_xyz_y_center) if not self.lanefull_mode else 0.0
     else:
       diff_center = 0.0
-    #print("center = {:.2f}={:.2f}-{:.2f}, lanefull={}".format(diff_center, lane_path_y_center, path_xyz_y_center, self.lanefull_mode))
-    #diff_center = lane_path_y[5] - path_xyz[:,1][5] if not self.lanefull_mode else 0.0
+    
     if offset_curve * offset_lane < 0:
       offset_total = np.clip(offset_curve + offset_lane + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
     else:
       offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
 
-    ## self.d_prob = 0 if lane_changing
-    self.d_prob *= self.lane_change_multiplier  ## 차선변경중에는 꺼버림.
+    ## self.d_prob = 0 如果正在变道
+    self.d_prob *= self.lane_change_multiplier  ## 变道过程中关闭
     if self.lane_change_multiplier < 0.5:
       #self.lane_offset_filtered.x = 0.0
       pass
     else:
       self.lane_offset_filtered.update(np.interp(self.d_prob, [0, 0.3], [0, offset_total]))
 
-    ## laneless at lowspeed
+    ## 低速时进入无车道线模式 (laneless)
     self.d_prob *= np.interp(v_ego*3.6, [5., 10.], [0.0, 1.0])
-
-    #self.debugText = "OFFSET({:.2f}={:.2f}+{:.2f}+{:.2f}),Vc:{:.2f},dp:{:.1f},lf:{},lrw={:.1f}|{:.1f}|{:.1f}".format(
-    #  self.lane_offset_filtered.x,
-    #  diff_center, offset_lane, offset_curve,
-    #  curve_speed,
-    #  self.d_prob, self.lanefull_mode,
-    #  self.lane_width_left_filtered.x, self.lane_width, self.lane_width_right_filtered.x)
 
     adjustLaneTime = self.params.get_float("LatMpcInputOffset") * 0.01 # 0.06 
     laneline_active = False
     self.d_prob_count = self.d_prob_count + 1 if self.d_prob > 0.3 else 0
     if self.lanefull_mode and self.d_prob_count > int(1 / DT_MDL):
       laneline_active = True
-      use_dist_mode = False  ## 아무리생각해봐도.. 같은 방법인듯...
+      use_dist_mode = False  ## 两种方法殊途同归
       if use_dist_mode:
         lane_path_y_interp = np.interp(path_xyz[:,0] + v_ego * adjustLaneTime, self.ll_x, lane_path_y)
         path_xyz[:,1] = self.d_prob * lane_path_y_interp + (1.0 - self.d_prob) * path_xyz[:,1]
@@ -254,19 +245,19 @@ class LanePlanner:
 
   def calculate_plan_yaw_and_yaw_rate(self, path_xyz):
     if path_xyz.shape[0] < 3:
-        # 너무 짧으면 직진 가정
+        # 路径太短，假设直线行驶
         N = path_xyz.shape[0]
         return np.zeros(N), np.zeros(N)
 
-    # x, y 추출
+    # 提取 x, y
     x = path_xyz[:, 0]
     y = path_xyz[:, 1]
 
-    # 모두 동일한 점인지 확인
+    # 检查是否所有点都相同
     if np.allclose(x, x[0]) and np.allclose(y, y[0]):
         return np.zeros(len(x)), np.zeros(len(x))
 
-    # 안전한 diff 계산
+    # 安全计算 diff
     dx = np.diff(x)
     dy = np.diff(y)
     mask = (dx == 0) & (dy == 0)
@@ -282,7 +273,7 @@ class LanePlanner:
     yaw_rate = np.append(yaw_rate, yaw_rate[-1])
     yaw_rate = np.append(yaw_rate, 0.0)
 
-    # NaN/Inf 방어
+    # 防止出现 NaN/Inf
     if np.any(np.isnan(yaw_rate)) or np.any(np.isinf(yaw_rate)):
         yaw_rate = np.zeros_like(yaw_rate)
     if np.any(np.isnan(yaw)) or np.any(np.isinf(yaw)):

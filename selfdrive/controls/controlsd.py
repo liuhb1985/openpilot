@@ -209,7 +209,7 @@ class Controls:
       if bsd_state:
         set_hud(side_cap, "Dist2", 1)
         set_hud(side_cap, "Lat2",  3.2)
-      # 첫 번째가 10m 이내라면 sub 업데이트 + 두 번째를 main으로
+      # 如果第一个在 10m 以内，则更新 sub + 将第二个设为 main
       elif len(leads2) > 1 and lead_main.dRel < 10:
         st["sub"]["dRel"] = ema(st["sub"]["dRel"], lead_main.dRel)
         st["sub"]["lat"]  = ema(st["sub"]["lat"],  abs(lead_main.dPath))

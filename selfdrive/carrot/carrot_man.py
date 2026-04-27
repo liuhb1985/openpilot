@@ -36,20 +36,20 @@ except ImportError:
 NetworkType = log.DeviceState.NetworkType
 
 ################ CarrotNavi
-## 국가법령정보센터: 도로설계기준
+## 国家法令信息中心：道路设计标准
 #V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./15.]
 #V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 45, 35, 30]
 V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265., 1./190., 1./135., 1./85., 1./55., 1./30., 1./25.]
 V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 40, 15, 5]
 
-# Haversine formula to calculate distance between two GPS coordinates
+# Haversine 公式计算两个 GPS 坐标之间的距离
 #haversine_cache = {}
 def haversine(lon1, lat1, lon2, lat2):
     #key = (lon1, lat1, lon2, lat2)
     #if key in haversine_cache:
     #    return haversine_cache[key]
 
-    R = 6371000  # Radius of Earth in meters
+    R = 6371000  # 地球半径（米）
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
@@ -61,7 +61,7 @@ def haversine(lon1, lat1, lon2, lat2):
     return distance
 
 
-# Get the closest point on a segment between two coordinates
+# 获取两个坐标段上距离当前位置最近的点
 def closest_point_on_segment(p1, p2, current_position):
     x1, y1 = p1
     x2, y2 = p2
@@ -70,11 +70,11 @@ def closest_point_on_segment(p1, p2, current_position):
     dx = x2 - x1
     dy = y2 - y1
     if dx == 0 and dy == 0:
-        return p1  # p1 and p2 are the same point
+        return p1  # p1 和 p2 是同一个点
 
-    # Parameter t is the projection factor onto the line segment
+    # 参数 t 是投影到线段上的比例因子
     t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
-    t = max(0, min(1, t))  # Clamp t to the segment
+    t = max(0, min(1, t))  # 将 t 限制在线段内
 
     closest_x = x1 + t * dx
     closest_y = y1 + t * dy
@@ -82,7 +82,7 @@ def closest_point_on_segment(p1, p2, current_position):
     return (closest_x, closest_y)
 
 
-# Get path after a certain distance from the current position
+# 获取距离当前位置一定距离之后的路径
 def get_path_after_distance(start_index, coordinates, current_position, distance_m):
     total_distance = 0
     path_after_distance = []
@@ -92,7 +92,7 @@ def get_path_after_distance(start_index, coordinates, current_position, distance
 
     start_index = max(0, start_index - 2)
 
-    # 가까운 점만 탐색하도록 수정
+    # 修正为仅搜索邻近点
     for i in range(start_index, len(coordinates) - 1):
         p1 = coordinates[i]
         p2 = coordinates[i + 1]
@@ -107,7 +107,7 @@ def get_path_after_distance(start_index, coordinates, current_position, distance
             break
 
     start_index = closest_index
-    # Start from the closest point and calculate the path after the specified distance
+    # 从最近点开始计算指定距离后的路径
     if closest_index != -1:
         path_after_distance.append(closest_point)
 
@@ -115,7 +115,7 @@ def get_path_after_distance(start_index, coordinates, current_position, distance
         total_distance = haversine(closest_point[0], closest_point[1], coordinates[closest_index + 1][0],
                                    coordinates[closest_index + 1][1])
 
-        # Traverse the path forward from the next point
+        # 从下一个点开始向前遍历路径
         for i in range(closest_index + 1, len(coordinates) - 1):
             coord1 = coordinates[i]
             coord2 = coordinates[i + 1]
@@ -140,20 +140,20 @@ def calculate_angle(point1, point2):
     delta_lat = point2[1] - point1[1]
     return math.degrees(math.atan2(delta_lat, delta_lon))
 
-# Convert GPS coordinates to relative x, y coordinates based on a reference point and heading
+# 将 GPS 坐标转换为基于参考点和航向角的相对 x, y 坐标
 def gps_to_relative_xy(gps_path, reference_point, heading_deg):
     ref_lon, ref_lat = reference_point
     relative_coordinates = []
 
-    # Convert heading from degrees to radians
+    # 将航向角从度转换为弧度
     heading_rad = math.radians(heading_deg)
 
     for lon, lat in gps_path:
-        # Convert lat/lon differences to meters (assuming small distances for simple approximation)
+        # 将经纬度差转换为米（假设小距离下的简单近似）
         x = (lon - ref_lon) * 40008000 * math.cos(math.radians(ref_lat)) / 360
         y = (lat - ref_lat) * 40008000 / 360
 
-        # Rotate coordinates based on the heading angle to align with the car's direction
+        # 根据航向角旋转坐标以对齐车辆方向
         x_rot = x * math.cos(heading_rad) - y * math.sin(heading_rad)
         y_rot = x * math.sin(heading_rad) + y * math.cos(heading_rad)
 
@@ -162,7 +162,7 @@ def gps_to_relative_xy(gps_path, reference_point, heading_deg):
     return relative_coordinates
 
 
-# Calculate curvature given three points using a faster vector-based method
+# 使用更快的矢量方法计算三个点之间的曲率
 #curvature_cache = {}
 def calculate_curvature(p1, p2, p3):
     #key = (p1, p2, p3)
@@ -233,9 +233,9 @@ class CarrotMan:
     self.is_metric = self.params.get_bool("IsMetric")
 
   def get_broadcast_address(self):
- # 修改为支持PC的多接口检测
+    # 修改为支持 PC 的多接口检测
     if PC:
-        interfaces = ['wlan0', 'eth0', 'enp0s3', 'br0']  # 常见PC接口
+        interfaces = ['wlan0', 'eth0', 'enp0s3', 'br0']  # 常见 PC 接口
         for iface in interfaces:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -263,14 +263,14 @@ class CarrotMan:
 
   def get_local_ip(self):
       try:
-          # 외부 서버와의 연결을 통해 로컬 IP 확인
+          # 通过连接外部服务器确认本地 IP
           with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-              s.connect(("8.8.8.8", 80))  # Google DNS로 연결 시도
+              s.connect(("8.8.8.8", 80))  # 尝试连接 Google DNS
               return s.getsockname()[0]
       except Exception as e:
           return f"Error: {e}"
 
-  # 브로드캐스트 메시지 전송
+  # 发送广播消息
   def broadcast_version_info(self):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -345,7 +345,7 @@ class CarrotMan:
                 self.navi_points_active = False
 
           except OSError as e:
-            if e.errno != 101:  # Silence Network is unreachable spam on PC
+            if e.errno != 101:  # 屏蔽 PC 上的网络不可达垃圾信息
               if self.connection:
                 self.connection.close()
               self.connection = None
@@ -381,15 +381,15 @@ class CarrotMan:
       elif self._last_vt == CS.vCruise:
         self.v_cruise_last = CS.vCruise
       elif self.long_active and CC.longActive: # and self.gas_pressed_count == 0:
-        if self.v_cruise_last < CS.vCruise:  # 속도가 증가하면
+        if self.v_cruise_last < CS.vCruise:  # 当速度增加时
           if v_ego_kph < CS.vCruise:
             self.v_cruise_change = 100
           else:
             self.v_cruise_change = 0
-        elif self.v_cruise_last > CS.vCruise: # 속도가 감소하면
-          if v_ego_kph < CS.vCruise: # 주행속도가 느리면
+        elif self.v_cruise_last > CS.vCruise: # 当速度减少时
+          if v_ego_kph < CS.vCruise: # 如果行驶速度慢
             self.v_cruise_change = -100 #100
-          else:                       # 주행속도가 빠르면
+          else:                       # 如果行驶速度快
             self.v_cruise_change = -100
 
         if self.v_cruise_change != 0:
@@ -428,7 +428,7 @@ class CarrotMan:
     if now - self._last_viz_t > 0.5: # 2Hz
         self._last_viz_t = now
         viz_json = carrot_speed.export_cells_around(lat, lon, heading, ring=2, max_points=64)
-        # 메모리 Params에 쓰는 게 좋음 (디스크 말고)
+        # 最好写入内存 Params (而非磁盘)
         self.params_memory.put_nonblocking("CarrotSpeedViz", viz_json)
 
     carrot_speed.maybe_save()
@@ -438,7 +438,7 @@ class CarrotMan:
   def carrot_navi_route(self):
 
     if self.carrot_serv.active_carrot > 1:
-      if False and self.navd_active:  # mabox always active
+      if False and self.navd_active:  # mabox 始终激活
         self.navd_active = False
         self.params.remove("NavDestination")
     if not self.navi_points_active or not SHAPELY_AVAILABLE or (self.carrot_serv.active_carrot <= 1 and not self.navd_active):
@@ -465,7 +465,7 @@ class CarrotMan:
     if path:
         #relative_coords = gps_to_relative_xy(path, current_position, heading_deg)
         relative_coords = gps_to_relative_xy(path, start_point, heading_deg)
-        # Resample relative_coords at 5m intervals using LineString
+        # 使用 LineString 以 5m 为间隔重新采样相对坐标
         line = LineString(relative_coords)
         resampled_points = []
         resampled_distances = []
@@ -481,7 +481,7 @@ class CarrotMan:
         distance = 10.0
         sample = 4
         if len(resampled_points) >= sample * 2 + 1:
-            # Calculate curvatures and speeds based on curvature
+            # 计算曲率并根据曲率计算速度
             speeds = []
             for i in range(len(resampled_points) - sample * 2):
                 distance += distance_interval
@@ -495,11 +495,11 @@ class CarrotMan:
                 distances.append(distance)
             #print(f"curvatures= {[round(s, 4) for s in curvatures]}")
             #print(f"speeds= {[round(s, 1) for s in speeds]}")
-            # Apply acceleration limits in reverse to adjust speeds
+            # 反向应用加速度限制以调整速度
             accel_limit = self.carrot_serv.autoNaviSpeedDecelRate # m/s^2
-            accel_limit_kmh = accel_limit * 3.6  # Convert to km/h per second
+            accel_limit_kmh = accel_limit * 3.6  # 转换为 km/h 每秒
             out_speeds = [0] * len(speeds)
-            out_speeds[-1] = speeds[-1]  # Set the last speed as the initial value
+            out_speeds[-1] = speeds[-1]  # 设置最后一个速度为初始值
             v_ego_kph = self.sm['carState'].vEgo * 3.6
 
             time_delay = self.carrot_serv.autoNaviSpeedCtrlEnd
@@ -512,12 +512,12 @@ class CarrotMan:
                   time_delay = max(0, ((v_ego_kph - target_speed) / accel_limit_kmh))
                   time_wait = - time_delay
 
-                # Calculate time interval for the current segment based on speed
+                # 根据速度计算当前路段的时间间隔
                 time_interval = distance_interval / (next_out_speed / 3.6) if next_out_speed > 0 else 0
 
                 time_apply = min(time_interval, max(0, time_interval + time_wait))
 
-                # Calculate maximum allowed speed with acceleration limit
+                # 计算加速度限制下的最大允许速度
                 max_allowed_speed = next_out_speed + (accel_limit_kmh * time_apply)
                 adjusted_speed = min(target_speed, max_allowed_speed)
 
@@ -526,7 +526,7 @@ class CarrotMan:
 
                 out_speeds[i] = adjusted_speed
 
-            #distance_advance = self.sm['carState'].vEgo * 3.0  # Advance distance by 3.0 seconds
+            #distance_advance = self.sm['carState'].vEgo * 3.0  # 提前 3.0 秒预测距离
             #out_speed = interp(distance_advance, distances, out_speeds)
             out_speed = out_speeds[0]
             #print(f"out_speeds= {[round(s, 1) for s in out_speeds]}")
@@ -590,7 +590,7 @@ class CarrotMan:
     while len(buffer) < length:
       data = sock.recv(length - len(buffer))
       if not data:
-        raise ConnectionError("Connection closed before receiving all data")
+        raise ConnectionError("在接收所有数据之前连接已关闭")
       buffer += data
     return buffer
 
@@ -599,57 +599,57 @@ class CarrotMan:
     while True:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('0.0.0.0', self.carrot_man_port))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时（10秒）
+          sock.bind(('0.0.0.0', self.carrot_man_port))  # UDP 端口绑定
           print("#########carrot_man_thread: UDP thread started...")
 
           while True:
             try:
               #self.remote_addr = None
-              # 데이터 수신 (UDP는 recvfrom 사용)
+              # 接收数据 (UDP 使用 recvfrom)
               try:
-                data, remote_addr = sock.recvfrom(4096)  # 최대 4096 바이트 수신
+                data, remote_addr = sock.recvfrom(4096)  # 最大接收 4096 字节
                 #print(f"Received data from {self.remote_addr}")
 
                 if not data:
-                  raise ConnectionError("No data received")
+                  raise ConnectionError("未收到数据")
 
                 if self.remote_addr is None:
-                  print("Connected to: ", remote_addr)
+                  print("已连接到: ", remote_addr)
                 self.remote_addr = remote_addr
                 try:
                   json_obj = json.loads(data.decode())
                   self.carrot_serv.update(json_obj)
                 except Exception as e:
-                  print(f"carrot_man_thread: json error...: {e}")
+                  print(f"carrot_man_thread: json 错误...: {e}")
                   print(data)
 
-                # 응답 메시지 생성 및 송신 (UDP는 sendto 사용)
+                # 生成并发送响应消息 (UDP 使用 sendto)
                 #try:
                 #  msg = self.make_send_message()
                 #  sock.sendto(msg.encode('utf-8'), self.remote_addr)
                 #except Exception as e:
-                #  print(f"carrot_man_thread: send error...: {e}")
+                #  print(f"carrot_man_thread: send 错误...: {e}")
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                print("等待数据中 (超时)...")
                 self.remote_addr = None
                 time.sleep(1)
 
               except Exception as e:
-                print(f"carrot_man_thread: error...: {e}")
+                print(f"carrot_man_thread: 错误...: {e}")
                 self.remote_addr = None
                 break
 
             except Exception as e:
-              print(f"carrot_man_thread: recv error...: {e}")
+              print(f"carrot_man_thread: recv 错误...: {e}")
               self.remote_addr = None
               break
 
           time.sleep(1)
       except Exception as e:
         self.remote_addr = None
-        print(f"Network error, retrying...: {e}")
+        print(f"网络错误，重试中...: {e}")
         time.sleep(2)
 
 
@@ -659,7 +659,7 @@ class CarrotMan:
     try:
       decoded = data.decode('utf-8')
     except UnicodeDecodeError:
-      print("Decoding error:", data)
+      print("解码错误:", data)
       return result
 
     parts = decoded.split('/')
@@ -677,23 +677,23 @@ class CarrotMan:
       try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
           sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-          sock.settimeout(10)  # 소켓 타임아웃 설정 (10초)
-          sock.bind(('', 12345))  # UDP 포트 바인딩
+          sock.settimeout(10)  # 设置套接字超时（10秒）
+          sock.bind(('', 12345))  # UDP 端口绑定
           print("#########kisa_app_thread: UDP thread started...")
 
           while True:
             try:
               #self.remote_addr = None
-              # 데이터 수신 (UDP는 recvfrom 사용)
+              # 接收数据 (UDP 使用 recvfrom)
               try:
-                data, remote_addr = sock.recvfrom(4096)  # 최대 4096 바이트 수신
+                data, remote_addr = sock.recvfrom(4096)  # 最大接收 4096 字节
                 #print(f"Received data from {self.remote_addr}")
 
                 if not data:
-                  raise ConnectionError("No data received")
+                  raise ConnectionError("未收到数据")
 
                 #if self.remote_addr is None:
-                #  print("Connected to: ", remote_addr)
+                #  print("已连接到: ", remote_addr)
                 #self.remote_addr = remote_addr
                 try:
                   print(data)
@@ -703,28 +703,28 @@ class CarrotMan:
                   #print(json_obj)
                 except Exception as e:
                   traceback.print_exc()
-                  print(f"kisa_app_thread: json error...: {e}")
+                  print(f"kisa_app_thread: json 错误...: {e}")
                   print(data)
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                print("等待数据中 (超时)...")
                 #self.remote_addr = None
                 time.sleep(1)
 
               except Exception as e:
-                print(f"kisa_app_thread: error...: {e}")
+                print(f"kisa_app_thread: 错误...: {e}")
                 #self.remote_addr = None
                 break
 
             except Exception as e:
-              print(f"kisa_app_thread: recv error...: {e}")
+              print(f"kisa_app_thread: recv 错误...: {e}")
               #self.remote_addr = None
               break
 
           time.sleep(1)
       except Exception as e:
         #self.remote_addr = None
-        print(f"Network error, retrying...: {e}")
+        print(f"网络错误，重试中...: {e}")
         time.sleep(2)
 
   def make_tmux_data(self):
@@ -733,7 +733,7 @@ class CarrotMan:
       from openpilot.common.basedir import BASEDIR
       subprocess.run(os.path.join(BASEDIR, "selfdrive/apilot.py"), shell=True, capture_output=True, text=False)
     except Exception as e:
-      print(f"TMUX creation error: {e}")
+      print(f"TMUX 创建错误: {e}")
       return
 
   def send_tmux(self, ftp_password, tmux_why, send_settings=False):
@@ -754,7 +754,7 @@ class CarrotMan:
     try:
       ftp.mkd(git_branch)
     except Exception as e:
-      print(f"Directory creation failed: {e}")
+      print(f"目录创建失败: {e}")
     ftp.cwd(git_branch)
 
     directory = car_selected + " " + Params().get("DongleId").decode('utf-8')
@@ -764,14 +764,14 @@ class CarrotMan:
     try:
       ftp.mkd(directory)
     except Exception as e:
-      print(f"Directory creation failed: {e}")
+      print(f"目录创建失败: {e}")
     ftp.cwd(directory)
 
     try:
       with open("/data/media/tmux.log", "rb") as file:
         ftp.storbinary(f'STOR {filename}', file)
     except Exception as e:
-      print(f"ftp sending error...: {e}")
+      print(f"FTP 发送错误...: {e}")
 
     if send_settings:
       self.save_toggle_values()
@@ -780,7 +780,7 @@ class CarrotMan:
         with open("/data/toggle_values.json", "rb") as file:
           ftp.storbinary(f'STOR toggles-{current_time}.json', file)
       except Exception as e:
-        print(f"ftp params sending error...: {e}")
+        print(f"FTP 参数发送错误...: {e}")
 
     ftp.quit()
 
@@ -793,7 +793,7 @@ class CarrotMan:
           from openpilot.common.basedir import BASEDIR
           subprocess.run(os.path.join(BASEDIR, "selfdrive/debug/debug_console_carrot.py"), shell=True)
         except Exception as e:
-          print(f"debug_console error: {e}")
+          print(f"debug_console 错误: {e}")
           time.sleep(2)
       else:
         time.sleep(1)
@@ -807,7 +807,7 @@ class CarrotMan:
       with open(file_path, 'w') as file:
         json.dump(toggle_values, file, indent=2)
     except Exception as e:
-      print(f"save_toggle_values error: {e}")
+      print(f"save_toggle_values 错误: {e}")
 
   def carrot_cmd_zmq(self):
 
@@ -830,7 +830,7 @@ class CarrotMan:
 
         if socket in socks and socks[socket] == zmq.POLLIN:
           message = socket.recv(zmq.NOBLOCK)
-          print(f"Received:7710 request: {message}")
+          print(f"收到 7710 请求: {message}")
           json_obj = json.loads(message.decode())
         else:
           json_obj = None
@@ -876,13 +876,13 @@ class CarrotMan:
           echo = json.dumps({"tmux_send": json_obj['tmux_send'], "result": "success"})
           socket.send(echo.encode())
       except Exception as e:
-        print(f"carrot_cmd_zmq error: {e}")
+        print(f"carrot_cmd_zmq 错误: {e}")
         socket.close()
         time.sleep(1)
         socket, poller = setup_socket()
 
   def recvall(self, sock, n):
-    """n바이트를 수신할 때까지 반복적으로 데이터를 받는 함수"""
+    """循环接收数据直到接收到 n 个字节"""
     data = bytearray()
     while len(data) < n:
       packet = sock.recv(n - len(data))
@@ -892,11 +892,11 @@ class CarrotMan:
     return data
 
   def receive_double(self, sock):
-    double_data = self.recvall(sock, 8)  # Double은 8바이트
+    double_data = self.recvall(sock, 8)  # Double 为 8 字节
     return struct.unpack('!d', double_data)[0]
 
   def receive_float(self, sock):
-    float_data = self.recvall(sock, 4)  # Float은 4바이트
+    float_data = self.recvall(sock, 4)  # Float 为 4 字节
     return struct.unpack('!f', float_data)[0]
 
 
@@ -906,10 +906,10 @@ class CarrotMan:
         self.navi_points = [(c.longitude, c.latitude) for c in coords]
         self.navi_points_start_index = 0
         self.navi_points_active = True
-        print("Received points from navd:", len(self.navi_points))
+        print("从 navd 收到路径点:", len(self.navi_points))
         self.navd_active = True
 
-        # 경로수신 -> carrotman active되고 약간의 시간지연이 발생함..
+        # 路径接收 -> carrotman 激活时会存在轻微时间延迟
         if not from_navd:
           self.carrot_serv.active_count = 80
           self.carrot_serv.active_sdi_count = self.carrot_serv.active_sdi_count_max
@@ -918,7 +918,7 @@ class CarrotMan:
         coords = [{"latitude": c.latitude, "longitude": c.longitude} for c in coords]
         #print("navdNaviPoints=", self.navi_points)
       else:
-        print("Received points from navd: 0")
+        print("从 navd 收到 0 个路径点")
         self.navd_active = False
 
     msg = messaging.new_message('navRoute', valid=True)
@@ -926,8 +926,8 @@ class CarrotMan:
     self.pm.send('navRoute', msg)
 
   def carrot_route(self):
-    host = '0.0.0.0'  # 혹은 다른 호스트 주소
-    port = 7709  # 포트 번호
+    host = '0.0.0.0'  # 或其他主机地址
+    port = 7709  # 端口号
 
     try:
       with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -941,17 +941,17 @@ class CarrotMan:
             print(f"Connected by {addr}")
             #self.clear_route()
 
-            # 전체 데이터 크기 수신
+            # 接收总数据大小
             total_size_bytes = self.recvall(conn, 4)
             if not total_size_bytes:
-              print("Connection closed or error occurred")
+              print("连接已关闭或发生错误")
               continue
             try:
               total_size = struct.unpack('!I', total_size_bytes)[0]
-              # 전체 데이터를 한 번에 수신
+              # 一次性接收所有数据
               all_data = self.recvall(conn, total_size)
               if all_data is None:
-                  print("Connection closed or incomplete data received")
+                  print("连接已关闭或数据接收不完整")
                   continue
 
               self.navi_points = []
@@ -964,26 +964,10 @@ class CarrotMan:
               coords = [c.as_dict() for c in points]
               self.navi_points_start_index = 0
               self.navi_points_active = True
-              print("Received points:", len(self.navi_points))
+              print("收到路径点数量:", len(self.navi_points))
               #print("Received points:", self.navi_points)
 
               self.send_routes(coords)
-              """
-              try:
-                module_name = "route_engine"
-                class_name = "RouteEngine"
-                moduel = importlib.import_module(module_name)
-                cls = getattr(moduel, class_name)
-                route_engine_instance = cls(name="Loaded at Runtime")
-
-                route_engine_instance.send_route_coords(coords, True)
-              except Exception as e:
-                print(f"route_engine error: {e}")
-
-              #msg = messaging.new_message('navRoute', valid=True)
-              #msg.navRoute.coordinates = coords
-              #self.pm.send('navRoute', msg)
-              """
 
               if len(coords):
                 dest = coords[-1]
@@ -1015,22 +999,22 @@ class CarrotMan:
 
     modelData = sm['modelV2']
     v_ego = max(CS.vEgo, 0.1)
-    # Set the curve sensitivity
+    # 设置弯道敏感度
     orientation_rate = np.array(modelData.orientationRate.z) * self.autoCurveSpeedFactor
     velocity = np.array(modelData.velocity.x)
 
-    # Get the maximum lat accel from the model
+    # 从模型获取最大侧向加速度
     max_index = np.argmax(np.abs(orientation_rate))
     curv_direction = np.sign(orientation_rate[max_index])
     max_pred_lat_acc = np.amax(np.abs(orientation_rate) * velocity)
 
-    # Get the maximum curve based on the current velocity
+    # 根据当前速度获取最大曲率
     max_curve = max_pred_lat_acc / (v_ego**2)
 
-    # Set the target lateral acceleration
+    # 设置目标侧向加速度
     adjusted_target_lat_a = TARGET_LAT_A * self.autoCurveSpeedAggressiveness
 
-    # Get the target velocity for the maximum curve
+    # 获取最大曲率下的目标速度
     #turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, self.autoCurveSpeedLowerLimit)
     turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, 5)
     turnSpeed = min(turnSpeed, 250)
@@ -1051,7 +1035,7 @@ def main():
     try:
       carrot_man.carrot_man_thread()
     except Exception as e:
-      print(f"carrot_man error...: {e}")
+      print(f"carrot_man 错误...: {e}")
       traceback.print_exc()
       time.sleep(10)
 

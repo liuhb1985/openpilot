@@ -132,7 +132,7 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
 
   LINE_T_IDXS = [float(Tmax if math.isnan(float(v)) else float(v)) for v in LINE_T_IDXS]
 
-  # 비내림(monotonic non-decreasing) 보정 (순수 파이썬, numpy 불사용)
+  # 单调不减校正 (纯 Python，不使用 numpy)
   running = LINE_T_IDXS[0]
   for i in range(1, len(LINE_T_IDXS)):
       if LINE_T_IDXS[i] < running:

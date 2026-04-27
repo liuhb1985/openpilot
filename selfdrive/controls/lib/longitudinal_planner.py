@@ -17,7 +17,7 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 
 
-LON_MPC_STEP = 0.2  # first step is 0.2s
+LON_MPC_STEP = 0.2  # 第一步为 0.2s
 A_CRUISE_MIN = -2.0 #-1.2
 A_CRUISE_MAX_VALS = [1.6, 1.2, 0.8, 0.6]
 A_CRUISE_MAX_BP = [0., 10.0, 25., 40.]
@@ -25,7 +25,7 @@ CONTROL_N_T_IDX = ModelConstants.T_IDXS[:CONTROL_N]
 ALLOW_THROTTLE_THRESHOLD = 0.5
 MIN_ALLOW_THROTTLE_SPEED = 2.5
 
-# Lookup table for turns
+# 弯道查找表
 _A_TOTAL_MAX_V = [2.4, 4.8] #[1.7, 3.2]
 _A_TOTAL_MAX_BP = [20., 40.]
 LAT_WEIGHT = 0.7
@@ -35,16 +35,16 @@ def get_max_accel(v_ego):
   return np.interp(v_ego, A_CRUISE_MAX_BP, A_CRUISE_MAX_VALS)
 
 def get_coast_accel(pitch):
-  return np.sin(pitch) * -5.65 - 0.3  # fitted from data using xx/projects/allow_throttle/compute_coast_accel.py
+  return np.sin(pitch) * -5.65 - 0.3  # 根据数据拟合自 xx/projects/allow_throttle/compute_coast_accel.py
 
 
 def limit_accel_in_turns_org(v_ego, angle_steers, a_target, CP):
   """
-  This function returns a limited long acceleration allowed, depending on the existing lateral acceleration
-  this should avoid accelerating when losing the target in turns
+  此函数返回允许的限制纵向加速度，取决于现有的横向加速度
+  这应该避免在弯道丢失目标时加速
   """
-  # FIXME: This function to calculate lateral accel is incorrect and should use the VehicleModel
-  # The lookup table for turns should also be updated if we do this
+  # FIXME: 此横向加速度计算函数不正确，应使用 VehicleModel
+  # 如果我们这样做，弯道查找表也应更新
   steer_abs = abs(angle_steers)
   if v_ego > 20 or (v_ego > 25 and steer_abs < 3.0):
     return a_target
@@ -57,29 +57,29 @@ def limit_accel_in_turns_org(v_ego, angle_steers, a_target, CP):
 def limit_accel_in_turns(v_ego, curvature, a_target, a_lat_max):
   """
   v_ego    : m/s
-  curvature: 1/m  (조향에서 이미 나온 곡률, sign 포함)
+  curvature: 1/m  (来自转向的曲率，包含符号)
   a_target : [a_min, a_max]
-  a_lat_max: 허용 최대 횡가속 (예: 6.0 ~ 8.0 m/s^2)
+  a_lat_max: 允许的最大横向加速度 (例如: 6.0 ~ 8.0 m/s^2)
 
-  return   : [a_min, 제한된 a_max]
+  return   : [a_min, 受限的 a_max]
   """
-  # 아주 저속이면 굳이 제한 안 걸어도 됨
+  # 极低速时无需限制
   if v_ego < 0.1 or a_lat_max <= 0.0:
     return a_target
 
-  # 횡가속
+  # 横向加速度
   a_y = v_ego * v_ego * curvature        # m/s^2
   a_y_abs = abs(a_y)
   a_lat_max_abs = abs(a_lat_max)
 
-  # a_total^2 = a_x^2 + a_y^2 <= a_lat_max^2 라고 보고,
-  # 남은 a_x 여유를 계산
+  # 假设 a_total^2 = a_x^2 + a_y^2 <= a_lat_max^2
+  # 计算剩余的 a_x 裕量
   if a_y_abs >= a_lat_max_abs:
     a_x_allowed = 0.0
   else:
     a_x_allowed = math.sqrt(a_lat_max_abs**2 - a_y_abs**2)
 
-  # a_target = [min, max] 중에서 max만 줄여줌
+  # 仅减小 a_target = [min, max] 中的 max 值
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 class LongitudinalPlanner:
@@ -154,12 +154,12 @@ class LongitudinalPlanner:
     long_control_off = sm['controlsState'].longControlState == LongCtrlState.off
     force_slow_decel = sm['controlsState'].forceDecel
 
-    # Reset current state when not engaged, or user is controlling the speed
+    # 未激活或用户控制速度时重置当前状态
     reset_state = long_control_off if self.CP.openpilotLongitudinalControl else not sm['selfdriveState'].enabled
-    # PCM cruise speed may be updated a few cycles later, check if initialized
+    # PCM 巡航速度可能会延迟几个周期更新，检查是否已初始化
     reset_state = reset_state or not v_cruise_initialized or carrot.soft_hold_active
 
-    # No change cost when user is controlling the speed, or when standstill
+    # 用户控制速度或静止时不设变化代价
     prev_accel_constraint = not (reset_state or sm['carState'].standstill)
 
     if self.mpc.mode == 'acc':
@@ -175,17 +175,17 @@ class LongitudinalPlanner:
 
     if reset_state:
       self.v_desired_filter.x = v_ego
-      # Clip aEgo to cruise limits to prevent large accelerations when becoming active
+      # 将 aEgo 限制在巡航范围内，以防止激活时产生剧烈加速
       self.a_desired = np.clip(sm['carState'].aEgo, accel_limits[0], accel_limits[1])
       
       self.mpc.prev_a = np.full(N+1, self.a_desired) ## carrot
       accel_limits_turns[0] = 0.0 ## carrot
       accel_limits_turns[1] = 0.0
 
-    # Prevent divergence, smooth in current v_ego
+    # 防止发散，平滑当前 v_ego
     self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
     x, v, a, j, throttle_prob = self.parse_model(sm['modelV2'])
-    # Don't clip at low speeds since throttle_prob doesn't account for creep
+    # 在低速时不修剪，因为 throttle_prob 不考虑蠕行
     if self.params.get_int("CommaLongAcc") > 0:
       self.allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED
     else:
@@ -198,7 +198,7 @@ class LongitudinalPlanner:
 
     if force_slow_decel:
       v_cruise = 0.0
-    # clip limits, cannot init MPC outside of bounds
+    # 限制修剪，不能在范围外初始化 MPC
     accel_limits_turns[0] = min(accel_limits_turns[0], self.a_desired + 0.05)
     accel_limits_turns[1] = max(accel_limits_turns[1], self.a_desired - 0.05)
 
@@ -211,12 +211,12 @@ class LongitudinalPlanner:
     self.a_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.a_solution)
     self.j_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC[:-1], self.mpc.j_solution)
 
-    # TODO counter is only needed because radar is glitchy, remove once radar is gone
+    # TODO counter 仅因雷达不稳定而需要，一旦雷达被移除即可移除
     self.fcw = self.mpc.crash_cnt > 2 and not sm['carState'].standstill and not reset_state
     if self.fcw:
       cloudlog.info("FCW triggered")
 
-    # Interpolate 0.05 seconds and save as starting point for next iteration
+    # 插值 0.05 秒并保存为下一次迭代的起点
     a_prev = self.a_desired
     self.a_desired = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
@@ -226,7 +226,7 @@ class LongitudinalPlanner:
     action_t =  longitudinalActuatorDelay + DT_MDL
 
     output_a_target_mpc, output_should_stop_mpc, output_v_target_mpc, _ = get_accel_from_plan(self.v_desired_trajectory, self.a_desired_trajectory, CONTROL_N_T_IDX,
-                                                                        action_t=action_t, vEgoStopping=vEgoStopping)
+                                                                         action_t=action_t, vEgoStopping=vEgoStopping)
     output_a_target_e2e = sm['modelV2'].action.desiredAcceleration
     output_should_stop_e2e = sm['modelV2'].action.shouldStop
     output_v_target_now_e2e = sm['modelV2'].action.desiredVelocity
@@ -240,10 +240,6 @@ class LongitudinalPlanner:
       output_v_target_now = min(output_v_target_mpc, output_v_target_now_e2e)
       self.output_should_stop = output_should_stop_e2e or output_should_stop_mpc
 
-    #for idx in range(2):
-    #  accel_clip[idx] = np.clip(accel_clip[idx], self.prev_accel_clip[idx] - 0.05, self.prev_accel_clip[idx] + 0.05)
-    #self.output_a_target = np.clip(output_a_target, accel_clip[0], accel_clip[1])
-    #self.prev_accel_clip = accel_clip
     self.output_a_target = output_a_target
     self.output_v_target_now = output_v_target_now
     self.output_j_target_now = self.j_desired_trajectory[0]

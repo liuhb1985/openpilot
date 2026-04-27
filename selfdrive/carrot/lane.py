@@ -7,9 +7,6 @@ OpenPilot 彩色视频流服务器
 import time
 import threading
 import numpy as np
-#from flask import Flask, Response, render_template_string
-#import cv2
-
 import sys
 
 FLASK_AVAILABLE = True
@@ -50,7 +47,7 @@ req_frame_time = 0.05
 
 frame_lock = threading.Lock()
 last_snapshot_time = 0
-status_text = "waiting app connect..."
+status_text = "等待 App 连接..."
 status_lock = threading.Lock()
 
 HTML = """
@@ -58,7 +55,7 @@ HTML = """
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Lane Detect</title>
+    <title>车道线检测</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -78,7 +75,7 @@ HTML = """
     </style>
 </head>
 <body>
-<div id="text">waiting app connect...</div>
+<div id="text">等待 App 连接...</div>
 <script>
     const el = document.getElementById("text");
     function update() {
@@ -88,7 +85,7 @@ HTML = """
             .catch(() => {});
     }
     update();
-    setInterval(update, 1000);   //每秒刷新一次
+    setInterval(update, 1000);   // 每秒刷新一次
 </script>
 </body>
 </html>
@@ -96,13 +93,13 @@ HTML = """
 
 def y_to_jpeg(buf, w, h, stride, target_w, target_h, quality=70):
   """
-  快速灰度 JPEG（Y plane）
-  - 整数下采样，低 CPU
+  快速灰度 JPEG（Y 分量）
+  - 整数下采样，低 CPU 占用
   - 中心裁剪到 target_w × target_h
-  - 避免 cv2.resize
+  - 避免使用昂贵的 cv2.resize
   """
   try:
-    # 取 Y plane
+    # 提取 Y 分量
     data = np.frombuffer(buf, dtype=np.uint8)
     y_plane = data[:h * stride].reshape(h, stride)[:, :w]
 
@@ -124,7 +121,7 @@ def y_to_jpeg(buf, w, h, stride, target_w, target_h, quality=70):
     start_y = max(0, (ds_h - target_h) // 2)
     y_crop = y_ds[start_y:start_y + target_h, start_x:start_x + target_w]
 
-    # 确保偶数尺寸（Skia 安全）
+    # 确保尺寸为偶数（Skia 安全）
     y_crop = y_crop[:target_h & ~1, :target_w & ~1]
 
     # JPEG 编码
@@ -136,11 +133,11 @@ def y_to_jpeg(buf, w, h, stride, target_w, target_h, quality=70):
     return jpg.tobytes() if ok else None
 
   except Exception as e:
-    print("Y->JPEG fast error:", e)
+    print("Y->JPEG 快速转换错误:", e)
     return None
 
 def convert_yuv_to_bgr(yuv_data, width, height, stride):
-    """YUV NV12 转 BGR (OpenCV默认顺序)"""
+    """YUV NV12 转 BGR (OpenCV 默认顺序)"""
     try:
         y_size = height * stride
         y_plane = yuv_data[:y_size].reshape(height, stride)
@@ -158,43 +155,43 @@ def convert_yuv_to_bgr(yuv_data, width, height, stride):
 
 def yuv_nv12_to_small_bgr(yuv_data, width, height, stride, target_w, target_h):
   """
-  用整数下采样先缩小 NV12，再转 BGR
+  先使用整数下采样缩小 NV12，然后再转换为 BGR（效率更高）
   """
   y_size = height * stride
   y_plane = yuv_data[:y_size].reshape(height, stride)[:, :width]
   uv_plane = yuv_data[y_size:y_size + (height // 2) * stride].reshape(height // 2, stride)[:, :width]
 
-  # 计算下采样倍数，确保大于 target
+  # 计算下采样倍数，确保大于目标尺寸
   scale_h = height // target_h
   scale_w = width // target_w
   scale = max(1, min(scale_h, scale_w))  # 整数倍采样
 
-  # Y plane 下采样
+  # Y 分量下采样
   y_small = y_plane[::scale, ::scale]
 
-  # UV plane 下采样（每两行、两列采样）
+  # UV 分量下采样
   uv_small = uv_plane[::scale, ::scale]
 
   # 合并回 NV12 小尺寸
   nv12_small = np.vstack([y_small, uv_small])
 
-  # 转成 BGR
+  # 转换为 BGR
   bgr_img = cv2.cvtColor(nv12_small, cv2.COLOR_YUV2BGR_NV12)
 
   return bgr_img
 
 def encode_to_jpg(image, target_w, target_h, quality):
   """
-  固定尺寸 + 低延迟 JPEG
+  固定尺寸 + 低延迟 JPEG 编码
   """
-  # 固定尺寸 resize（不等比例）
+  # 固定尺寸缩放（非等比例）
   if image.shape[1] != target_w or image.shape[0] != target_h:
     image = cv2.resize(
       image,
       (target_w, target_h),
-      interpolation=cv2.INTER_AREA  #更快
+      interpolation=cv2.INTER_AREA  # 速度更快
     )
-  # JPEG 编码（去掉 OPTIMIZE）
+  # JPEG 编码
   success, jpeg = cv2.imencode(
     ".jpg",
     image,
@@ -229,7 +226,7 @@ def camera_thread():
   frame_times = []
 
   while True:
-    # 没客户端，不干活
+    # 无客户端连接时休眠
     if time.time() - last_snapshot_time > 2.0:
       time.sleep(0.1)
       continue
@@ -242,7 +239,7 @@ def camera_thread():
     start_time = time.time()
 
     bgr = None
-    if gray_img: #只处理灰度图像
+    if gray_img: # 只处理灰度图像
       jpeg = y_to_jpeg(yuv_buf.data, vipc_width, vipc_height, vipc_stride, target_width, target_height, JPEG_QUALITY)
       if jpeg is None:
         time.sleep(0.05)
@@ -250,12 +247,11 @@ def camera_thread():
       with frame_lock:
         latest_gray = jpeg
     else:
-      bgr = convert_yuv_to_bgr(yuv_buf.data,vipc_width,vipc_height,vipc_stride) # YUV → BGR（临时）
-      #bgr = yuv_nv12_to_small_bgr(yuv_buf.data, vipc_width, vipc_height, vipc_stride, target_width, target_height)
+      bgr = convert_yuv_to_bgr(yuv_buf.data,vipc_width,vipc_height,vipc_stride) # YUV → BGR
       if bgr is None:
         time.sleep(0.05)
         continue
-      # BGR → JPEG（唯一输出）
+      # BGR → JPEG
       jpeg = encode_to_jpg(bgr, target_width, target_height, JPEG_QUALITY)
       if jpeg is None:
         time.sleep(0.05)
@@ -263,7 +259,7 @@ def camera_thread():
       with frame_lock:
         latest_jpeg = jpeg
 
-    # 统计
+    # 统计信息
     t = time.time() - start_time
     frame_times.append(t * 1000)
 
@@ -271,20 +267,18 @@ def camera_thread():
       if frame_times:
         text = (
           f"JPEG {target_width}x{target_height} | "
-          f"avg {np.mean(frame_times):.1f} ms | "
-          f"FPS {len(frame_times) / 2:.1f}"
+          f"平均耗时 {np.mean(frame_times):.1f} ms | "
+          f"帧率 {len(frame_times) / 2:.1f} FPS"
         )
-        #print(text)
         with status_lock:
           status_text = text
       frame_times.clear()
       last_print = time.time()
 
-    # 显式释放（帮助 GC）
     if bgr is not None:
       del bgr
 
-    #是否需要延时
+    # 控制请求间隔
     with req_lock:
       _req_frame_time = req_frame_time
     sleep_time = _req_frame_time - t if  _req_frame_time > t else 0
@@ -294,11 +288,7 @@ def camera_thread():
 
 def ensure_package(max_retry=10, retry_delay=3):
   """
-  确保 Python 包可用：
-  - import 失败则自动 pip install
-  - 每 10 秒重试一次
-  - 最多重试 10 次
-  - 最终失败返回 None
+  确保必要的 Python 包已安装
   """
   import subprocess
   import_name = "flask"
@@ -311,11 +301,11 @@ def ensure_package(max_retry=10, retry_delay=3):
       import_success = True
       break
     except ImportError:
-      print(f"[WARN] {import_name} 未安装，尝试安装 {pip_name} ({attempt}/{max_retry})")
+      print(f"[警告] {import_name} 未安装，尝试安装 {pip_name} ({attempt}/{max_retry})")
       try:
         subprocess.run("pip install flask", shell=True, capture_output=True, text=False)
       except Exception as e:
-        print(f"[ERROR] pip install {pip_name} 失败: {e}")
+        print(f"[错误] pip install {pip_name} 失败: {e}")
 
       if attempt < max_retry:
         try:
@@ -323,11 +313,11 @@ def ensure_package(max_retry=10, retry_delay=3):
           import_success = True
           break
         except ImportError:
-          print(f"[INFO] {retry_delay}s 后重试...")
+          print(f"[提示] {retry_delay}秒后重试...")
           time.sleep(retry_delay)
 
   if not import_success:
-    print(f"[FATAL] {import_name} 安装失败，已重试 {max_retry} 次")
+    print(f"[致命] {import_name} 安装失败，已重试 {max_retry} 次")
     return import_success
 
   import_success = False
@@ -339,11 +329,11 @@ def ensure_package(max_retry=10, retry_delay=3):
       import cv2
       import_success = True
     except ImportError:
-      print(f"[WARN] {import_name} 未安装，尝试安装 {pip_name} ({attempt}/{max_retry})")
+      print(f"[警告] {import_name} 未安装，尝试安装 {pip_name} ({attempt}/{max_retry})")
       try:
         subprocess.run("pip install opencv-python", shell=True, capture_output=True, text=False)
       except Exception as e:
-        print(f"[ERROR] pip install {pip_name} 失败: {e}")
+        print(f"[错误] pip install {pip_name} 失败: {e}")
 
       if attempt < max_retry:
         try:
@@ -351,42 +341,39 @@ def ensure_package(max_retry=10, retry_delay=3):
           import_success = True
           break
         except ImportError:
-          print(f"[INFO] {retry_delay}s 后重试...")
+          print(f"[提示] {retry_delay}秒后重试...")
           time.sleep(retry_delay)
 
   if not import_success:
-    print(f"[FATAL] {import_name} 安装失败，已重试 {max_retry} 次")
+    print(f"[致命] {import_name} 安装失败，已重试 {max_retry} 次")
   return import_success
 
 def main():
     while not (FLASK_AVAILABLE and OPENCV_AVAILABLE):
       print("=" * 60)
-      print("Lane 视频流服务未启动（缺少依赖）")
+      print("车道线视频流服务未启动（缺少依赖）")
       print("=" * 60)
-      #result = ensure_package()
-      #if result:
-      #  break
       while True:
         try:
           from flask import Flask, Response, render_template_string
           break
         except ImportError:
-          print(f"[ERROR] flask未安装，请手动执行命令pip install flask进行安装")
+          print(f"[错误] flask 未安装，请手动执行命令 pip install flask 进行安装")
         time.sleep(30)
       while True:
         try:
           import cv2
           break
         except ImportError:
-          print(f"[ERROR] opencv未安装，请手动执行命令pip install opencv-python进行安装")
+          print(f"[错误] opencv 未安装，请手动执行命令 pip install opencv-python 进行安装")
         time.sleep(30)
 
     import logging
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
     print("=" * 60)
-    print("车道线服务程序")
-    print("访问: http://0.0.0.0:8888")
+    print("车道线服务程序已启动")
+    print("访问地址: http://0.0.0.0:8888")
     print("=" * 60)
 
     cam_thread = threading.Thread(target=camera_thread, daemon=True)
@@ -409,7 +396,7 @@ def main():
 
     @app.route("/roadrgb.jpg")
     def roadrgb():
-      """返回最新一帧 JPEG，用于 Android 单帧抓取"""
+      """返回最新一帧 JPEG，用于 App 单帧抓取"""
       global latest_jpeg, last_snapshot_time, gray_img
       global req_count, latest_req_count, req_frame_time, req_window_start
       gray_img = False
@@ -422,7 +409,6 @@ def main():
           latest_req_count = req_count
           if latest_req_count >= 1:
             req_frame_time = 2.0 / latest_req_count
-            # print(f"request {latest_req_count}, interval {req_frame_time:.2f} s")
           req_count = 0
         req_count += 1
 
@@ -430,8 +416,6 @@ def main():
         jpeg = latest_jpeg
       # 如果没有帧，返回一张黑色占位图
       if jpeg is None:
-        import numpy as np
-        import cv2
         placeholder = np.zeros((target_height, target_width, 3), dtype=np.uint8)
         _, jpeg = cv2.imencode('.jpg', placeholder)
         jpeg = jpeg.tobytes()
@@ -440,7 +424,7 @@ def main():
 
     @app.route("/roadgray.jpg")
     def roadgray():
-      """返回最新一帧灰度 JPEG，用于 Android 单帧抓取"""
+      """返回最新一帧灰度 JPEG，用于 App 单帧抓取"""
       global latest_gray, last_snapshot_time, gray_img
       global req_count, latest_req_count, req_frame_time, req_window_start
       gray_img = True
@@ -453,7 +437,6 @@ def main():
           latest_req_count = req_count
           if latest_req_count >= 1:
             req_frame_time = 2.0 / latest_req_count
-            # print(f"request {latest_req_count}, interval {req_frame_time:.2f} s")
           req_count = 0
         req_count += 1
 

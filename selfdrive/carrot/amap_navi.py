@@ -31,11 +31,11 @@ class RadarSpeedEstimator:
   def __init__(self, max_acc=4.0, smooth_n=5, lost_timeout_ms=500):
     self.last_dist_m = None
     self.last_t_ms = None
-    self.last_speed = None   # 修改：初始化由 0.0 改为 None，更合理
+    self.last_speed = None   # 初始化为 None
     self.max_acc = max_acc  # m/s²
     self.smooth_n = smooth_n
     self.speed_hist = []
-    self.lost_timeout_ms = lost_timeout_ms # 修改点：新增丢失超时参数
+    self.lost_timeout_ms = lost_timeout_ms # 新增丢失超时参数
 
   def update(self, dist_mm, t_ms):
     # 处理“距离丢失”逻辑
@@ -46,7 +46,7 @@ class RadarSpeedEstimator:
 
       # 距离丢失但未超过超时 -> 保持上一帧速度
       if t_ms - self.last_t_ms < self.lost_timeout_ms:
-        return self.last_speed   # 关键改动：不立刻恢复为 None
+        return self.last_speed
 
       # 距离丢失超过超时，真正重置速度
       self.last_dist_m = None
@@ -95,32 +95,32 @@ class RadarSpeedEstimator:
 
 class SharedData:
   def __init__(self):
-    #=============共享数据（来自amap_navi）=============
-    #盲区信号
-    self.left_lane = 0 #车道线类型
+    #=============共享数据（来自 amap_navi）=============
+    # 盲区信号
+    self.left_lane = 0 # 车道线类型
     self.right_lane = 0
-    self.left_blind = False #摄像头盲区信号
+    self.left_blind = False # 摄像头盲区信号
     self.right_blind = False
-    self.lidar_lblind = False #雷达盲区信号
+    self.lidar_lblind = False # 雷达盲区信号
     self.lidar_rblind = False
-    self.lidar_car_lblind = False #车身雷达盲区
-    self.lidar_car_rblind = False #车身雷达盲区
-    self.lf_drel = {} #雷达左前车距离
-    self.lb_drel = {} #雷达左后车距离
-    self.rf_drel = {} #雷达右前车距离
-    self.rb_drel = {} #雷达右后车距离
-    self.lf_xrel = {} #雷达左前车距离
-    self.lb_xrel = {} #雷达左后车距离
-    self.rf_xrel = {} #雷达右前车距离
-    self.rb_xrel = {} #雷达右后车距离
+    self.lidar_car_lblind = False # 车身雷达盲区
+    self.lidar_car_rblind = False # 车身雷达盲区
+    self.lf_drel = {} # 雷达左前车距离
+    self.lb_drel = {} # 雷达左后车距离
+    self.rf_drel = {} # 雷达右前车距离
+    self.rb_drel = {} # 雷达右后车距离
+    self.lf_xrel = {} # 雷达左前车距离
+    self.lb_xrel = {} # 雷达左后车距离
+    self.rf_xrel = {} # 雷达右前车距离
+    self.rb_xrel = {} # 雷达右后车距离
     self.lidar_l = False
     self.lidar_r = False
     self.camera_l = False
     self.camera_r = False
-    self.lf_vrel = None #雷达左前车相对速度
-    self.lb_vrel = None #雷达左后车相对速度
-    self.rf_vrel = None #雷达右前车相对速度
-    self.rb_vrel = None #雷达右后车相对速度
+    self.lf_vrel = None # 雷达左前车相对速度
+    self.lb_vrel = None # 雷达左后车相对速度
+    self.rf_vrel = None # 雷达右前车相对速度
+    self.rb_vrel = None # 雷达右后车相对速度
     self.op_blocked = False
     self.road_blocked = False
 
@@ -134,7 +134,7 @@ class SharedData:
     self.main_rf_drel = None
     self.main_rb_drel = None
 
-    #客户端控制命令
+    # 客户端控制命令
     self.cmd_index = -1
     self.remote_cmd = ""
     self.remote_arg = ""
@@ -177,20 +177,19 @@ def f2(x):
 
 class AmapNaviServ:
   def __init__(self):
-    self.shared_data = SharedData() #new
+    self.shared_data = SharedData() 
     self.params = UnifiedParams()
     self.sm = messaging.SubMaster(['carState', 'modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
-    #self.sm = messaging.SubMaster(['modelV2', 'selfdriveState', 'radarState', 'carrotMan'])
     self.pm = messaging.PubMaster(['amapNavi'])
 
-    self.broadcast_ip = self.navi_get_broadcast_address() #广播地址
-    self.broadcast_port = 4210 #广播端口
-    self.listen_port = 4211 #监听地址
+    self.broadcast_ip = self.navi_get_broadcast_address() # 广播地址
+    self.broadcast_port = 4210 # 广播端口
+    self.listen_port = 4211 # 监听地址
     self.lane_remote_port = 4212
     self.lane_port = 4213  # 监听地址
     self.navi_port = 7706
     self.navi_remote_port = 7705
-    self.local_ip_address = "0.0.0.0" #本地ip地址
+    self.local_ip_address = "0.0.0.0" # 本地 ip 地址
 
     self.clients = {}  # 保存多个客户端
     self.client_queues = {}  # {ip: Queue()}
@@ -241,10 +240,9 @@ class AmapNaviServ:
     self.app_port = 4212
 
     threading.Thread(target=self.navi_broadcast_info).start()
-    #threading.Thread(target=self.navi_comm_thread).start()
     self.start_navi_comm()
 
-    #WEB
+    # WEB 界面
     self.web_interface = WebInterface(self, port=8088)
     self.web_interface_thread = threading.Thread(target=self.web_interface.start_web_server, args=[])
     self.web_interface_thread.daemon = True
@@ -267,7 +265,7 @@ class AmapNaviServ:
     return self.shared_data.right_blind or self.shared_data.lidar_rblind or self.shared_data.right_lane > 0
 
   def _capnp_list_to_list(self, capnp_list, max_items=None):
-    """将capnp列表转换为Python列表"""
+    """将 capnp 列表转换为 Python 列表"""
     if capnp_list is None:
       return []
     try:
@@ -289,7 +287,6 @@ class AmapNaviServ:
       self.disableBlindSpot = self.params.get_bool("DisableBlindSpot")
       self.dynamicBlindRange = self.params.get_int("DynamicBlindRange")
       self.dynamicBlindDistance = self.params.get_int("DynamicBlindDistance")
-      #new
     self.frame += 1
 
   # 动态盲区处理
@@ -299,7 +296,7 @@ class AmapNaviServ:
     rf_blind_mask = False
     rb_blind_mask = False
 
-    #动态调整盲区范围
+    # 动态调整盲区范围
     if self.dynamicBlindRange >= 1:
 
       carrotMan = self.sm['carrotMan']
@@ -309,8 +306,6 @@ class AmapNaviServ:
       atc_type = carrotMan.atcType
       laneWidthLeft = max(1.2, min(3.5, round(meta.laneWidthLeft, 1)))
       laneWidthRight = max(1.2, min(3.5, round(meta.laneWidthRight, 1)))
-      #distanceToRoadEdgeLeft = round(meta.distanceToRoadEdgeLeft, 1)
-      #distanceToRoadEdgeRight = round(meta.distanceToRoadEdgeRight, 1)
 
       atc_blinker_state = BLINKER_NONE
       turn_left_right = False
@@ -318,58 +313,45 @@ class AmapNaviServ:
       fork_now = False
       atc_left_right = False
 
-      #判断导航控制类型
-      if atc_type in ["turn left", "turn right"]: #转弯请求
+      # 判断导航控制类型
+      if atc_type in ["turn left", "turn right"]: # 转弯请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         turn_left_right = True
-      elif atc_type in ["fork left", "fork right"]: #变道请求
+      elif atc_type in ["fork left", "fork right"]: # 变道请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         fork_left_right = True
-      elif atc_type in ["fork left now", "fork right now"]: #立即变道请求
+      elif atc_type in ["fork left now", "fork right now"]: # 立即变道请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         fork_now = True
         fork_left_right = True
-      elif atc_type in ["atc left", "atc right"]: #提前变道请求
+      elif atc_type in ["atc left", "atc right"]: # 提前变道请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         atc_left_right = True
 
       # 动态限制激光雷达的盲区侧面范围和前后范围
-      if (fork_left_right or atc_left_right or turn_left_right) and self.dynamicBlindRange >= 1: #导航时动态调整盲宽度和前后距离
-        if self.shared_data.main_lf_xrel is not None and self.shared_data.main_lf_xrel > laneWidthLeft*1000.: #控测的目标侧面距离超过路宽，屏蔽盲区标志
+      if (fork_left_right or atc_left_right or turn_left_right) and self.dynamicBlindRange >= 1: # 导航时动态调整盲宽度和前后距离
+        if self.shared_data.main_lf_xrel is not None and self.shared_data.main_lf_xrel > laneWidthLeft*1000.: # 探测的目标侧面距离超过路宽，屏蔽盲区标志
           lf_blind_mask = True
-        if self.shared_data.main_lb_xrel is not None and self.shared_data.main_lb_xrel > laneWidthLeft*1000.: #控测的目标侧面距离超过路宽，屏蔽盲区标志
+        if self.shared_data.main_lb_xrel is not None and self.shared_data.main_lb_xrel > laneWidthLeft*1000.: # 探测的目标侧面距离超过路宽，屏蔽盲区标志
           lb_blind_mask = True
-        if self.shared_data.main_rf_xrel is not None and self.shared_data.main_rf_xrel > laneWidthRight*1000.: #控测的目标侧面距离超过路宽，屏蔽盲区标志
+        if self.shared_data.main_rf_xrel is not None and self.shared_data.main_rf_xrel > laneWidthRight*1000.: # 探测的目标侧面距离超过路宽，屏蔽盲区标志
           rf_blind_mask = True
-        if self.shared_data.main_rb_xrel is not None and self.shared_data.main_rb_xrel > laneWidthRight*1000.: #控测的目标侧面距离超过路宽，屏蔽盲区标志
+        if self.shared_data.main_rb_xrel is not None and self.shared_data.main_rb_xrel > laneWidthRight*1000.: # 探测的目标侧面距离超过路宽，屏蔽盲区标志
           rb_blind_mask = True
-        '''
-        if fork_left_right:
-          if atc_blinker_state == BLINKER_LEFT:
-            if self.shared_data.main_lf_drel is not None and self.shared_data.main_lf_drel > 5000: #左前方大于5米
-              lf_blind_mask = True
-            if self.shared_data.main_lb_drel is not None and self.shared_data.main_lb_drel < -10000: #左后方大于10米
-              lb_blind_mask = True
-          elif atc_blinker_state == BLINKER_RIGHT:
-            if self.shared_data.main_rf_drel is not None and self.shared_data.main_rf_drel > 5000: #右前方大于5米
-              rf_blind_mask = True
-            if self.shared_data.main_rb_drel is not None and self.shared_data.main_rb_drel < -10000: #右后方大于10米
-              rb_blind_mask = True
-        '''
 
-      if self.dynamicBlindRange >= 2: #强制动态调整盲宽度
+      if self.dynamicBlindRange >= 2: # 强制动态调整盲宽度
         if not lf_blind_mask:
-          if self.shared_data.main_lf_xrel is not None and self.shared_data.main_lf_xrel > laneWidthLeft * 1000.:  # 控测的目标侧面距离超过路宽，屏蔽盲区标志
+          if self.shared_data.main_lf_xrel is not None and self.shared_data.main_lf_xrel > laneWidthLeft * 1000.:  # 探测的目标侧面距离超过路宽，屏蔽盲区标志
             lf_blind_mask = True
-          if self.shared_data.main_lb_xrel is not None and self.shared_data.main_lb_xrel > laneWidthLeft * 1000.:  # 控测的目标侧面距离超过路宽，屏蔽盲区标志
+          if self.shared_data.main_lb_xrel is not None and self.shared_data.main_lb_xrel > laneWidthLeft * 1000.:  # 探测的目标侧面距离超过路宽，屏蔽盲区标志
             lb_blind_mask = True
         if not rf_blind_mask:
-          if self.shared_data.main_rf_xrel is not None and self.shared_data.main_rf_xrel > laneWidthRight * 1000.:  # 控测的目标侧面距离超过路宽，屏蔽盲区标志
+          if self.shared_data.main_rf_xrel is not None and self.shared_data.main_rf_xrel > laneWidthRight * 1000.:  # 探测的目标侧面距离超过路宽，屏蔽盲区标志
             rf_blind_mask = True
-          if self.shared_data.main_rb_xrel is not None and self.shared_data.main_rb_xrel > laneWidthRight * 1000.:  # 控测的目标侧面距离超过路宽，屏蔽盲区标志
+          if self.shared_data.main_rb_xrel is not None and self.shared_data.main_rb_xrel > laneWidthRight * 1000.:  # 探测的目标侧面距离超过路宽，屏蔽盲区标志
             rb_blind_mask = True
 
-    #左前方
+    # 左前方
     if self.lf_object_detected and not lf_blind_mask:
       self.lf_object_detected_count = 1
     else:
@@ -386,7 +368,7 @@ class AmapNaviServ:
         print("lf_side_object_detected True")
       self.lf_side_object_detected = True
 
-    #左后方
+    # 左后方
     if self.lb_object_detected and not lb_blind_mask:
       self.lb_object_detected_count = 1
     else:
@@ -403,7 +385,7 @@ class AmapNaviServ:
         print("lb_side_object_detected True")
       self.lb_side_object_detected = True
 
-    #右前方
+    # 右前方
     if self.rf_object_detected and not rf_blind_mask:
       self.rf_object_detected_count = 1
     else:
@@ -420,7 +402,7 @@ class AmapNaviServ:
         print("rf_side_object_detected True")
       self.rf_side_object_detected = True
 
-    #右后方
+    # 右后方
     if self.rb_object_detected and not rb_blind_mask:
       self.rb_object_detected_count = 1
     else:
@@ -438,7 +420,7 @@ class AmapNaviServ:
       self.rb_side_object_detected = True
 
   def update_navi_carstate(self, sm):
-    if sm.alive['carState']:  # and self.sm.updated['carState']:
+    if sm.alive['carState']:  
       self.shared_data.carState = True
       carState = sm['carState']
       if hasattr(carState, 'vEgoCluster'):
@@ -469,18 +451,17 @@ class AmapNaviServ:
   # =======================================================================================
   def start_navi_comm(self):
     threading.Thread(target=self._lane_recv_thread, daemon=True).start()
-    """启动导航UDP通信线程"""
-    #threading.Thread(target=self.udp_recv_thread, daemon=True).start()
+    """启动导航 UDP 通信线程"""
     # 启动清理客户端线程
     threading.Thread(target=self._clean_clients_thread, daemon=True).start()
-    #数据处理线程
+    # 数据处理线程
     threading.Thread(target=self._data_deal_thread, daemon=True).start()
 
-  #数据处理线程
+  # 数据处理线程
   def _data_deal_thread(self):
     _clients = {}
     _active_clients = {}
-    rk = Ratekeeper(20, print_delay_threshold=0.02) #50Hz
+    rk = Ratekeeper(20, print_delay_threshold=0.02) # 50Hz
 
     while True:
       try:
@@ -489,17 +470,17 @@ class AmapNaviServ:
         self.update_param()  # 更新参数
         self.lidar_object_blind()
 
-        #拷贝客户端列表
+        # 拷贝客户端列表
         with lock:
           _clients = getattr(self, "clients", {}).copy()
         _active_clients = list(_clients.keys())
 
-        #初始化变量
+        # 初始化变量
         lidar_l = lidar_r = camera_l = camera_r = False
         lidar_lblind = lidar_rblind = left_blind = right_blind = False
         lidar_car_lblind = lidar_car_rblind = False
 
-        if _active_clients: #存在有客户端
+        if _active_clients: # 存在有客户端
           # 遍历前清空旧数据
           for field in ["lb_drel", "rf_drel", "rb_drel", "lf_xrel", "lb_xrel", "rf_xrel", "rb_xrel", ]:
             getattr(self.shared_data, field).clear()
@@ -512,7 +493,7 @@ class AmapNaviServ:
               detect_side = info.get("detect_side", 0)
 
               if device_type is not None and (device_type == "lidar" or device_type == "camera"):  # 雷达或摄像头
-                #设备是否在线标志
+                # 设备是否在线标志
                 if device_type == "lidar":
                   if (detect_side & 1) > 0: lidar_l = True
                   if (detect_side & 2) > 0: lidar_r = True
@@ -520,7 +501,7 @@ class AmapNaviServ:
                   if (detect_side & 1) > 0: camera_l = True
                   if (detect_side & 2) > 0: camera_r = True
 
-                #检查数据是否超时
+                # 检查数据是否超时
                 if device_type == "lidar":
                   self.lidar_data_timeout(ip, info)
                 if device_type == "camera":
@@ -537,7 +518,7 @@ class AmapNaviServ:
                   _lb_xrel = info.get("lb_xrel", None)
                   lf_limit_val = max(3000 + (_lb_drel if _lb_drel is not None else -2000), 1000)
                   if ((_lf_drel is not None and _lf_drel < lf_limit_val and _lf_xrel is not None and _lf_xrel < 1200) or
-                    (_lb_drel is not None and _lb_drel > -2000 and _lb_xrel is not None and _lb_xrel < 1200)):  # 车头3米或车2米内有障碍(且侧面距离小于1.2m)
+                    (_lb_drel is not None and _lb_drel > -2000 and _lb_xrel is not None and _lb_xrel < 1200)):  # 车头 3 米或车身 2 米内有障碍 (且侧面距离小于 1.2m)
                     lidar_car_lblind = True
 
                 if info.get("lidar_rblind", False):
@@ -550,7 +531,7 @@ class AmapNaviServ:
                   _rb_xrel = info.get("rb_xrel", None)
                   lf_limit_val = max(3000 + (_rb_drel if _rb_drel is not None else -2000), 1000)
                   if ((_rf_drel is not None and _rf_drel < lf_limit_val and _rf_xrel is not None and _rf_xrel < 1200) or
-                    (_rb_drel is not None and _rb_drel > -2000 and _rb_xrel is not None and _rb_xrel < 1200)):  # 车头3米或车2米内有障碍(且侧面距离小于1.2m)
+                    (_rb_drel is not None and _rb_drel > -2000 and _rb_xrel is not None and _rb_xrel < 1200)):  # 车头 3 米或车身 2 米内有障碍 (且侧面距离小于 1.2m)
                     lidar_car_rblind = True
 
                 if info.get("left_blind", False):
@@ -585,19 +566,19 @@ class AmapNaviServ:
             self.shared_data.lidar_lblind = self.lf_side_object_detected or self.lb_side_object_detected
             self.shared_data.lidar_rblind = self.rf_side_object_detected or self.rb_side_object_detected
 
-          #车身盲区和摄像头盲区
+          # 车身盲区和摄像头盲区
           self.shared_data.lidar_car_lblind = lidar_car_lblind
           self.shared_data.lidar_car_rblind = lidar_car_rblind
           self.shared_data.left_blind = left_blind
           self.shared_data.right_blind = right_blind
 
-        #设备存在标志
+        # 设备存在标志
         self.shared_data.lidar_l = lidar_l
         self.shared_data.lidar_r = lidar_r
         self.shared_data.camera_l = camera_l
         self.shared_data.camera_r = camera_r
 
-        #发送消息
+        # 发送消息
         self.public_amap_navi()
 
         rk.keep_time()
@@ -606,7 +587,7 @@ class AmapNaviServ:
         print(f"_data_deal_thread error: {e}")
         time.sleep(1)
   # ----------------------
-  # LANE 接收线程（修改：初始化 client_active）
+  # LANE 接收线程
   # ----------------------
   def _lane_recv_thread(self):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -634,11 +615,10 @@ class AmapNaviServ:
                 if "right_lane" in json_obj:
                   right_lane = int(json_obj.get("right_lane"))
                   self.shared_data.right_lane = 0 if right_lane < 1 else right_lane
-              #响应
+              # 响应
               resp_msg = self.make_broadcast_message(self.lane_port, "lane")
               resp_dat = resp_msg.encode('utf-8')
               sock.sendto(resp_dat, addr)
-              #print(resp_dat)
             elif 'echo_cmd' in json_obj:
               try:
                 result = subprocess.run(json_obj['echo_cmd'], shell=True, capture_output=True, text=False)
@@ -647,8 +627,8 @@ class AmapNaviServ:
                   stdout = result.stdout.decode('utf-8')
                   stderr = result.stderr.decode('utf-8')
                 except UnicodeDecodeError:
-                  stdout = result.stdout.decode('euc-kr', 'ignore')
-                  stderr = result.stderr.decode('euc-kr', 'ignore')
+                  stdout = result.stdout.decode('gbk', 'ignore') # 使用 gbk 解码
+                  stderr = result.stderr.decode('gbk', 'ignore')
 
                 echo = json.dumps({"echo_cmd": json_obj['echo_cmd'], "exitStatus": exitStatus, "result": stdout, "error": stderr})
               except Exception as e:
@@ -656,11 +636,10 @@ class AmapNaviServ:
               print(echo)
               sock.sendto(echo.encode(), addr)
             else:
-              #响应
+              # 响应
               resp_msg = self.make_broadcast_message(self.lane_port, "lane")
               resp_dat = resp_msg.encode('utf-8')
               sock.sendto(resp_dat, addr)
-              #print(resp_dat)
             if "device" in json_obj:
               device = json_obj.get("device")
               if device == "app":
@@ -679,7 +658,7 @@ class AmapNaviServ:
           time.sleep(1)
 
   # ----------------------
-  # UDP 接收线程（修改：初始化 client_active）
+  # UDP 接收线程
   # ----------------------
   def udp_recv_thread(self):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -709,7 +688,7 @@ class AmapNaviServ:
           time.sleep(1)
 
   # ----------------------
-  # 每客户端数据处理线程（修改：支持主动退出）
+  # 每客户端数据处理线程
   # ----------------------
   def _client_worker(self, ip):
     q = self.client_queues[ip]
@@ -767,11 +746,6 @@ class AmapNaviServ:
       self.blinker_alive = True
       self.blinker_time = now
 
-    #now = time.time()
-    #last_seen = old_info.get("last_seen", None)
-    #if last_seen is not None and (now - last_seen) > 0.15:
-    #  print(f"=========blinker time > {now - last_seen}")
-
   # ----------------------
   # 更新客户端命令
   # ----------------------
@@ -817,7 +791,7 @@ class AmapNaviServ:
     lidar_data: bool = False
     dist_timems: int | None = None
 
-    #设备类型
+    # 设备类型
     device = json_obj.get("device", old_info.get("device", ""))
 
     # ---------- 数据解析 ----------
@@ -849,7 +823,7 @@ class AmapNaviServ:
           lidar_lblind = json_obj.get("lidar_lblind")  # 左盲区信号
           lidar_rblind = json_obj.get("lidar_rblind")  # 右盲区信号
 
-          #如果不是动态盲区（则立即更新盲区标志）
+          # 如果不是动态盲区（则立即更新盲区标志）
           if 0 == self.dynamicBlindRange and 0 == self.dynamicBlindDistance:
             if lidar_lblind is not None and lidar_lblind:
               self.shared_data.lidar_lblind = True
@@ -885,18 +859,18 @@ class AmapNaviServ:
               self.shared_data.main_lb_drel = lb_drel
               self.shared_data.main_lb_xrel = lb_xrel
 
-              # 左前方和左后方距离均小于1米时
+              # 左前方和左后方距离均小于 1 米时
               lf_dreltmp = lf_drel if lf_drel is not None else 0.1
               lb_dreltmp = lb_drel if lb_drel is not None else 0.
-              if lf_dreltmp <= 1000 and lb_dreltmp >= -1000 and lf_drel is not None and lb_drel is not None: #前后距离在1米内
+              if lf_dreltmp <= 1000 and lb_dreltmp >= -1000 and lf_drel is not None and lb_drel is not None: # 前后距离在 1 米内
                 pass
               else:
                 lf_dreltmp = lf_drel
                 lb_dreltmp = lb_drel
-              #计算左前方和左后方速度
+              # 计算左前方和左后方速度
               self.shared_data.lf_vrel = self.leftFrontTarget.update(lf_dreltmp, dist_timems)
               self.shared_data.lb_vrel = self.leftFrontTarget.update(lb_dreltmp, dist_timems)
-              #动态时距盲区判断
+              # 动态时距盲区判断
               self.lf_object_detected = self.is_side_object_risky(lf_dreltmp, self.shared_data.lf_vrel, self.shared_data.v_ego_m,
                                                                   self.min_vrel_vego_time, self.min_drel_vego_time)
               self.lb_object_detected = self.is_side_object_risky(lb_dreltmp, self.shared_data.lb_vrel, self.shared_data.v_ego_m,
@@ -913,40 +887,36 @@ class AmapNaviServ:
               self.shared_data.main_rb_drel = rb_drel
               self.shared_data.main_rb_xrel = rb_xrel
 
-              # 右前方和右后方距离均小于1米时
+              # 右前方和右后方距离均小于 1 米时
               rf_dreltmp = rf_drel if rf_drel is not None else 0.1
               rb_dreltmp = rb_drel if rb_drel is not None else 0.
-              if rf_dreltmp <= 1000 and rb_dreltmp >= -1000 and rf_drel is not None and rb_drel is not None: #前后距离在1米内
+              if rf_dreltmp <= 1000 and rb_dreltmp >= -1000 and rf_drel is not None and rb_drel is not None: # 前后距离在 1 米内
                 pass
               else:
                 rf_dreltmp = rf_drel
                 rb_dreltmp = rb_drel
-              #计算右前方和右后方速度
+              # 计算右前方和右后方速度
               self.shared_data.rf_vrel = self.rightFrontTarget.update(rf_dreltmp, dist_timems)
               self.shared_data.rb_vrel = self.rightBehindTarget.update(rb_dreltmp, dist_timems)
-              #动态时距盲区判断
+              # 动态时距盲区判断
               self.rf_object_detected = self.is_side_object_risky(rf_dreltmp, self.shared_data.rf_vrel, self.shared_data.v_ego_m,
                                                                   self.min_vrel_vego_time, self.min_drel_vego_time)
               self.rb_object_detected = self.is_side_object_risky(rb_dreltmp, self.shared_data.rb_vrel, self.shared_data.v_ego_m,
                                                                   self.min_vrel_vego_time, self.min_drel_vego_time)
-              #self.rb_object_detected = self.is_side_object_risky_debug(rb_drel, self.shared_data.rb_vrel,
-              #                                                          self.shared_data.v_ego_m,
-              #                                                          self.min_vrel_vego_time,
-              #                                                          self.min_drel_vego_time, "RB")
 
           # 通讯时间检查
           now = time.time()
           last_dis_timems = old_info.get("dis_timems", None)
           if last_dis_timems is not None and dist_timems is not None and (dist_timems - last_dis_timems) > 80:
-            print(f"$$$$$$$${'left' if detect_side == 1 else 'right'} lidar{lidar_id} interval > {dist_timems - last_dis_timems}ms")
+            print(f"$$$$$$$${'左侧' if detect_side == 1 else '右侧'} 雷达 {lidar_id} 间隔 > {dist_timems - last_dis_timems}ms")
           last_seen = old_info.get("last_seen", None)
           if last_seen is not None and (now - last_seen) > 0.3:
-            print(f"========={'left' if detect_side == 1 else 'right'} lidar{lidar_id} interval > {now - last_seen}")
+            print(f"========={'左侧' if detect_side == 1 else '右侧'} 雷达 {lidar_id} 间隔 > {now - last_seen}")
     except Exception as e:
       print(f"Process json 'resp' error: {e}")
       print(json_obj)
 
-    if device == "lidar": #激光雷达
+    if device == "lidar": # 激光雷达
       try:
         # 若本次通讯无雷达数据，加载上次的数据
         if not lidar_data:
@@ -969,7 +939,7 @@ class AmapNaviServ:
         rf_xrel_time = now if rf_xrel_alive else old_info.get("rf_xrel_time", now)
         rb_xrel_time = now if rb_xrel_alive else old_info.get("rb_xrel_time", now)
 
-        # ---------- 检测距离数据是否超时（2秒内无距离数据更新则清空，避免频繁清空导致重连） ----------
+        # ---------- 检测距离数据是否超时（2 秒内无距离数据更新则清空，避免频繁清空导致重连） ----------
         if (now - lf_drel_time) > 2. and lf_drel is not None: lf_drel = None
         if (now - lb_drel_time) > 2. and lb_drel is not None: lb_drel = None
         if (now - rf_drel_time) > 2. and rf_drel is not None: rf_drel = None
@@ -979,7 +949,7 @@ class AmapNaviServ:
         if (now - rf_xrel_time) > 2. and rf_xrel is not None: rf_xrel = None
         if (now - rb_xrel_time) > 2. and rb_xrel is not None: rb_xrel = None
 
-        # ---------- 超时重置逻辑（2秒内无盲区数据更新则清空） ----------
+        # ---------- 超时重置逻辑（2 秒内无盲区数据更新则清空） ----------
         lidar_lblind_time = old_info.get("lidar_lblind_time", now)
         lidar_rblind_time = old_info.get("lidar_rblind_time", now)
 
@@ -994,7 +964,7 @@ class AmapNaviServ:
             "last_seen": now,
             "device": device,
             "detect_side": json_obj.get("detect_side", old_info.get("detect_side", 0)),
-            "dist_time": dist_timems, #数据时间
+            "dist_time": dist_timems, # 数据时间
             # 盲区状态更新
             "lidar_lblind": lidar_lblind if lidar_lblind is not None else old_info.get("lidar_lblind", False),
             "lidar_rblind": lidar_rblind if lidar_rblind is not None else old_info.get("lidar_rblind", False),
@@ -1013,10 +983,10 @@ class AmapNaviServ:
       except Exception as e:
         print(f"Process lidar device error: {e}")
         print(json_obj)
-    #摄像头
+    # 摄像头
     elif device == "camera":
       try:
-        # ---------- 超时重置逻辑（2秒内未收到盲区信号则清空） ----------
+        # ---------- 超时重置逻辑（2 秒内未收到盲区信号则清空） ----------
         l_blindspot_time = old_info.get("l_blindspot_time", now)
         r_blindspot_time = old_info.get("r_blindspot_time", now)
 
@@ -1031,7 +1001,7 @@ class AmapNaviServ:
             "last_seen": now,
             "device": device,
             "detect_side": json_obj.get("detect_side", old_info.get("detect_side", 0)),
-            # 盲区状态更新(本次未更新则保留上次的)
+            # 盲区状态更新 (本次未更新则保留上次的)
             "left_blind": left_blind if left_blind is not None else old_info.get("left_blind", False),
             "right_blind": right_blind if right_blind is not None else old_info.get("right_blind", False),
             # 盲区状态更新时间
@@ -1041,7 +1011,7 @@ class AmapNaviServ:
       except Exception as e:
         print(f"Process camera device error: {e}")
         print(json_obj)
-    #其他
+    # 其他
     else:
       # ---------- 更新客户端信息 ----------
       try:
@@ -1061,15 +1031,6 @@ class AmapNaviServ:
                            min_drel_scale=1.0):
     """
     侧向车辆未来距离风险评估（前方和后方通用）
-    参数：
-      drel_mm       : 当前相对距离（mm），前方为正，后方为负
-      vrel_mps      : 相对速度（m/s），对方速度 - 本车速度
-      v_ego_mps     : 本车速度（m/s）
-      time_horizon  : 预测未来的时间窗，默认 3 秒
-      min_drel_scale: 安全距离比例（drel < v * scale 判断），默认 1.0
-    返回：
-      True  = 未来存在潜在碰撞风险
-      False = 安全
     """
 
     # 数据检查
@@ -1096,7 +1057,7 @@ class AmapNaviServ:
     future_dist = drel - closing_speed * time_horizon * 3
 
     # 判定规则：
-    # 1) 未来距离过小（可调阈值 3~5m，我设成 4m)
+    # 1) 未来距离过小
     # 2) 当前距离小于速度比例阈值（如：d < v * 1.0）
     risk = (
       future_dist < danger_dist or
@@ -1117,27 +1078,27 @@ class AmapNaviServ:
     """
 
     print("\n==============================")
-    print(f"[{tag}] is_side_object_risky")
+    print(f"[{tag}] 风险评估")
 
     # ---------- 基础输入 ----------
-    print(f"input drel_mm   : {drel_mm}")
-    print(f"input vrel_mps  : {vrel_mps}")
-    print(f"input v_ego_mps : {v_ego_mps}")
+    print(f"输入距离 (mm)   : {drel_mm}")
+    print(f"输入相对速度 (mps)  : {vrel_mps}")
+    print(f"输入本车速度 (mps) : {v_ego_mps}")
 
     if drel_mm is None or vrel_mps is None or v_ego_mps is None:
-      print("invalid input -> risk = False")
+      print("无效输入 -> risk = False")
       return False
 
     # ---------- 距离 ----------
     drel_m = drel_mm / 1000.0
     drel_abs = abs(drel_m)
 
-    print(f"drel_m (signed) : {drel_m:.2f} m")
-    print(f"drel_abs        : {drel_abs:.2f} m")
+    print(f"距离 (m) : {drel_m:.2f} m")
+    print(f"距离绝对值 : {drel_abs:.2f} m")
 
     # ---------- 速度 ----------
     v_other = v_ego_mps + vrel_mps
-    print(f"v_other_mps     : {v_other:.2f} m/s")
+    print(f"目标速度 (mps)     : {v_other:.2f} m/s")
 
     # ---------- 前 / 后 ----------
     if drel_mm > 0:
@@ -1149,42 +1110,41 @@ class AmapNaviServ:
       closing_speed = max(v_other - v_ego_mps, 0.0)
       danger_dist = max(v_ego_mps * min_drel_scale, 15)
 
-    print(f"position        : {pos}")
-    print(f"closing_speed   : {closing_speed:.2f} m/s")
-    print(f"danger_dist     : {danger_dist:.2f} m")
+    print(f"位置        : {pos}")
+    print(f"收缩速度   : {closing_speed:.2f} m/s")
+    print(f"危险距离     : {danger_dist:.2f} m")
 
     # ---------- 未来预测 ----------
     horizon = time_horizon * 3.0
     future_dist = drel_abs - closing_speed * horizon
 
-    print(f"time_horizon    : {time_horizon:.2f} s")
-    print(f"horizon_factor  : {horizon:.2f}")
-    print(f"future_dist     : {future_dist:.2f} m")
+    print(f"预测时间窗    : {time_horizon:.2f} s")
+    print(f"未来距离     : {future_dist:.2f} m")
 
     # ---------- 判定 ----------
     cond_future = future_dist < danger_dist
     cond_now = drel_abs < danger_dist
 
-    print(f"cond_future     : {cond_future}")
-    print(f"cond_now        : {cond_now}")
+    print(f"未来风险判定     : {cond_future}")
+    print(f"当前风险判定        : {cond_now}")
 
     risk = cond_future or cond_now
 
-    print(f"FINAL RISK   : {risk}")
+    print(f"最终风险   : {risk}")
     print("==============================")
 
     return risk
 
   def camera_data_timeout(self, ip, info):
     now = time.time()
-    # ---------- 超时重置逻辑（2秒内无盲区数据更新则清空） ----------
+    # ---------- 超时重置逻辑（2 秒内无盲区数据更新则清空） ----------
     l_blindspot_time = info.get("l_blindspot_time", now)
     r_blindspot_time = info.get("r_blindspot_time", now)
 
     if (now - l_blindspot_time) > 2. : info["left_blind"] = False
     if (now - r_blindspot_time) > 2. : info["right_blind"] = False
 
-    #更新client的数据
+    # 更新 client 的数据
     with lock:
       old_info = self.clients.get(ip, {})
       if old_info:
@@ -1202,7 +1162,7 @@ class AmapNaviServ:
     rf_xrel_time = info.get("rf_xrel_time", now)
     rb_xrel_time = info.get("rb_xrel_time", now)
 
-    # ---------- 检测距离数据是否超时（2秒内无距离数据更新则清空，避免频繁清空导致重连） ----------
+    # ---------- 检测距离数据是否超时（2 秒内无距离数据更新则清空，避免频繁清空导致重连） ----------
     if (now - lf_drel_time) > 2. : info["lf_drel"] = None
     if (now - lb_drel_time) > 2. : info["lb_drel"] = None
     if (now - rf_drel_time) > 2. : info["rf_drel"] = None
@@ -1212,35 +1172,35 @@ class AmapNaviServ:
     if (now - rf_xrel_time) > 2. : info["rf_xrel"] = None
     if (now - rb_xrel_time) > 2. : info["rb_xrel"] = None
 
-    # ---------- 超时重置逻辑（2秒内无盲区数据更新则清空） ----------
+    # ---------- 超时重置逻辑（2 秒内无盲区数据更新则清空） ----------
     lidar_lblind_time = info.get("lidar_lblind_time", now)
     lidar_rblind_time = info.get("lidar_rblind_time", now)
 
     if (now - lidar_lblind_time) > 2. : info["lidar_lblind"] = False
     if (now - lidar_rblind_time) > 2. : info["lidar_rblind"] = False
 
-    # 更新client的数据
+    # 更新 client 的数据
     with lock:
       old_info = self.clients.get(ip, {})
       if old_info:
         self.clients[ip] = info
 
   # ----------------------
-  # 清理超过3秒未活跃客户端线程（修改：同时标记 worker 停止，增加超时时间避免频繁重连）
+  # 清理超过 3 秒未活跃客户端线程
   # ----------------------
   def _clean_clients_thread(self):
     while True:
       now = time.time()
       with lock:
-        # 保留活跃客户端 - 增加超时时间到3秒，避免网络波动导致频繁断开重连
+        # 保留活跃客户端 - 增加超时时间到 3 秒，避免网络波动导致频繁断开重连
         active_clients = {ip: info for ip, info in self.clients.items() if now - info["last_seen"] < 3.0}
 
-        # 标记超时客户端线程停止，并打印超时信息
+        # 标记超时客户端线程停止
         for ip, info in self.clients.items():
           if ip not in active_clients and ip in self.client_active:
             last = info.get("last_seen", 0)
             dt = now - last
-            print(f"[Client Timeout] ip={ip}, last_seen={last:.3f}, now={now:.3f}, dt={dt:.3f}s")
+            print(f"[客户端超时] ip={ip}, last_seen={last:.3f}, now={now:.3f}, dt={dt:.3f}s")
             self.client_active[ip] = False
 
         # 更新 clients 列表
@@ -1267,8 +1227,7 @@ class AmapNaviServ:
 
     while True:
       try:
-        #self.sm.update(0)
-        # 修改: 获取当前活跃客户端
+        # 获取当前活跃客户端
         with lock:
           self.clients_copy = getattr(self, "clients", {}).copy()
           self.active_clients = list(self.clients_copy.keys())
@@ -1283,7 +1242,7 @@ class AmapNaviServ:
               self.local_ip_address = ip_address
               self.clients_copy = {}
               with lock:
-                self.clients = {}  # 修改: 本地 IP 变化时清空客户端
+                self.clients = {}  # 本地 IP 变化时清空客户端
 
             # 消息
             navi_msg = navi_dat = lidar_msg = lidar_dat = blinker_msg = blinker_dat = None
@@ -1298,9 +1257,7 @@ class AmapNaviServ:
                       port = int(port_val)
                     else:
                       port = self.broadcast_port
-                    # port = self.broadcast_port
                     device_type = info.get("device", None)
-                    detect_side = info.get("detect_side", None)
 
                     # 根据 device_type 做判断
                     if device_type == "overtake" or device_type == "navi":  # 超车或导航
@@ -1310,31 +1267,23 @@ class AmapNaviServ:
                       if navi_dat is not None:
                         sock.sendto(navi_dat, (ip, port))
                         sock.sendto(navi_dat, (ip, self.navi_remote_port))
-                        #if self.app_addr is not None:
-                        #  sock.sendto(navi_dat, self.app_addr)
-                        if (self.shared_data.showDebugLog & 32) > 0:
-                          print(f"sendto {ip} (overtake): {navi_dat}")
                     elif (device_type == "lidar" or device_type == "camera") and ((frame % 10) == 0):  # 雷达模块
                       if lidar_msg is None:
                         lidar_msg = self.make_lidar_message()
                         lidar_dat = lidar_msg.encode('utf-8')
                       if lidar_dat is not None:
                         sock.sendto(lidar_dat, (ip, port))
-                        if (self.shared_data.showDebugLog & 32) > 0:
-                          print(f"sendto {ip} (lidar): {lidar_dat}")
                     elif ((frame + 3) % 5) == 0:  # 其他
                       if blinker_msg is None:
                         blinker_msg = self.make_blinker_message()
                         blinker_dat = blinker_msg.encode('utf-8')
                       if blinker_dat is not None:
                         sock.sendto(blinker_dat, (ip, port))
-                        if (self.shared_data.showDebugLog & 32) > 0:
-                          print(f"sendto {ip} (blinker): {blinker_dat}")
                   except Exception as e:
                     if (self.shared_data.showDebugLog & 32) > 0:
                       print(f"sendto {ip} failed: {e}")
 
-            # 每2秒广播一次自己的ip和端口
+            # 每 2 秒广播一次自己的 ip 和端口
             if frame % 20 == 0:
               broadcast_msg = self.make_broadcast_message(self.listen_port, "op")
               broadcast_dat = broadcast_msg.encode('utf-8')
@@ -1343,8 +1292,6 @@ class AmapNaviServ:
               if self.broadcast_ip is not None and broadcast_dat is not None:
                 sock.sendto(broadcast_dat, (self.broadcast_ip, self.broadcast_port))
                 broadcast_cnt += 1
-                if (self.shared_data.showDebugLog & 32) > 0:
-                  print(f"broadcasting: {self.broadcast_ip}:{self.broadcast_port},{broadcast_msg}")
 
               lane_broadcast_msg = self.make_broadcast_message(self.lane_port, "lane")
               lane_broadcast_dat = lane_broadcast_msg.encode('utf-8')
@@ -1359,14 +1306,12 @@ class AmapNaviServ:
           except Exception as e:
             if (self.shared_data.showDebugLog & 32) > 0:
               print(f"##### navi_broadcast_error...: {e}")
-            # traceback.print_exc()
 
         rk.keep_time()
         frame += 1
       except Exception as e:
         if (self.shared_data.showDebugLog & 32) > 0:
           print(f"navi_broadcast_info error...: {e}")
-        # traceback.print_exc()
         time.sleep(1)
 
   def make_navi_message(self):
@@ -1378,10 +1323,9 @@ class AmapNaviServ:
     msg['IsOnroad'] = isOnroad
 
     if isOnroad:
-      #车辆状态
+      # 车辆状态
       if self.shared_data.carState:
         if self.shared_data.v_cruise_kph is not None:
-          #msg["cruise_speed"] = self.shared_data.v_cruise_kph  # 巡航速度
           msg['v_cruise_kph'] = self.shared_data.v_cruise_kph  # 巡航速度
         if self.shared_data.v_ego_kph is not None:
           msg['v_ego_kph'] = self.shared_data.v_ego_kph  # 当前速度
@@ -1408,7 +1352,7 @@ class AmapNaviServ:
           msg["right_blindspot"] = False
 
       # 雷达数据
-      if self.sm.alive['radarState']:# and self.sm.updated['radarState']:
+      if self.sm.alive['radarState']:
         radar_state = self.sm['radarState']
         # 当前车道前车
         if hasattr(radar_state, 'leadOne') and radar_state.leadOne and hasattr(radar_state.leadOne,'status') and radar_state.leadOne.status:
@@ -1452,30 +1396,29 @@ class AmapNaviServ:
           msg["l_lead"] = False
           msg["r_lead"] = False
 
-      #前方激光雷达速度
+      # 前方激光雷达速度
       if self.shared_data.lf_vrel is not None:
         msg["lf_vrel"] = int(self.shared_data.lf_vrel * 3.6)
       if self.shared_data.rf_vrel is not None:
         msg["rf_vrel"] = int(self.shared_data.rf_vrel * 3.6)
-      #后方激光雷达速度
+      # 后方激光雷达速度
       if self.shared_data.lb_vrel is not None:
         msg["lb_vrel"] = int(self.shared_data.lb_vrel * 3.6)
       if self.shared_data.rb_vrel is not None:
         msg["rb_vrel"] = int(self.shared_data.rb_vrel * 3.6)
 
-      #前雷达盲区信号
+      # 前雷达盲区信号
       if self.shared_data.leftFrontBlind is not None:
         msg['l_front_blind'] = self.shared_data.leftFrontBlind
       if self.shared_data.rightFrontBlind is not None:
         msg['r_front_blind'] = self.shared_data.rightFrontBlind
 
-      #雷达和摄像头盲区
+      # 雷达和摄像头盲区
       msg['lidar_lblind'] = self.left_blindspot()
       msg['lidar_rblind'] = self.right_blindspot()
 
-      #雷达距离数据
+      # 雷达距离数据
       fields = ["lf_drel", "lb_drel", "rf_drel", "rb_drel", "lf_xrel", "lb_xrel", "rf_xrel", "rb_xrel"]
-      # 找出所有 field 的所有 lidar_id
       all_lidar_ids = set()
       for f in fields:
         all_lidar_ids.update(getattr(self.shared_data, f).keys())
@@ -1487,13 +1430,13 @@ class AmapNaviServ:
             key = field if idx == 0 else f"{field}{idx}"
             msg[key] = d[idx]
 
-      #雷达或摄像头是否存在标志
+      # 雷达或摄像头是否存在标志
       msg['lidar_l'] = self.shared_data.lidar_l
       msg['lidar_r'] = self.shared_data.lidar_r
       msg['camera_l'] = self.shared_data.camera_l
       msg['camera_r'] = self.shared_data.camera_r
 
-      #来自共享数据
+      # 来自共享数据
       if self.shared_data.roadcate is not None:
         msg['roadcate'] = self.shared_data.roadcate
       if self.shared_data.lat_a is not None:
@@ -1501,12 +1444,10 @@ class AmapNaviServ:
       if self.shared_data.max_curve is not None:
         msg['max_curve'] = f2(self.shared_data.max_curve)
 
-      # carrotMan数据
+      # carrotMan 数据
       if self.sm.alive['carrotMan']:
         carrotMan = self.sm['carrotMan']
         msg["desire_speed"] = int(carrotMan.desiredSpeed)  # 期望速度
-        #msg['atc_type'] = carrotMan.atcType
-        #msg['road_name'] = carrotMan.szPosRoadName
         atc_type = carrotMan.atcType
         road_name = carrotMan.szPosRoadName
         x_spd_type = carrotMan.xSpdType
@@ -1523,30 +1464,25 @@ class AmapNaviServ:
     if self.sm.alive['modelV2']:
       modelV2 = self.sm['modelV2']
       meta = modelV2.meta
-      #添加事件
+      # 添加事件
       if hasattr(meta, 'eventType'):
         model_event_type = meta.eventType
         if model_event_type > 0 and model_event_type != self.model_event_type:
           self.model_event_type = model_event_type
           event_type_val = model_event_type & 255
-          event_type_id = int((model_event_type - event_type_val) / 256)
           msg['sound'] = event_type_val
-          print(f"------sound index {event_type_val}")
-      #倒计时
+      # 倒计时
       if hasattr(meta, 'leftSec'):
         sec_count_down = meta.leftSec
         if self.sec_count_down != sec_count_down:
           self.sec_count_down = sec_count_down
-          if sec_count_down == 0: #AudibleAlert.longDisengaged
+          if sec_count_down == 0: 
             msg['sound'] = 26
-            print(f"------sound index {msg['sound']}")
-          elif 0 < sec_count_down <= 10: #audio_x
+          elif 0 < sec_count_down <= 10: 
             msg['sound'] = 30 + sec_count_down
-            print(f"------sound index {msg['sound']}")
-          elif sec_count_down == 11: #promptDistracted
+          elif sec_count_down == 11: 
             msg['sound'] = 23
-            print(f"------sound index {msg['sound']}")
-      #转向灯状态
+      # 转向灯状态
       if hasattr(meta, 'blinker'):
         msg['blinker'] = meta.blinker
       if isOnroad:
@@ -1561,11 +1497,8 @@ class AmapNaviServ:
         if self.shared_data.max_curve is None and hasattr(modelV2, 'orientationRate') and len(modelV2.orientationRate.z) > 0:
           orientation_rate_z = self._capnp_list_to_list(modelV2.orientationRate.z)
           if orientation_rate_z:
-            # 找到最大方向变化率（表示最大曲率点）
             max_index = max(range(len(orientation_rate_z)), key=lambda i: abs(orientation_rate_z[i]))
             max_orientation_rate = orientation_rate_z[max_index]
-            #curvature_value = float(max_orientation_rate)
-            #curvature_direction = 1 if max_orientation_rate > 0 else -1
             msg['max_curve'] = f1(max_orientation_rate)
 
         # 如果字段存在才赋值
@@ -1574,7 +1507,7 @@ class AmapNaviServ:
         if self.shared_data.rightFrontBlind is None and hasattr(meta, 'rightFrontBlind'):
           msg['r_front_blind'] = meta.rightFrontBlind
 
-    #===============巡航状态处理==============
+    # ===============巡航状态处理==============
     if self.sm.alive['selfdriveState']:
       selfdrive = self.sm['selfdriveState']
       self.shared_data.selfdrive_active = True if selfdrive.active else False
@@ -1583,14 +1516,12 @@ class AmapNaviServ:
       msg['active'] = self.shared_data.cruise_valid
     # 是否在巡航
     cruise_enable = False
-    #if self.shared_data.cruise_enable is not None and self.shared_data.cruise_enable:
-    #  cruise_enable = True
     if self.shared_data.selfdrive_active is not None and self.shared_data.selfdrive_active:
       cruise_enable = True
-    # 在巡航，active强制为True
+    # 在巡航，active 强制为 True
     if cruise_enable:
       msg['active'] = True
-    # 若engaged不存在则赋值巡航状态
+    # 若 engaged 不存在则赋值巡航状态
     if not msg.get('engaged', False):
       msg['engaged'] = cruise_enable
 
@@ -1611,7 +1542,7 @@ class AmapNaviServ:
         if self.shared_data.v_ego_kph is not None:
           msg['v_ego_kph'] = self.shared_data.v_ego_kph  # 当前速度
 
-      #===============巡航状态处理==============
+      # ===============巡航状态处理==============
       if self.sm.alive['selfdriveState']:
         selfdrive = self.sm['selfdriveState']
         self.shared_data.selfdrive_active = True if selfdrive.active else False
@@ -1620,14 +1551,12 @@ class AmapNaviServ:
         msg['active'] = self.shared_data.cruise_valid
       # 是否在巡航
       cruise_enable = False
-      #if self.shared_data.cruise_enable is not None and self.shared_data.cruise_enable:
-      #  cruise_enable = True
       if self.shared_data.selfdrive_active is not None and self.shared_data.selfdrive_active:
         cruise_enable = True
-      # 在巡航，active强制为True
+      # 在巡航，active 强制为 True
       if cruise_enable:
         msg['active'] = True
-      # 若engaged不存在则赋值巡航状态
+      # 若 engaged 不存在则赋值巡航状态
       if not msg.get('engaged', False):
         msg['engaged'] = cruise_enable
 
@@ -1660,7 +1589,7 @@ class AmapNaviServ:
         if self.shared_data.break_press is not None:
           msg["break_press"] = self.shared_data.break_press
       # 雷达数据
-      if self.sm.alive['radarState']:  # and self.sm.updated['radarState']:
+      if self.sm.alive['radarState']:  
         radar_state = self.sm['radarState']
         # 当前车道前车
         if hasattr(radar_state, 'leadOne') and radar_state.leadOne and hasattr(radar_state.leadOne,'status') and radar_state.leadOne.status:
@@ -1682,7 +1611,7 @@ class AmapNaviServ:
       if hasattr(meta, 'blinker'):
         msg['blinker'] = meta.blinker
 
-    #===============巡航状态处理==============
+    # ===============巡航状态处理==============
     if self.sm.alive['selfdriveState']:
       selfdrive = self.sm['selfdriveState']
       self.shared_data.selfdrive_active = True if selfdrive.active else False
@@ -1691,14 +1620,12 @@ class AmapNaviServ:
       msg['active'] = self.shared_data.cruise_valid
     # 是否在巡航
     cruise_enable = False
-    #if self.shared_data.cruise_enable is not None and self.shared_data.cruise_enable:
-    #  cruise_enable = True
     if self.shared_data.selfdrive_active is not None and self.shared_data.selfdrive_active:
       cruise_enable = True
-    # 在巡航，active强制为True
+    # 在巡航，active 强制为 True
     if cruise_enable:
       msg['active'] = True
-    # 若engaged不存在则赋值巡航状态
+    # 若 engaged 不存在则赋值巡航状态
     if not msg.get('engaged', False):
       msg['engaged'] = cruise_enable
 
@@ -1713,9 +1640,9 @@ class AmapNaviServ:
     return json.dumps(msg)
 
   def navi_get_broadcast_address(self):
-    # 修改为支持PC的多接口检测
+    # 修改为支持 PC 的多接口检测
     if PC:
-        interfaces = ['wlan0', 'eth0', 'enp0s3', 'br0']  # 常见PC接口
+        interfaces = ['wlan0', 'eth0', 'enp0s3', 'br0']  # 常见 PC 接口
         for iface in interfaces:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -1743,9 +1670,9 @@ class AmapNaviServ:
 
   def navi_get_local_ip(self):
       try:
-          # 외부 서버와의 연결을 통해 로컬 IP 확인
+          # 通过外部服务器连接确认本地 IP
           with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-              s.connect(("8.8.8.8", 80))  # Google DNS로 연결 시도
+              s.connect(("8.8.8.8", 80))  # 尝试连接 Google DNS
               return s.getsockname()[0]
       except Exception as e:
           return f"Error: {e}"

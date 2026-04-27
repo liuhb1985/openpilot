@@ -249,7 +249,7 @@ def datetimeformat_filter(filename):
         hour = time_part[:2]
         minute = time_part[2:4]
         
-        return f"{year}년 {month}월 {day}일 {hour}시 {minute}분"
+        return f"{year}年 {month}月 {day}日 {hour}时 {minute}分"
     except:
         return filename
         
@@ -424,7 +424,7 @@ def addr_input():
       return redirect(url_for('app_token_input'))
     else:
       return redirect(url_for('amap_addr_input'))
-  elif False: #fleet.get_nav_active(): # carrot: 그냥지움... 이것때문에 토큰을 안물어보는듯...
+  elif False: #fleet.get_nav_active(): # carrot: 直接删掉... 好像是因为这个才没问 Token...
     if SearchInput == 2:
       return render_template("nonprime.html",
                              gmap_key=gmap_key, lon=lon, lat=lat,

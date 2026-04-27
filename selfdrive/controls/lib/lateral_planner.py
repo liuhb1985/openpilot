@@ -5,12 +5,10 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.controls.lib.lateral_mpc_lib.lat_mpc import LateralMpc
 from openpilot.selfdrive.controls.lib.lateral_mpc_lib.lat_mpc import N as LAT_MPC_N
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N, MIN_SPEED, get_speed_error
-# from openpilot.selfdrive.controls.lib.desire_helper import DesireHelper
 import cereal.messaging as messaging
 from cereal import log
 
 from openpilot.common.params import Params
-#from openpilot.selfdrive.controls.lib.lane_planner import LanePlanner
 from openpilot.selfdrive.controls.lib.lane_planner_2 import LanePlanner
 from collections import deque
 
@@ -22,18 +20,14 @@ PATH_COST = 1.0
 LATERAL_MOTION_COST = 0.11
 LATERAL_ACCEL_COST = 0.0
 LATERAL_JERK_COST = 0.04
-# Extreme steering rate is unpleasant, even
-# when it does not cause bad jerk.
-# TODO this cost should be lowered when low
-# speed lateral control is stable on all cars
+# 极端的转向速率是令人不悦的，即使它没有导致严重的颠簸。
+# TODO 当所有车上的低速横向控制稳定后，应降低此代价
 STEERING_RATE_COST = 700.0
 
 
 class LateralPlanner:
   def __init__(self, CP, debug=False):
-    #self.DH = DesireHelper()
-
-    # Vehicle model parameters used to calculate lateral movement of car
+    # 车辆模型参数，用于计算汽车的横向运动
     self.factor1 = CP.wheelbase - CP.centerToFront
     self.factor2 = (CP.centerToFront * CP.mass) / (CP.wheelbase * CP.tireStiffnessRear)
     self.last_cloudlog_t = 0
@@ -52,7 +46,7 @@ class LateralPlanner:
     self.params = Params()
 
     self.latDebugText = ""
-    # lane_mode
+    # 车道模式
     self.LP = LanePlanner()
     self.readParams = 0
     self.lanelines_active = False
@@ -93,14 +87,14 @@ class LateralPlanner:
       LATERAL_JERK_COST = self.params.get_float("LatMpcJerkCost") * 0.01
       STEERING_RATE_COST = self.params.get_float("LatMpcSteeringRateCost")
 
-    # clip speed , lateral planning is not possible at 0 speed
+    # 裁剪速度，零速时无法进行横向规划
     measured_curvature = sm['controlsState'].curvature
     v_ego_car = max(sm['carState'].vEgo, MIN_SPEED)
     speed_kph = v_ego_car * 3.6
     self.v_ego = v_ego_car
     self.curve_speed = sm['carrotMan'].vTurnSpeed
 
-    # Parse model predictions
+    # 解析模型预测
     md = sm['modelV2']
     model_active = False
     if len(md.position.x) == TRAJECTORY_SIZE and len(md.orientation.x) == TRAJECTORY_SIZE:
@@ -114,7 +108,7 @@ class LateralPlanner:
       self.v_plan = np.clip(car_speed, MIN_SPEED, np.inf)
       self.v_ego = self.v_plan[0]
       self.plan_a = np.array(md.acceleration.x)
-      if md.velocity.x[-1] < md.velocity.x[0] * 0.7:  # TODO: 모델이 감속을 요청하는 경우 속도테이블이 레인모드를 할수 없음. 속도테이블을 새로 만들어야함..
+      if md.velocity.x[-1] < md.velocity.x[0] * 0.7:  # TODO: 如果模型请求减速，速度表将无法进行车道模式。需要创建新的速度表。
         self.lanemode_possible_count = 0
         self.laneless_only = True
       else:
@@ -122,10 +116,8 @@ class LateralPlanner:
         if self.lanemode_possible_count > int(1/DT_MDL):
           self.laneless_only = False
 
-    # Parse model predictions
+    # 解析模型预测
     self.LP.parse_model(md)
-    #lane_change_prob = self.LP.l_lane_change_prob + self.LP.r_lane_change_prob
-    #self.DH.update(sm['carState'], md, sm['carControl'].latActive, lane_change_prob, sm)
 
     if self.useLaneLineSpeedApply == 0 or self.laneless_only:
       self.useLaneLineMode = False
@@ -134,15 +126,13 @@ class LateralPlanner:
     elif speed_kph < self.useLaneLineSpeedApply - 2:
       self.useLaneLineMode = False
 
-    # Turn off lanes during lane change
-    #if self.DH.desire == log.Desire.laneChangeRight or self.DH.desire == log.Desire.laneChangeLeft:
-      
+    # 变道期间关闭车道线
     if md.meta.desire != log.Desire.none or carrot.atc_active:
-      self.LP.lane_change_multiplier = 0.0 #md.meta.laneChangeProb
+      self.LP.lane_change_multiplier = 0.0
     else:
       self.LP.lane_change_multiplier = 1.0
 
-    # lanelines calculation?
+    # 车道线计算
     self.LP.lanefull_mode = self.useLaneLineMode
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
@@ -154,11 +144,10 @@ class LateralPlanner:
         self.path_xyz, self.v_plan,
         smooth_window=5,
         clip_rate=2.0,
-        align_first_yaw=None #md.orientation.z[0]  # 초기 정렬
+        align_first_yaw=None  # 初始对齐
       )
       
     self.latDebugText = self.LP.debugText
-    #self.lanelines_active = True if self.LP.d_prob > 0.3 and self.LP.lanefull_mode else False
 
     self.path_xyz[:, 1] += self.pathOffset
 
@@ -181,13 +170,13 @@ class LateralPlanner:
                      y_pts,
                      heading_pts,
                      yaw_rate_pts)
-    # init state for next iteration
-    # mpc.u_sol is the desired second derivative of psi given x0 curv state.
-    # with x0[3] = measured_yaw_rate, this would be the actual desired yaw rate.
-    # instead, interpolate x_sol so that x0[3] is the desired yaw rate for lat_control.
+    # 为下一次迭代初始化状态
+    # mpc.u_sol 是在给定 x0 曲率状态下所需的 psi 二阶导数。
+    # 当 x0[3] = measured_yaw_rate 时，这将是实际所需的偏航率。
+    # 相反，插值 x_sol 使得 x0[3] 是 lat_control 所需的偏航率。
     self.x0[3] = np.interp(DT_MDL, self.t_idxs[:LAT_MPC_N + 1], self.lat_mpc.x_sol[:, 3])
 
-    #  Check for infeasible MPC solution
+    # 检查不可行的 MPC 解
     mpc_nans = np.isnan(self.lat_mpc.x_sol[:, 3]).any()
     t = time.monotonic()
     if mpc_nans or self.lat_mpc.solution_status != 0:
@@ -208,12 +197,6 @@ class LateralPlanner:
     plan_solution_valid = self.solution_invalid_cnt < 2
     plan_send = messaging.new_message('lateralPlan')
     plan_send.valid = sm.all_checks(service_list=['carState', 'controlsState', 'modelV2'])
-    if not plan_send.valid:
-      #print("lateralPlan_valid=", sm.valid)
-      #print("lateralPlan_alive=", sm.alive)
-      #print("lateralPlan_freq_ok=", sm.freq_ok)
-      #print(sm.avg_freq)
-      pass
 
     lateralPlan = plan_send.lateralPlan
     lateralPlan.modelMonoTime = sm.logMonoTime['modelV2']
@@ -238,21 +221,12 @@ class LateralPlanner:
       lateralPlan.solverState.x = self.lat_mpc.x_sol.tolist()
       lateralPlan.solverState.u = self.lat_mpc.u_sol.flatten().tolist()
 
-    #lateralPlan.desire = self.DH.desire
     lateralPlan.useLaneLines = self.lanelines_active
-    #lateralPlan.laneChangeState = self.DH.lane_change_state
-    #lateralPlan.laneChangeDirection = self.DH.lane_change_direction
     lateralPlan.laneWidth = float(self.LP.lane_width)
-
-    #plan_send.lateralPlan.dPathWLinesX = [float(x) for x in self.d_path_w_lines_xyz[:, 0]]
-    #plan_send.lateralPlan.dPathWLinesY = [float(y) for y in self.d_path_w_lines_xyz[:, 1]]
-    #lateralPlan.laneWidthLeft = float(self.DH.lane_width_left)
-    #lateralPlan.laneWidthRight = float(self.DH.lane_width_right)
 
     lateralPlan.position.x = self.x_sol[:, 0].tolist()
     lateralPlan.position.y = self.x_sol[:, 1].tolist()
     lateralPlan.position.z = self.path_xyz[:, 2].tolist()
-    #lateralPlan.distances = self.lat_mpc.x_sol[0:CONTROL_N, 0].tolist()
 
     self.x_sol = self.lat_mpc.x_sol
 
@@ -265,11 +239,6 @@ class LateralPlanner:
     )
 
     lateralPlan.latDebugText = debugText
-    #lateralPlan.latDebugText = self.latDebugText
-    #lateralPlan.laneWidthLeft = float(self.DH.lane_width_left)
-    #lateralPlan.laneWidthRight = float(self.DH.lane_width_right)
-    #lateralPlan.distanceToRoadEdgeLeft = float(self.DH.distance_to_road_edge_left)
-    #lateralPlan.distanceToRoadEdgeRight = float(self.DH.distance_to_road_edge_right)
 
     pm.send('lateralPlan', plan_send)
 
@@ -288,9 +257,9 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
                            clip_rate=2.0, align_first_yaw=None):
 
   v0 = float(np.asarray(v_plan)[0]) if len(v_plan) else 0.0
-  # 저속(≤6 m/s)에서는 창을 크게
+  # 在低速 (≤6 m/s) 时，窗口调大
   if v0 <= 6.0:
-    smooth_window = max(smooth_window, 9)   # 9~11 권장
+    smooth_window = max(smooth_window, 9)   # 建议 9~11
     
   N = path_xyz.shape[0]
   x = path_xyz[:, 0].astype(float)
@@ -299,21 +268,21 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   if N < 5:
     return np.zeros(N, np.float32), np.zeros(N, np.float32)
 
-  # 1) s(호길이) 계산
+  # 1) 计算 s (弧长)
   dx = np.diff(x)
   dy = np.diff(y)
   ds_seg = np.sqrt(dx*dx + dy*dy)
   ds_seg[ds_seg < 0.05] = 0.05
   s = np.zeros(N, float)
   s[1:] = np.cumsum(ds_seg)
-  if s[-1] < 0.5:  # 총 호길이 < 0.5m면 미분 결과 의미가 약함
+  if s[-1] < 0.5:  # 如果总弧长 < 0.5m，则微分结果意义不大
     return np.zeros(N, np.float32), np.zeros(N, np.float32)
 
-  # 2) smoothing (이동평균)
+  # 2) 平滑 (移动平均)
   x_smooth = smooth_moving_avg(x, smooth_window)
   y_smooth = smooth_moving_avg(y, smooth_window)
 
-  # 3) 1·2차 도함수(s축 미분)
+  # 3) 1·2 阶导数 (s 轴微分)
   dx_ds  = np.gradient(x_smooth, s)
   dy_ds  = np.gradient(y_smooth, s)
   d2x_ds2 = np.gradient(dx_ds, s)
@@ -322,7 +291,7 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   # 4) yaw = atan2(dy/ds, dx/ds)
   yaw = np.unwrap(np.arctan2(dy_ds, dx_ds))
 
-  # 5) 곡률 kappa = ...
+  # 5) 曲率 kappa = ...
   denom = (dx_ds*dx_ds + dy_ds*dy_ds)**1.5
   denom[denom < 1e-9] = 1e-9
   kappa = (dx_ds * d2y_ds2 - dy_ds * d2x_ds2) / denom
@@ -331,15 +300,15 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   v = np.asarray(v_plan, float)
   yaw_rate = kappa * v
   if v0 <= 6.0:
-    # 이동평균으로 미세 요동 감쇄(창 5~7)
+    # 通过移动平均衰减微小波动 (窗口 7)
     yaw_rate = smooth_moving_avg(yaw_rate, window=7)
 
-  # 7) 초기 yaw 정렬 (선택)
+  # 7) 初始偏航 (Yaw) 对齐 (可选)
   if align_first_yaw is not None:
     bias = yaw[0] - float(align_first_yaw)
     yaw = yaw - bias
 
-  # 8) 안정화
+  # 8) 稳定化
   yaw     = np.where(np.isfinite(yaw), yaw, 0.0)
   yaw_rate = np.where(np.isfinite(yaw_rate), yaw_rate, 0.0)
   yaw_rate = np.clip(yaw_rate, -abs(clip_rate), abs(clip_rate))

@@ -31,7 +31,7 @@ def get_all_toggle_values():
   toggle_values = {}
 
   for k in params.all_keys():
-    # key 정리
+    # 整理 Key
     if isinstance(k, (bytes, bytearray, memoryview)):
       try:
         key = k.decode("utf-8")
@@ -40,7 +40,7 @@ def get_all_toggle_values():
     else:
       key = str(k)
 
-    # 타입 확인 + 제외
+    # 确认类型 + 排除不支持的类型
     try:
       t = params.get_type(key)
     except Exception:
@@ -48,7 +48,7 @@ def get_all_toggle_values():
     if t in (ParamKeyType.BYTES, ParamKeyType.JSON):
       continue
 
-    # default 없는 키 제외
+    # 排除没有默认值的 Key
     try:
       dv = params.get_default_value(key)
     except Exception:
@@ -56,17 +56,17 @@ def get_all_toggle_values():
     if dv is None:
       continue
 
-    # 값 읽기 (이미 Params.get()이 타입 변환까지 해줌)
+    # 读取值 (Params.get() 已经完成了类型转换)
     try:
       v = params.get(key, block=False, return_default=False)
     except Exception:
       v = None
 
-    # v가 None이면 default로 채우고 싶으면 dv로 대체 (선택)
+    # 如果 v 为 None，则使用默认值 dv 代替 (可选)
     if v is None:
       v = dv
 
-    # 최종 stringify (jsonify 용)
+    # 最终字符串化 (用于转换为 JSON)
     if isinstance(v, (dict, list)):
       toggle_values[key] = json.dumps(v, ensure_ascii=False)
     else:
@@ -80,10 +80,10 @@ def store_toggle_values(updated_values):
     try:
       params.put(key, value.encode('utf-8'))
     except Exception as e:
-      print(f"Failed to update {key}: {e}")
+      print(f"无法更新 {key}: {e}")
 
 class WebInterface:
-    """Web界面处理器"""
+    """Web 界面处理器"""
 
     def __init__(self, controller, port=None):
         self.controller = controller
@@ -91,7 +91,7 @@ class WebInterface:
         self.port = port
 
     def create_web_handler(self):
-        """创建Web处理器"""
+        """创建 Web 处理器"""
         controller = self.controller
 
         class WebPageHTTPHandler(BaseHTTPRequestHandler):
@@ -112,7 +112,7 @@ class WebInterface:
                 pass
 
             def do_OPTIONS(self):
-                """处理CORS预检请求"""
+                """处理 CORS 预检请求"""
                 try:
                     self.send_response(200)
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -121,10 +121,10 @@ class WebInterface:
                     self.send_header('Access-Control-Max-Age', '86400')
                     self.end_headers()
                 except Exception as e:
-                    print(f"OPTIONS请求处理错误: {e}")
+                    print(f"OPTIONS 请求处理错误: {e}")
 
             def do_GET(self):
-                """处理GET请求"""
+                """处理 GET 请求"""
                 try:
                     if self.path == '/':
                         self.send_response(301)
@@ -165,19 +165,19 @@ class WebInterface:
                     elif self.path == '/fetch_params':
                         self.fetch_params()
                     else:
-                        self.send_error(404, f"{self.path} Page not found")
+                        self.send_error(404, f"{self.path} 页面未找到")
 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     print(f"客户端连接中断: {e}")
                 except IOError as e:
-                    print(f"IO错误: {e}")
-                    self.send_error(500, "Internal server erro")
+                    print(f"IO 错误: {e}")
+                    self.send_error(500, "内部服务器错误")
                 except Exception as e:
                     print(f"未预期的错误: {e}")
-                    self.send_error(500, f"Internal server erro: {str(e)}")
+                    self.send_error(500, f"内部服务器错误: {str(e)}")
 
             def do_POST(self):
-                """处理POST请求"""
+                """处理 POST 请求"""
                 try:
                     content_length = int(self.headers.get('Content-Length', 0))
                     post_data = self.rfile.read(content_length).decode('utf-8')
@@ -188,14 +188,14 @@ class WebInterface:
                     elif self.path == '/save_params':
                       self.save_params(post_data)
                     else:
-                        self.send_error(404, "API not found")
+                        self.send_error(404, "API 未找到")
                 except json.JSONDecodeError:
-                    self.send_error(400, "JSON format error")
+                    self.send_error(400, "JSON 格式错误")
                 except (BrokenPipeError, ConnectionResetError) as e:
                     print(f"客户端连接中断: {e}")
                 except Exception as e:
                     print(f"请求处理错误: {e}")
-                    self.send_error(500, f"Internal server erro: {str(e)}")
+                    self.send_error(500, f"内部服务器错误: {str(e)}")
 
             def fetch_params(self):
               try:
@@ -213,7 +213,7 @@ class WebInterface:
                 self.send_json_response({"status": "error", "message": f"写入失败: {e}"})
 
             def send_nav_params_page(self):
-                """发送CP导航参数设置页面"""
+                """发送 CP 导航参数设置页面"""
                 try:
                     html = self.get_html_content('nav_params.html')
                     self.safe_write(html)
@@ -223,7 +223,7 @@ class WebInterface:
                     print(f"发送参数页面错误: {e}")
 
             def send_default_nav_params(self):
-                """发送默认的CP导航参数数据"""
+                """发送默认的 CP 导航参数数据"""
                 try:
                     default_data = controller.params._get_default_nav_data()
                     self.safe_write(json.dumps(default_data, ensure_ascii=False))
@@ -233,7 +233,7 @@ class WebInterface:
                     print(f"发送默认参数错误: {e}")
 
             def send_nav_params_data(self):
-                """发送CP导航参数数据"""
+                """发送 CP 导航参数数据"""
                 try:
                     controller.params._match_system_param()
                     nav_data = controller.params.nav_data
@@ -244,7 +244,7 @@ class WebInterface:
                     print(f"发送参数数据错误: {e}")
 
             def handle_nav_params(self, data):
-                """处理CP导航参数更新 - 复用UnifiedParams类逻辑"""
+                """处理 CP 导航参数更新 - 复用 UnifiedParams 类逻辑"""
                 try:
                     if not data:
                         self.send_json_response({'status': 'error', 'message': '无效的数据'})
@@ -267,7 +267,7 @@ class WebInterface:
                     self.send_json_response({'status': 'error', 'message': f'保存失败: {str(e)}'})
 
             def send_json_response(self, data):
-                """发送JSON响应"""
+                """发送 JSON 响应"""
                 try:
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -277,7 +277,7 @@ class WebInterface:
                 except (BrokenPipeError, ConnectionResetError) as e:
                     print(f"客户端断开连接: {e}")
                 except Exception as e:
-                    print(f"发送JSON响应错误: {e}")
+                    print(f"发送 JSON 响应错误: {e}")
 
             def send_radar_page(self):
                 """发送雷达数据显示页面"""
@@ -290,7 +290,7 @@ class WebInterface:
                     print(f"发送雷达页面错误: {e}")
 
             def send_radar_data(self):
-                """发送雷达数据JSON"""
+                """发送雷达数据 JSON"""
                 try:
                     radar_data = controller.get_radar_data()
                     self.safe_write(json.dumps(radar_data, ensure_ascii=False))
@@ -300,7 +300,7 @@ class WebInterface:
                     print(f"发送雷达数据错误: {e}")
 
             def get_html_content(self, filename):
-                """HTML文件读取加载"""
+                """HTML 文件读取加载"""
                 try:
                     base_dir = os.path.abspath(os.path.dirname(__file__))
                     html_file_path = os.path.join(base_dir, filename)
@@ -318,20 +318,20 @@ class WebInterface:
         return WebPageHTTPHandler
 
     def start_web_server(self):
-        """启动Web服务器"""
+        """启动 Web 服务器"""
         try:
             handler = self.create_web_handler()
             self.web_server = HTTPServer(('0.0.0.0', self.port), handler)
             self.web_server.timeout = 30
-            print(f"🌐 Web服务器启动在端口 {self.port}")
+            print(f"🌐 Web 服务器已启动，端口: {self.port}")
             self.web_server.serve_forever()
         except Exception as e:
-            print(f"启动Web服务器失败: {e}")
+            print(f"启动 Web 服务器失败: {e}")
             raise
 
     def stop_web_server(self):
-        """停止Web服务器"""
+        """停止 Web 服务器"""
         if self.web_server:
             self.web_server.shutdown()
             self.web_server.server_close()
-            print("🌐 Web服务器已停止")
+            print("🌐 Web 服务器已停止")

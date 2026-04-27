@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-CarrotSpeedTable v2.1 (Params backend, JSON+gzip, 1e-4° grid, 8 buckets)
-- 저장 키: "CarrotSpeedTable"
-- 포맷(JSON): {"format":"v5","dir_buckets":8,"cells":{"gy,gx":[[v,ts],...]} }
-- gzip 저장/로드 지원 (기본 on). 기존 비압축 v2도 로드 가능.
-- 격자: 위/경도 각 1e-4° 스냅(한국 위도에서 약 9~11m)
-- 저장: 단일 speed(부호 포함)만 해당 셀 1곳에 기록
-    * 입력 > 0: 기존 None/음수/더 작은 양수면 갱신(더 큰 +)
-    * 입력 < 0: 기존 None/양수/덜 음수면 갱신(더 작은 -)
-- 조회: 전방 lookahead 셀 → 없으면 이웃 탐색(ring=1)
-    * 본셀: 시간 필터 없음
-    * 이웃: 오래된 데이터만 사용(age ≥ 120s)
-- 정리(청소) 없음: 오래된 데이터도 유지
+CarrotSpeedTable v2.1 (Params 后端, JSON+gzip, 1e-4° 网格, 8 个方向区间)
+- 存储键: "CarrotSpeedTable"
+- 格式 (JSON): {"format":"v5","dir_buckets":8,"cells":{"gy,gx":[[v,ts],...]} }
+- 支持 gzip 压缩存储/加载 (默认开启)。仍可加载旧版非压缩 v2。
+- 网格: 纬度/经度各按 1e-4° 对齐 (在韩国纬度约为 9~11m)
+- 存储: 仅在对应单元格的一个位置记录单个速度 (带正负号)
+    * 输入 > 0: 若原值为 None/负数/更小的正数则更新 (取更大正值)
+    * 输入 < 0: 若原值为 None/正数/更小的负数则更新 (取更小的负值)
+- 查询: 前方预读单元格 → 若无则搜索邻域 (ring=1)
+    * 本单元格: 无时间过滤
+    * 邻域: 仅使用旧数据 (年龄 ≥ 120s)
+- 不进行清理: 保留旧数据
 """
 
 import json, math, threading, time, gzip
@@ -19,7 +19,7 @@ from typing import Optional, Tuple, Dict, List
 from openpilot.common.params import Params
 
 
-# ---------- 지오/도우미 ----------
+# ---------- 地理/助手函数 ----------
 
 def quantize_1e4(lat: float, lon: float) -> Tuple[int, int]:
     gy = int(math.floor(lat * 1e4 + 0.5))
@@ -27,7 +27,7 @@ def quantize_1e4(lat: float, lon: float) -> Tuple[int, int]:
     return gy, gx
 
 def heading_to_bucket(heading_deg: float) -> int:
-    # 8 버킷 고정
+    # 固定 8 个方向区间
     step = 45.0  # 360/8
     i = int((heading_deg % 360.0) // step)
     if i < 0: return 0
@@ -35,14 +35,14 @@ def heading_to_bucket(heading_deg: float) -> int:
     return i
 
 DIR_8 = {
-    0: ( 1,  0),  # 북
-    1: ( 1,  1),  # 북동
-    2: ( 0,  1),  # 동
-    3: (-1,  1),  # 남동
-    4: (-1,  0),  # 남
-    5: (-1, -1),  # 남서
-    6: ( 0, -1),  # 서
-    7: ( 1, -1),  # 북서
+    0: ( 1,  0),  # 北
+    1: ( 1,  1),  # 东北
+    2: ( 0,  1),  # 东
+    3: (-1,  1),  # 东南
+    4: (-1,  0),  # 南
+    5: (-1, -1),  # 西南
+    6: ( 0, -1),  # 西
+    7: ( 1, -1),  # 西北
 }
 
 def project_point(lat: float, lon: float, heading_deg: float, distance_m: float) -> Tuple[float, float]:
@@ -58,7 +58,7 @@ def _is_gzip(data: bytes) -> bool:
     return len(data) >= 2 and data[0] == 0x1F and data[1] == 0x8B
 
 
-# ---------- 메인 클래스 ----------
+# ---------- 主类 ----------
 
 class CarrotSpeed:
     KEY = "CarrotSpeedTable"
@@ -68,18 +68,18 @@ class CarrotSpeed:
                  neighbor_old_threshold_s: int = 120,
                  use_gzip: bool = True,
                  gzip_level: int = 5):
-        # 고정 사양
+    # 固定规格
         self.buckets = 8
 
-        # 파라미터
+        # 参数
         self.neighbor_ring = max(0, int(neighbor_ring))
         self.neighbor_old_threshold_s = int(neighbor_old_threshold_s)
         self.use_gzip = bool(use_gzip)
         self.gzip_level = int(gzip_level)
 
-        # 내부 상태
+        # 内部状态
         self._lock = threading.RLock()
-        # _cells[(gy,gx)] = [[value or None, ts(int seconds) or None] * 8]
+        # _cells[(gy,gx)] = [[value 或 None, ts(int 秒) 或 None] * 8]
         self._cells: Dict[Tuple[int, int], List[List[Optional[float]]]] = {}
         self._dirty = False
         self._last_save = 0
@@ -88,9 +88,9 @@ class CarrotSpeed:
         self._load_from_params_if_exists()
 
         self._last_hit = None        # (gy, gx, b, ts_when_read)
-        self._last_hit_read_ms = 0   # 밀리초
+        self._last_hit_read_ms = 0   # 毫秒
 
-    # ----- 내부 유틸 -----
+    # ----- 内部工具 -----
 
     def _ensure_cell(self, gy: int, gx: int) -> List[List[Optional[float]]]:
         arr = self._cells.get((gy, gx))
@@ -100,7 +100,7 @@ class CarrotSpeed:
         return arr
 
     def _now(self) -> int:
-        # int 초
+        # int 秒
         return int(time.time())
 
     def _age(self, ts: Optional[float]) -> Optional[int]:
@@ -134,14 +134,14 @@ class CarrotSpeed:
         if self._now() - int(ts) < self.neighbor_old_threshold_s:
             return None, None
         return float(v), b
-    # ----- 공용 API -----
+    # ----- 公共 API -----
     def export_cells_around(self, lat: float, lon: float,
                             heading_deg: float,
                             ring: int = 1, max_points: int = 64) -> str:
         """
-        현재 lat, lon 기준 주변 그리드(ring 범위)에서
-        값이 있는 셀들을 (lat, lon, speed) 리스트로 JSON으로 반환.
-        Params("CarrotSpeedViz")에 그대로 넣을 용도.
+        根据当前 lat, lon 返回周边网格 (ring 范围) 中
+        包含有效值的单元格 (lat, lon, speed) 列表的 JSON 格式。
+        用于直接存入 Params("CarrotSpeedViz")。
         """
         gy0, gx0 = quantize_1e4(lat, lon)
         b0 = heading_to_bucket(heading_deg)
@@ -156,7 +156,7 @@ class CarrotSpeed:
                     if not arr:
                         continue
 
-                    # 먼저 exact bucket(b0)
+                    # 首先匹配精确方向区间 (b0)
                     v, ts = arr[b0]
                     if v is not None:
                         cell_lat = (gy + 0.5) * 1e-4
@@ -165,7 +165,7 @@ class CarrotSpeed:
                         if len(pts) >= max_points:
                             return json.dumps({"pts": pts}, separators=(",",":"))
 
-                    # 없다면 좌/우
+                    # 如果没有，尝试匹配左右方向
                     for b in ((b0 - 1) % self.buckets, (b0 + 1) % self.buckets):
                         v, ts = arr[b]
                         if v is None:
@@ -180,35 +180,35 @@ class CarrotSpeed:
 
     def add_sample(self, lat: float, lon: float, heading_deg: float, speed_signed: float):
         """
-        단일 speed(부호 포함) 저장.
-        - 기준 셀(현재 위치) + heading 기준 좌/우 1셀, 2셀까지 동일 speed 기록
-        - 각 셀 안에서는 heading 버킷 b와 b±1 세 개 버킷 모두 같은 값으로 갱신.
-        - >0: 기존 음수/None도 교체, 기존 양수면 평균으로 완만하게 갱신.
-        - <0: 항상 새 음수로 덮어쓰기(돌발 감속 우선).
-        ==0: 무시
+        存储单个速度 (带正负号)。
+        - 基准单元格 (当前位置) + 基于方向的前/左/右各单元格记录相同速度
+        - 在每个单元格中，方向区间 b 以及 b±1 这三个区间都以相同策略更新。
+        - >0: 替换现有的负数/None，若是正数则平滑平均。
+        - <0: 始终覆盖为新的负值 (紧急减速优先)。
+        - ==0: 忽略
         """
         v_in = round(float(speed_signed), 1)
         if v_in == 0.0:
             return
 
-        # 현재 위치를 그리드로
+        # 当前位置量化为网格
         gy0, gx0 = quantize_1e4(lat, lon)
         b = heading_to_bucket(heading_deg)
         now = self._now()
 
-        # bucket에 해당하는 전진 방향 그리드 벡터
+        # 对应方向区间的进方向网格向量
         dy_f, dx_f = DIR_8[b]
 
-        # heading 기준 좌/우 1셀, 2셀 (project_point 사용 X)
-        # 좌 = 전진벡터를 90° 회전 (dy,dx) -> (dx,-dy)
-        # 우 = 전진벡터를 -90° 회전 (dy,dx) -> (-dx,dy)
+        # 基于航向的左/右 1 个、2 个单元格 (不使用 project_point)
+        # 左 = 前进向量旋转 90° (dy,dx) -> (dx,-dy)
+        # 右 = 前进向量旋转 -90° (dy,dx) -> (-dx,dy)
         dy_l1, dx_l1 = dx_f, -dy_f
         dy_r1, dx_r1 = -dx_f, dy_f
 
         dy_l2, dx_l2 = 2 * dy_l1, 2 * dx_l1
         dy_r2, dx_r2 = 2 * dy_r1, 2 * dx_r1
 
-        # 기록할 셀들: 중앙 + 좌/우 1칸 + 좌/우 2칸
+        # 记录的目标单元格: 中央 + 左/右 1 格 + 左/右 2 格
         target_cells = {
             (gy0, gx0),
             (gy0 + dy_l1, gx0 + dx_l1),
@@ -221,25 +221,25 @@ class CarrotSpeed:
             for gy, gx in target_cells:
                 arr = self._ensure_cell(gy, gx)
 
-                # b, b-1, b+1 세 버킷 모두 같은 정책으로 업데이트
+                # b, b-1, b+1 三个方向区间均以相同策略更新
                 for off in (0, -1, +1):
                     bi = (b + off) % self.buckets
                     v_old, ts_old = arr[bi]
 
                     if v_old is None:
-                        # 처음 쓰는 버킷
+                        # 首次写入
                         arr[bi] = [v_in, now]
                     else:
                         if v_in > 0.0:
-                            # 가속 정보: 기존 양수면 평균, 음수면 교체
+                            # 加速信息: 若为旧的正数则取平均，若是负数则替换
                             if v_old < 0.0:
-                                # 음수 -> 양수로 바뀌면 새 양수로 교체 (ts는 기존 유지)
+                                # 负数 -> 正数，直接替换 (保留原时间戳)
                                 arr[bi] = [v_in, ts_old]
                             else:
                                 new_val = round((v_old + v_in) / 2.0, 1)
                                 arr[bi] = [new_val, ts_old]
                         else:
-                            # 감속 정보: 항상 새 음수로 덮어쓰기, ts는 기존 유지
+                            # 减速信息: 始终以新的负值覆盖，保留原时间戳
                             arr[bi] = [v_in, ts_old]
 
             self._dirty = True
@@ -290,7 +290,7 @@ class CarrotSpeed:
             if not arr:
                 return False
 
-            # b, b-1, b+1 모두 invalidate
+            # 失效 b, b-1, b+1
             for off in (0, -1, +1):
                 bi = (b + off) % self.buckets
                 v, ts = arr[bi]
@@ -302,7 +302,7 @@ class CarrotSpeed:
                     if v is not None:
                         arr[bi] = [v, now]
                     else:
-                        # 값이 없으면 넘어가기만 (그 버킷만 skip)
+                        # 若无值则跳过
                         pass
 
             self._dirty = True
@@ -328,14 +328,14 @@ class CarrotSpeed:
         except Exception:
             pass
 
-    # ----- 직렬화 -----
+    # ----- 序列化 -----
 
     def _encode_payload(self) -> bytes:
         with self._lock:
             cells = {}
             for (gy, gx), arr in self._cells.items():
                 key = f"{gy},{gx}"
-                # arr: [[v, ts], ...]  (ts는 int 또는 None)
+                # arr: [[v, ts], ...] (ts 为 int 或 None)
                 cells[key] = [[None if v is None else float(v),
                                None if ts is None else int(ts)] for (v, ts) in arr]
             obj = {"format": "v5", "dir_buckets": self.buckets, "cells": cells}
@@ -354,7 +354,7 @@ class CarrotSpeed:
                 data_bytes = gzip.decompress(data_bytes)
             data = json.loads(data_bytes.decode("utf-8"))
 
-            # v3 아니면 삭제/초기화
+            # 若非 v5 版本则删除/重置
             if data.get("format") != "v5":
                 self._params.remove(self.KEY)
                 with self._lock:
@@ -364,7 +364,7 @@ class CarrotSpeed:
 
             buckets = int(data.get("dir_buckets", 8))
             if buckets != 8:
-                # 버킷 불일치도 삭제/초기화
+                # 方向区间不匹配也删除/重置
                 self._params.remove(self.KEY)
                 with self._lock:
                     self._cells = {}
@@ -380,7 +380,6 @@ class CarrotSpeed:
                         if isinstance(pair, list) and len(pair) == 2:
                             v, ts = pair
                             v2 = None if v is None else float(v)
-                            # ts는 int로 강제
                             ts2 = None if ts is None else int(ts)
                             fixed.append([v2, ts2])
                         else:
@@ -394,8 +393,8 @@ class CarrotSpeed:
                 self._dirty = False
 
         except Exception:
-            # 파싱 실패 시 안전 초기화
-            self._params.delete(self.KEY)
+            # 解析失败时安全重置
+            self._params.remove(self.KEY)
             with self._lock:
                 self._cells = {}
                 self._dirty = False

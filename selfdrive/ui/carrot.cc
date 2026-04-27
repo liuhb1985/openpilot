@@ -1283,18 +1283,18 @@ protected:
         }
 
         if (nGoPosDist > 0 && nGoPosTime > 0) {
-            time_t now = time(NULL);  // 현재 시간 얻기
+            time_t now = time(NULL);  // 获取当前时间
             struct tm* local = localtime(&now);
             int remaining_minutes = (int)nGoPosTime / 60;
             local->tm_min += remaining_minutes;
             mktime(local);
             bool is_kor = s->language == "main_ko";
             bool is_chinese = s->language == "main_zh-CHS"; // 修正为正确的简体中文语言代码
-            // 翻译为中文：预计到达: X.X分钟(XX:XX) 또는 保持韩语/英语
+            // 翻译为中文：预计到达: X.X分钟(XX:XX) 或 保持韩语/英语
             sprintf(str, "%s: %.1f%s(%02d:%02d)",
-                   (is_kor)?"도착":(is_chinese?"到达":"ETA"),
+                   (is_kor)?"到达":(is_chinese?"到达":"ETA"),
                    (float)nGoPosTime / 60.,
-                   (is_kor)?"분":(is_chinese?"分钟":"MIN"),
+                   (is_kor)?"分钟":(is_chinese?"分钟":"MIN"),
                    local->tm_hour, local->tm_min);
             ui_draw_text(s, tbt_x + 190, tbt_y + 80, str, 50, COLOR_WHITE, BOLD);
             // 翻译距离单位为中文
@@ -3129,10 +3129,10 @@ public:
         image.fill(Qt::black); // 黑色背景
 
         QPainter painter(&image);
-        painter.setPen(QPen(Qt::white, 15)); // 경로 색상 및 두께 설정
+        painter.setPen(QPen(Qt::white, 15)); // 设置路径颜色和粗细
         painter.setRenderHint(QPainter::Antialiasing, true);
 
-        // 경로 그리기
+        // 绘制路径
         if (vertex_count > 2) {
             QPainterPath path;
             path.moveTo(nav_path_vertex_xy[0].x() * pixels_per_meter + WIDTH / 2.0,
@@ -3161,7 +3161,7 @@ public:
             memset(dst, 128, buf->len); // 初始化
 
             for (int i = 0; i < WIDTH * HEIGHT; i++) {
-                dst[i] = image_data[i * 4]; // R 값을 사용하여 grayscale 변환
+                dst[i] = image_data[i * 4]; // 使用 R 值进行灰度转换
             }
 
             VisionIpcBufExtra extra = {
@@ -3187,7 +3187,7 @@ public:
             nvgUpdateImage(vg, tex_id, image_data.data());
         }
 
-        // 텍스처를 화면에 그리기
+        // 将纹理绘制到屏幕上
         float x_offset = 200;
         float y_offset = 200;
         NVGpaint img_paint = nvgImagePattern(vg, x_offset, y_offset, WIDTH, HEIGHT, 0, tex_id, 1.0f);
