@@ -161,11 +161,12 @@ class LatControlTorque(LatControl):
   def update(self, active, CS, VM, params, steer_limited_by_controls, desired_curvature, CC, curvature_limited, model_data=None):
     self.frame += 1
     if self.frame % 200 == 0:
-      lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
+      self.lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
       self.lat_kd_v = self.params.get_float("LateralTorqueKd")*0.01
       self.lat_error_filter_t = self.params.get_float("LateralTorqueFilter")*0.001
+      self.error_filter.update_alpha(self.lat_error_filter_t)
 
-      if lateralTorqueCustom > 0:
+      if self.lateralTorqueCustom > 0:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
         self.torque_params.friction = self.params.get_float("LateralTorqueFriction")*0.001
         lateralTorqueKp = self.params.get_float("LateralTorqueKpV")*0.01
