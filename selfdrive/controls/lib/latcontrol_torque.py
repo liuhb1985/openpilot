@@ -135,6 +135,18 @@ class LatControlTorque(LatControl):
       self.error_deque = deque(maxlen=history_check_frames[0])
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
 
+    # carrot stability optimization
+    self.error_filter = FirstOrderFilter(0.0, 0.0, 0.01) # [深度优化] 误差低通滤波器
+    self.lat_kd_v = 0.0
+    self.lat_error_filter_t = 0.0
+    self.last_error = 0.0 # [深度优化] 用于计算误差变化率
+
+
+  def reset(self):
+    super().reset()
+    self.pid.reset()
+    self.last_error = 0.0
+    self.error_filter.x = 0.0
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
     if self.lateralTorqueCustom > 0:
@@ -148,27 +160,34 @@ class LatControlTorque(LatControl):
     self.frame += 1
     if self.frame % 200 == 0:
       lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
+      self.lat_kd_v = self.params.get_float("LateralTorqueKd")*0.01
+      self.lat_error_filter_t = self.params.get_float("LateralTorqueFilter")*0.001
+
       if lateralTorqueCustom > 0:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
         self.torque_params.friction = self.params.get_float("LateralTorqueFriction")*0.001
         lateralTorqueKp = self.params.get_float("LateralTorqueKpV")*0.01
         lateralTorqueKi = self.params.get_float("LateralTorqueKiV")*0.01
         lateralTorqueKf = self.params.get_float("LateralTorqueKf")*0.01
-        lateralTorqueKd = self.params.get_float("LateralTorqueKd")*0.01
         self.pid._k_p = [[0], [lateralTorqueKp]]
         self.pid._k_i = [[0], [lateralTorqueKi]]
         self.pid.k_f = lateralTorqueKf
-        self.pid._k_d = [[0], [lateralTorqueKd]]
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-      elif self.lateralTorqueCustom > 0:  # [修复] 新值=0，旧值>0 → 用户关闭了自定义，恢复默认
-        # [修复] 补全 PID 增益的重置，防止关闭自定义后增益残留
+      elif self.lateralTorqueCustom > 0:  # 从 ON 到 OFF
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
         self.pid._k_p = [[0], [self.kp_default]]
         self.pid._k_i = [[0], [self.ki_default]]
         self.pid.k_f = self.kf_default
-        self.pid._k_d = [[0], [self.kd_default]]
+
+      # 始终更新 Kd 和滤波器
+      self.pid._k_d = [[0], [self.lat_kd_v]]
+      if self.lat_error_filter_t > 0:
+        self.error_filter.k = 0.01 / (0.01 + self.lat_error_filter_t)
+      else:
+        self.error_filter.k = 1.0
+
       self.lateralTorqueCustom = lateralTorqueCustom
 
     pid_log = log.ControlsState.LateralTorqueState.new_message()
@@ -205,10 +224,12 @@ class LatControlTorque(LatControl):
 
       # [修复] NNFF 模式使用专用的低速因子表（更小的增益，避免干扰NN推理）
       # nnff_lite 与 nnff 一样也应使用 LOW_SPEED_Y_NN，因为它也做了 friction_compensation
+      # [深度优化] 优化低速因子，防止极低速下因曲率噪声导致的方向盘抖动
       if self.use_nnff or self.use_nnff_lite:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.5
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.2 # 降低指数以减缓增益
       else:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 1.5
+        # 非 NNFF 模式下，低速增益通常用于克服转向摩擦，但过高会导致抖动
+        low_speed_factor = np.interp(CS.vEgo, [0, 5, 10, 20, 30], [8, 10, 10, 7, 5]) ** 1.2
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
@@ -332,8 +353,22 @@ class LatControlTorque(LatControl):
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
 
+      # [深度优化] 稳定性增强逻辑
+      if self.lat_error_filter_t > 0:
+        pid_log.error = self.error_filter.update(pid_log.error)
+      
+      # 计算误差变化率以供 Kd 使用
+      error_rate = (pid_log.error - self.last_error) / 0.01
+      self.last_error = pid_log.error
+
+      # 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
+      if self.lat_kd_v > 0:
+        dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 30], [0.5, 1.5])
+        self.pid._k_d = [[0], [dynamic_kd]]
+
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
       output_torque = self.pid.update(pid_log.error,
+                                      error_rate=error_rate,
                                       feedforward=ff,
                                       speed=CS.vEgo,
                                       freeze_integrator=freeze_integrator)

@@ -96,14 +96,27 @@
       "group": "조향튜닝",
       "name": "LateralTorqueKd",
       "title": "_LateralTorqueKd*0.01(0)",
-      "descr": "조향 미분 계수(급격한 변화에 저항) \n\n 0 권장",
+      "descr": "横向：微分增益(0)\n用于抑制方向盘摆动，随速度动态增加。",
       "egroup": "LAT",
       "etitle": "_LateralTorqueKd*0.01(0)",
-      "edescr": "Steering Derivative Gain, 0 Recommended",
+      "edescr": "Lateral Derivative Gain - Used to suppress oscillations, increases with speed.",
       "min": 0,
-      "max": 10000,
+      "max": 150,
       "default": 0,
-      "unit": 10
+      "unit": 1
+    },
+    {
+      "group": "조향튜닝",
+      "name": "LateralTorqueFilter",
+      "title": "_LateralTorqueFilter(0ms)",
+      "descr": "横向：误差低通滤波(0ms)\n滤除高频噪声，建议50-100ms以减少微抖动。",
+      "egroup": "LAT",
+      "etitle": "_LateralTorqueFilter(0ms)",
+      "edescr": "Lateral Error Filter - Low pass filter for error, recommended 50-100ms.",
+      "min": 0,
+      "max": 200,
+      "default": 0,
+      "unit": 1
     },
     {
       "group": "조향튜닝",

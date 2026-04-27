@@ -156,6 +156,7 @@ def get_default_params():
     ("LateralTorqueKiV", "10"),  # 侧向扭矩 I 积分增益
     ("LateralTorqueKf", "100"),  # 侧向扭矩 FF 前馈增益
     ("LateralTorqueKd", "0"),  # 侧向扭矩 D 微分增益
+    ("LateralTorqueFilter", "0"),  # 侧向扭矩误差滤波器 (ms)
     ("LatMpcPathCost", "350"),  # 侧向 MPC 控制路径代价
     ("LatMpcMotionCost", "7"),  # 侧向 MPC 控制运动代价
     ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数

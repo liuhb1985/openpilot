@@ -163,7 +163,9 @@ class UnifiedParams:
             "AutoTurnLeft": 1,
             "AutoEnTurnNewLaneTimeH": 0,
             "AutoEnTurnNewLaneTime": 0,
-            "NewLaneWidthDiff": 8
+            "NewLaneWidthDiff": 8,
+            "LateralTorqueKd": 0,
+            "LateralTorqueFilter": 0
         }
 
     def get_bool(self, key, default=False):

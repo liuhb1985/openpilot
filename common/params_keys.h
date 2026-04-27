@@ -274,6 +274,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"LateralTorqueKiV", PERSISTENT},
     {"LateralTorqueKf", PERSISTENT},
     {"LateralTorqueKd", PERSISTENT},
+    {"LateralTorqueFilter", PERSISTENT},
     {"CustomSteerMax", PERSISTENT},
     {"CustomSteerDeltaUp", PERSISTENT},
     {"CustomSteerDeltaDown", PERSISTENT},

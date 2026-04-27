@@ -744,6 +744,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("LateralTorqueCustom", tr("横向：自定义扭矩(0)"), tr("自定义横向扭矩控制"), 0, 2, 1));
   latLongToggles->addItem(new CValueControl("LateralTorqueAccelFactor", tr("横向：扭矩加速度因子(2500)"), tr("扭矩与加速度的关系因子"), 1000, 6000, 10));
   latLongToggles->addItem(new CValueControl("LateralTorqueFriction", tr("横向：扭矩摩擦(100)"), tr("转向摩擦补偿系数"), 0, 1000, 10));
+  latLongToggles->addItem(new CValueControl("LateralTorqueKd", tr("横向：扭矩微分增益(0)"), tr("用于抑制方向盘摆动，随速度动态增加。"), 0, 150, 5));
+  latLongToggles->addItem(new CValueControl("LateralTorqueFilter", tr("横向：误差低通滤波(0ms)"), tr("滤除高频噪声，建议50-100ms以减少微抖动。"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("CustomSteerMax", tr("横向：自定义最大转向(0)"), tr("自定义最大转向角度/扭矩"), 0, 30000, 5));
   latLongToggles->addItem(new CValueControl("CustomSteerDeltaUp", tr("横向：转向增量上限(0)"), tr("转向速度上限"), 0, 50, 1));
   latLongToggles->addItem(new CValueControl("CustomSteerDeltaDown", tr("横向：转向增量下限(0)"), tr("转向速度下限"), 0, 50, 1));

@@ -400,53 +400,53 @@ protected:
             data[0] = a_ego;
             data[1] = accel;
             data[2] = accel_out;
-            sprintf(title, "1.Accel (Y:a_ego, G:a_target, O:a_out)");
+            sprintf(title, "1.加速度 (黄:a_ego, 绿:a_target, 橙:a_out)");
             break;
         case 2:
             data[0] = speeds_0;
             data[1] = v_ego;
             data[2] = a_ego;
-            sprintf(title, "2.Speed/Accel(Y:speed_0, G:v_ego, O:a_ego)");
+            sprintf(title, "2.速度/加速度 (黄:speed_0, 绿:v_ego, 橙:a_ego)");
             break;
         case 3:
             data[0] = position.getX()[32];
             data[1] = velocity.getX()[32];
             data[2] = velocity.getX()[0];
-            sprintf(title, "3.Model(Y:pos_32, G:vel_32, O:vel_0)");
+            sprintf(title, "3.模型 (黄:pos_32, 绿:vel_32, 橙:vel_0)");
 			      break;
         case 4:
             data[0] = accel;
             data[1] = lead_radar.getALeadK();
             data[2] = lead_radar.getVRel();
-            sprintf(title, "4.Lead(Y:accel, G:a_lead, O:v_rel)");
+            sprintf(title, "4.前车 (黄:accel, 绿:a_lead, 橙:v_rel)");
             break;
         case 5:
             data[0] = a_ego;
             data[1] = lead_radar.getALead();
             data[2] = lead_radar.getJLead();
-            sprintf(title, "5.Lead(Y:a_ego, G:a_lead, O:j_lead)");
+            sprintf(title, "5.前车 (黄:a_ego, 绿:a_lead, 橙:j_lead)");
             break;
         case 6:
             data[0] = torque_state.getActualLateralAccel() * 10.0;
             data[1] = torque_state.getDesiredLateralAccel() * 10.0;
             data[2] = torque_state.getOutput() * 10.0;
-            sprintf(title, "6.Steer(Y:actual, G:desire, O:output)");
+            sprintf(title, "6.横向控制 (黄:实际加速度, 绿:目标加速度, 橙:输出扭矩)");
             break;
         case 7:
             data[0] = car_state.getSteeringAngleDeg();
             data[1] = car_control.getActuators().getSteeringAngleDeg();
             data[2] = live_params.getAngleOffsetDeg() * 10.0;
-            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset*10)");
+            sprintf(title, "7.转向角 (黄:实际, 绿:目标, 橙:偏移*10)");
             break;
         case 8:
             data[0] = car_control.getActuators().getCurvature()*10000;
             data[1] = car_control.getActuators().getCurvature()*10000;
             data[2] = car_control.getActuators().getCurvature()*10000;
-            sprintf(title, "8.SteerA (Y:Actual, G:Target, O:Offset*10)");
+            sprintf(title, "8.曲率 (x10000)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
-            sprintf(title, "no data");
+            sprintf(title, "无数据");
             break;
         }
         if (show_plot_mode != show_plot_mode_prev) {
