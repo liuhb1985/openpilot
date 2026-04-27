@@ -865,8 +865,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
 
   startToggles->addItem(selectCarBtn);
   auto usbCamToggle = new ParamControl("UseUsbCamera", tr("使用 C++ 摄像头驱动"), tr("开启后使用 C++ 编写的摄像头驱动(usbcamerad)，关闭则回退到 Python 版本(webcamerad)。切换后将自动重启以生效。"), "");
-  connect(usbCamToggle, &ParamControl::confirmed, [=]() {
-    QTimer::singleShot(1000, []() {
+  connect(usbCamToggle, &ToggleControl::toggleFlipped, [=](bool state) {
+    QTimer::singleShot(1000, this, []() {
       Params().putInt("SoftRestartTriggered", 1);
     });
   });
