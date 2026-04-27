@@ -862,6 +862,13 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   });
 
   startToggles->addItem(selectCarBtn);
+  auto usbCamToggle = new ParamControl("UseUsbCamera", tr("使用 C++ 摄像头驱动"), tr("开启后使用 C++ 编写的摄像头驱动(usbcamerad)，关闭则回退到 Python 版本(webcamerad)。切换后将自动重启以生效。"), "");
+  connect(usbCamToggle, &ParamControl::confirmed, [=]() {
+    QTimer::singleShot(1000, []() {
+      Params().putInt("SoftRestartTriggered", 1);
+    });
+  });
+  startToggles->addItem(usbCamToggle);
   startToggles->addItem(new CValueControl("HyundaiCameraSCC", tr("现代：摄像头SCC"), tr("1:连接SCC的CAN线到CAM, 2:同步巡航状态, 3:原厂纵向"), 0, 3, 1));
   startToggles->addItem(new CValueControl("CanfdHDA2", tr("CANFD：HDA2模式"), tr("1:HDA2,2:HDA2+BSM盲区监测"), 0, 2, 1));
   startToggles->addItem(new CValueControl("EnableRadarTracks", tr("启用雷达跟踪"), tr("1:启用雷达跟踪, -1,2:完全禁用HKG SCC雷达"), -1, 3, 1));

@@ -14,6 +14,12 @@ USBCAM = os.getenv("USE_USBCAM") is not None
 JY62 = int(os.getenv("JY62","0"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
+def use_usb_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return params.get_bool("UseUsbCamera")
+
+def use_web_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return not params.get_bool("UseUsbCamera")
+
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
 
@@ -93,9 +99,9 @@ procs = [
   PythonProcess("logmessaged", "system.logmessaged", always_run, enabled=not PC),
 
   #NativeProcess("usbcamerad", "camera", ["./usb_camera"], driverview, enabled=USBCAM),
-  NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=USBCAM),
-  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not USBCAM and not WEBCAM),
-  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM and not USBCAM),
+  NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=use_usb_camera),
+  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=and_(only_onroad, lambda s, p, c: not p.get_bool("UseUsbCamera") and not WEBCAM)),
+  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=use_web_camera),
   NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad, enabled=not PC),
   NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad, enabled=not PC),
   PythonProcess("micd", "system.micd", iscar),
