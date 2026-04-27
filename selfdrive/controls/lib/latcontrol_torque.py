@@ -90,6 +90,8 @@ class LatControlTorque(LatControl):
     # Twilsonco's Lateral Neural Network Feedforward
     self.use_nnff = CI.use_nnff
     self.use_nnff_lite = CI.use_nnff_lite
+    self.lat_accel_friction_factor = 0.0
+    self.lat_jerk_friction_factor = 0.0
 
     if self.use_nnff or self.use_nnff_lite:
       # Instantaneous lateral jerk changes very rapidly, making it not useful on its own,
@@ -238,8 +240,8 @@ class LatControlTorque(LatControl):
       lookahead_lateral_jerk = 0
       # lat_accel_ff: 仅在 use_nnff/use_nnff_lite 时使用，且 self.lat_accel_friction_factor
       # 也只在这两种模式下初始化。默认值仅在使用时才赋，避免纯传统模式 AttributeError。
-      if self.use_nnff or self.use_nnff_lite:
-        lat_accel_ff = self.lat_accel_friction_factor  # 默认值，可能被下方 model_good 块覆盖
+      # lat_accel_ff: 仅在 use_nnff/use_nnff_lite 时生效，用于计算摩擦补偿
+      lat_accel_ff = self.lat_accel_friction_factor
 
       # ── IMU 数据诊断打印（每100帧约1秒，所有控制模式均输出）──
       if self.frame % 100 == 1:
@@ -318,7 +320,7 @@ class LatControlTorque(LatControl):
         if error_blend_factor > 0.0:  # blend in stronger error response when in high lat accel
           nnff_error_input = [CS.vEgo, setpoint - measurement, lateral_jerk_setpoint - lateral_jerk_measurement, 0.0]
           torque_from_error = self.torque_from_nn(nnff_error_input)
-          if sign(pid_log.error) == sign(torque_from_error) and abs(pid_log.error) < abs(torque_from_error):
+          if np.sign(pid_log.error) == np.sign(torque_from_error) and abs(pid_log.error) < abs(torque_from_error):
             pid_log.error = float(pid_log.error * (1.0 - error_blend_factor) + torque_from_error * error_blend_factor)
 
         # compute feedforward (same as nn setpoint output)
@@ -361,17 +363,31 @@ class LatControlTorque(LatControl):
       error_rate = (pid_log.error - self.last_error) / 0.01
       self.last_error = pid_log.error
 
+      # [进阶优化] 1. 转向速率抗积分饱和：在高转向速率时冻结积分
+      # steeringRateDeg 是当前实际转向速度，如果太快，Ki 往往会导致过冲
+      steering_rate = abs(CS.steeringRateDeg)
+      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5 or steering_rate > 80.0
+
+      # [进阶优化] 2. NNFF-PID 解耦：当前馈非常强(模型高度自信)时，适度降低 PID 灵敏度
+      # 这可以减少由于反馈回路过快导致的“由于模型已经准确预测扭矩，但 PID 仍在微调”引起的震荡
+      kp_scale = 1.0
+      if self.use_nn:
+        ff_abs = abs(ff)
+        if ff_abs > 0.1: # 如果前馈扭矩超过 10%
+          kp_scale = np.interp(ff_abs, [0.1, 0.5], [1.0, 0.85])
+
       # 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
       if self.lat_kd_v > 0:
         dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 30], [0.5, 1.5])
         self.pid._k_d = [[0], [dynamic_kd]]
 
-      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
       output_torque = self.pid.update(pid_log.error,
                                       error_rate=error_rate,
                                       feedforward=ff,
                                       speed=CS.vEgo,
-                                      freeze_integrator=freeze_integrator)
+                                      freeze_integrator=freeze_integrator,
+                                      k_p_scale=kp_scale,
+                                      k_i_scale=kp_scale)
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)

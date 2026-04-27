@@ -46,10 +46,10 @@ class PIDController:
     self.f = 0.0
     self.control = 0
 
-  def update(self, error, error_rate=0.0, speed=0.0, override=False, feedforward=0., freeze_integrator=False):
+  def update(self, error, error_rate=0.0, speed=0.0, override=False, feedforward=0., freeze_integrator=False, k_p_scale=1.0, k_i_scale=1.0):
     self.speed = speed
 
-    self.p = float(error) * self.k_p
+    self.p = float(error) * self.k_p * k_p_scale
     self.f = feedforward * self.k_f
     self.d = error_rate * self.k_d
 
@@ -57,7 +57,7 @@ class PIDController:
       self.i -= self.i_unwind_rate * float(np.sign(self.i))
     else:
       if not freeze_integrator:
-        self.i = self.i + error * self.k_i * self.i_rate
+        self.i = self.i + error * self.k_i * self.i_rate * k_i_scale
 
         # Clip i to prevent exceeding control limits
         control_no_i = self.p + self.d + self.f
