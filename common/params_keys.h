@@ -2,9 +2,8 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include "common/params.h"
 
-inline std::unordered_map<std::string, uint32_t> keys = {
+inline static std::unordered_map<std::string, uint32_t> keys = {
     {"AccessToken", CLEAR_ON_MANAGER_START | DONT_LOG},
     {"AdbEnabled", PERSISTENT},
     {"AlwaysOnDM", PERSISTENT},

@@ -135,6 +135,7 @@ void ParamControl::toggleClicked(bool state) {
     if (store_confirm && state) params.putBool(key + "Confirmed", true);
     params.putBool(key, state);
     setIcon(state);
+    emit confirmed();
   } else {
     toggle.togglePosition();
   }
