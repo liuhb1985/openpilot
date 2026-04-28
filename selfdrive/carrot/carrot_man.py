@@ -636,7 +636,10 @@ class CarrotMan:
                 #  print(f"carrot_man_thread: send 错误...: {e}")
 
               except TimeoutError:
-                print("等待数据中 (超时)...")
+                if not hasattr(self, 'carrot_timeout_cnt'): self.carrot_timeout_cnt = 0
+                self.carrot_timeout_cnt += 1
+                if self.carrot_timeout_cnt % 100 == 1:
+                  print(f"[Carrot] 等待数据中 (超时次数: {self.carrot_timeout_cnt})...")
                 self.remote_addr = None
                 time.sleep(1)
 
@@ -711,7 +714,10 @@ class CarrotMan:
                   print(data)
 
               except TimeoutError:
-                print("等待数据中 (超时)...")
+                if not hasattr(self, 'kisa_timeout_cnt'): self.kisa_timeout_cnt = 0
+                self.kisa_timeout_cnt += 1
+                if self.kisa_timeout_cnt % 100 == 1:
+                  print(f"[Kisa] 等待数据中 (超时次数: {self.kisa_timeout_cnt})...")
                 #self.remote_addr = None
                 time.sleep(1)
 
