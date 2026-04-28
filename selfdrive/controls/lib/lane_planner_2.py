@@ -192,7 +192,15 @@ class LanePlanner:
       #  lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
     # 否则跟随概率较高的车道线
     else:
-      lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
+      # [极致优化] 鲁棒路径融合：当一侧概率明显高于另一侧（差异 > 0.3）时，
+      # 减少对模糊一侧的依赖，防止车辆被视觉漂移拉向内侧（切弯）。
+      if abs(l_prob - r_prob) > 0.3:
+        if l_prob > r_prob:
+          lane_path_y = path_from_left_lane
+        else:
+          lane_path_y = path_from_right_lane
+      else:
+        lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
 
     use_laneless_center_adjust = False
     if use_laneless_center_adjust:

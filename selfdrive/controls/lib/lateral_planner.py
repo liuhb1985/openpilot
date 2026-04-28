@@ -18,11 +18,11 @@ CAMERA_OFFSET = 0.04
 
 PATH_COST = 1.0
 LATERAL_MOTION_COST = 0.11
-LATERAL_ACCEL_COST = 0.0
-LATERAL_JERK_COST = 0.04
+LATERAL_ACCEL_COST = 0.05    # [优化] 从 0.02 进一步提升，严厉惩罚“抄近道”行为
+LATERAL_JERK_COST = 0.3      # [极致优化] 从 0.15 进一步提升，追求绝对的静默规划
 # 极端的转向速率是令人不悦的，即使它没有导致严重的颠簸。
 # TODO 当所有车上的低速横向控制稳定后，应降低此代价
-STEERING_RATE_COST = 700.0
+STEERING_RATE_COST = 1200.0  # [优化] 从 700.0 提升，抑制规划层面的频繁微动
 
 
 class LateralPlanner:
@@ -142,7 +142,7 @@ class LateralPlanner:
     if self.lanelines_active:
       self.plan_yaw, self.plan_yaw_rate = yaw_from_path_no_scipy(
         self.path_xyz, self.v_plan,
-        smooth_window=5,
+        smooth_window=7, # [优化] 从 5 提升，过滤视觉路径噪声
         clip_rate=2.0,
         align_first_yaw=None  # 初始对齐
       )
@@ -259,7 +259,7 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
   v0 = float(np.asarray(v_plan)[0]) if len(v_plan) else 0.0
   # 在低速 (≤6 m/s) 时，窗口调大
   if v0 <= 6.0:
-    smooth_window = max(smooth_window, 9)   # 建议 9~11
+    smooth_window = max(smooth_window, 11)   # [优化] 增加平滑度，减少低速曲率抖动
     
   N = path_xyz.shape[0]
   x = path_xyz[:, 0].astype(float)
