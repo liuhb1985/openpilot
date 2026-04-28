@@ -15,10 +15,12 @@ JY62 = int(os.getenv("JY62","0"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def use_usb_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
-  return USBCAM or params.get_bool("UseUsbCamera")  # USBCAM env 优先，避免 params 加载延迟导致竞态
+  if WEBCAM: return False  # USE_WEBCAM=1 时强制用 webcamerad
+  return USBCAM or params.get_bool("UseUsbCamera")
 
 def use_web_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
-  return not (USBCAM or params.get_bool("UseUsbCamera"))  # 与 use_usb_camera 严格互斥
+  if WEBCAM: return True   # USE_WEBCAM=1 时强制启用 webcamerad
+  return not (USBCAM or params.get_bool("UseUsbCamera"))
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
