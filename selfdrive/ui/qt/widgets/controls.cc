@@ -130,8 +130,8 @@ void ParamControl::toggleClicked(bool state) {
     return ConfirmationDialog(content, tr("Enable"), tr("Cancel"), true, this).exec();
   };
 
-  bool confirmed = store_confirm && params.getBool(key + "Confirmed");
-  if (!confirm || confirmed || !state || do_confirm()) {
+  bool is_confirmed = store_confirm && params.getBool(key + "Confirmed");
+  if (!confirm || is_confirmed || !state || do_confirm()) {
     if (store_confirm && state) params.putBool(key + "Confirmed", true);
     params.putBool(key, state);
     setIcon(state);

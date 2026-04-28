@@ -157,6 +157,7 @@ public:
 signals:
   void confirmed();
 
+public:
   void refresh() {
     bool state = params.getBool(key);
     if (state != toggle.on) {
