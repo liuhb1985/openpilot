@@ -93,9 +93,9 @@ procs = [
   PythonProcess("logmessaged", "system.logmessaged", always_run, enabled=not PC),
 
   #NativeProcess("usbcamerad", "camera", ["./usb_camera"], driverview, enabled=USBCAM),
-  NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=USE_USBCAM),
-  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=and_(only_onroad, lambda s, p, c: not p.get_bool("UseUsbCamera") and not WEBCAM)),
-  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=USE_WEBCAM),
+  NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=USBCAM),
+  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not USBCAM and not WEBCAM),
+  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM and not USBCAM),
   NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad, enabled=not PC),
   NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad, enabled=not PC),
   PythonProcess("micd", "system.micd", iscar),
