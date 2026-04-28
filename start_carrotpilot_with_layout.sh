@@ -38,6 +38,14 @@ check_cameras_ready() {
     echo "⚠ Warning: Expected $expected cameras but found $final_count. Proceeding anyway..."
 }
 check_cameras_ready
+
+# 清理上次残留的摄像头进程，防止 EBUSY / MultiplePublishersError
+echo "Cleaning up residual camera processes..."
+pkill -9 -f "tools.webcam.camerad" 2>/dev/null
+pkill -9 -f "tools/webcam/camerad" 2>/dev/null
+pkill -9 -f "usbcamerad" 2>/dev/null
+sleep 0.5
+echo "Camera process cleanup done."
 # -----------------------------------------------------------------------------
 # 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
 # -----------------------------------------------------------------------------
@@ -46,9 +54,10 @@ check_cameras_ready
 ROAD_PATH=$(ls /dev/v4l/by-path/*usb*-0:2.3:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
-    export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
-    export ROAD_CAM=$(basename "$ROAD_PATH")
-    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+    ROAD_CAM_IDX_RAW=${ROAD_DEV#/dev/video}
+    export ROAD_CAM_IDX=$(echo "$ROAD_CAM_IDX_RAW" | tr -d '\r\n')  # 去除 CRLF 残留
+    export ROAD_CAM=$ROAD_CAM_IDX
+    echo "[INFO] Road Cam index=$ROAD_CAM_IDX  ROAD_CAM=$ROAD_CAM"
 else
     export ROAD_CAM=2
     export ROAD_CAM_IDX=2
