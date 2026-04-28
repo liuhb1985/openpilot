@@ -38,13 +38,78 @@ check_cameras_ready() {
     echo "⚠ Warning: Expected $expected cameras but found $final_count. Proceeding anyway..."
 }
 check_cameras_ready
+# -----------------------------------------------------------------------------
+# 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
+# -----------------------------------------------------------------------------
+# 1. 长焦摄像头 (Long-focus, 默认 index 2)
+# 使用通配符匹配，解决 usb-0 vs usbv2-0 或微小路径变动
+ROAD_PATH=$(ls /dev/v4l/by-path/*usb*-0:2.3:1.0-video-index0 2>/dev/null | head -n 1)
+if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
+    ROAD_DEV=$(readlink -f "$ROAD_PATH")
+    export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
+    export ROAD_CAM=$(basename "$ROAD_PATH")
+    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+else
+    export ROAD_CAM=2
+    export ROAD_CAM_IDX=2
+    echo "[WARN] Road Cam path not found, falling back to default index 2"
+fi
 
-# 清理残留进程
-pkill -9 camerad 2>/dev/null
+# 2. 广角摄像头 (Wide-angle / BSM, 默认 index 0)
+# 注意：video0 的 MJPG 流由 cam_blindspot 独占，webcamerad 不再打开广角摄像头。
+# 只记录 BSM 设备索引，供 cam_blindspot 进程使用。
+WIDE_PATH=$(ls /dev/v4l/by-path/*usb*-0:1:1.0-video-index0 2>/dev/null | head -n 1)
+if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
+    WIDE_DEV=$(readlink -f "$WIDE_PATH")
+    export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
+    echo "[INFO] BSM cam_blindspot uses video${WIDE_CAM_IDX} (webcamerad will NOT open wide camera)"
+else
+    export WIDE_CAM_IDX=0
+    echo "[WARN] Wide Cam path not found, falling back to default index 0"
+fi
+# 不设置 WIDE_CAM，webcamerad 只负责长焦摄像头
+unset WIDE_CAM
+
+# 启动前硬件预检查
+wait_for_device() {
+    local dev=$1
+    local name=$2
+
+    # 如果初始扫描完全没发现摄像头，或者设备路径未识别，则跳过长时间等待
+    if [ "$CAMERAS_EXIST" = "0" ]; then
+        echo "[SKIP] $name ($dev) skipped (no cameras detected in initial scan)"
+        return 0
+    fi
+
+    echo "Waiting for $name ($dev)..."
+    local timeout=2  # 缩短单项等待超时
+    local elapsed=0
+    while [ ! -e "$dev" ] && [ $elapsed -lt $timeout ]; do
+        sleep 0.5
+        elapsed=$((elapsed + 1))
+    done
+    if [ -e "$dev" ]; then
+        echo "✓ $name found!"
+    else
+        echo "⚠ Warning: $name ($dev) not found after ${timeout}s"
+    fi
+}
+
+wait_for_device "/dev/video$ROAD_CAM_IDX" "Road Camera (Long-focus)"
+wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (BSM, cam_blindspot)"
+
+# 设置动态库路径，使 cam_blindspot 能找到 libonnxruntime.so.1
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
+
+# 导出环境变量供 cam_blindspot 进程内部使用，确保路径 100% 同步
+export WIDE_CAM_DEV="/dev/video$WIDE_CAM_IDX"
 
 # 在后台启动 manager
 echo "Starting openpilot manager..."
-SCALE=1 NO_DM=1 JY62=0 system/manager/manager.py &
+# 注意：使用 USE_WEBCAM=1 以启动 python 版 camerad.py，兼容性更好
+# WIDE_CAM 未设置，webcamerad 只打开长焦摄像头（ROAD_CAM），广角由 cam_blindspot 独立管理
+#SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 
 MANAGER_PID=$!
 
