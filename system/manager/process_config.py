@@ -9,18 +9,14 @@ from openpilot.system.manager.process import PythonProcess, NativeProcess, Daemo
 
 FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
-WEBCAM = os.getenv("USE_WEBCAM") is not None
-USBCAM = os.getenv("USE_USBCAM") is not None
 JY62 = int(os.getenv("JY62","0"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def use_usb_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
-  if WEBCAM: return False  # USE_WEBCAM=1 时强制用 webcamerad
-  return USBCAM or params.get_bool("UseUsbCamera")
+  return True  # 强制默认使用 C++ usbcamerad
 
 def use_web_camera(started: bool, params: Params, CP: car.CarParams) -> bool:
-  if WEBCAM: return True   # USE_WEBCAM=1 时强制启用 webcamerad
-  return not (USBCAM or params.get_bool("UseUsbCamera"))
+  return False # 强制禁用 Python webcamerad
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
