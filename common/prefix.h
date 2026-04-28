@@ -14,7 +14,10 @@ public:
       prefix = util::random_string(15);
     }
     msgq_path = Path::shm_path() + "/" + prefix;
-    bool ret = util::create_directories(msgq_path, 0777);
+    bool ret = true;
+    if (!util::file_exists(msgq_path)) {
+      ret = util::create_directories(msgq_path, 0777);
+    }
     assert(ret);
     setenv("OPENPILOT_PREFIX", prefix.c_str(), 1);
   }

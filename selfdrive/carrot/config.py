@@ -111,7 +111,9 @@ class UnifiedParams:
     def _save_nav_data(self):
         """保存自定义参数到文件"""
         try:
-            os.makedirs(os.path.dirname(self.nav_json_file), exist_ok=True)
+            nav_dir = os.path.dirname(self.nav_json_file)
+            if not os.path.exists(nav_dir):
+                os.makedirs(nav_dir)
             with open(self.nav_json_file, 'w', encoding='utf-8') as f:
                 json.dump(self.nav_data, f, indent=2, ensure_ascii=False)
         except (OSError, IOError) as e:

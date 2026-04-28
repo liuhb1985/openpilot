@@ -129,7 +129,8 @@ def report_tombstone_apport(fn):
   new_fn = f"{date}_{(build_metadata.openpilot.git_commit or 'nocommit')[:8]}_{safe_fn(clean_path)}"[:MAX_TOMBSTONE_FN_LEN]
 
   crashlog_dir = os.path.join(Paths.log_root(), "crash")
-  os.makedirs(crashlog_dir, exist_ok=True)
+  if not os.path.exists(crashlog_dir):
+    os.makedirs(crashlog_dir)
 
   # Files could be on different filesystems, copy, then delete
   shutil.copy(fn, os.path.join(crashlog_dir, new_fn))

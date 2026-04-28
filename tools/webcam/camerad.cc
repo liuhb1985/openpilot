@@ -1,5 +1,6 @@
 #include "camera.h"
 #include "camerad.h"
+#include "common/util.h"
 
 #include <vector>
 
@@ -19,7 +20,11 @@ static std::string detect_videos_path() {
       return path;
     }
   }
-  return "./videos/"; // Default fallback
+  // 如果所有候选目录都不存在，显式检查并创建 ./videos/
+  if (!util::file_exists("./videos/")) {
+    util::create_directories("./videos/", 0777);
+  }
+  return "./videos/"; 
 }
 
 std::string PATH_VIDEOS = detect_videos_path(); // Save record videos.

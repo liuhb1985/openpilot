@@ -55,7 +55,11 @@ int main(int argc, char** argv) {
   LOGW("bootlog to %s", path.c_str());
 
   // Open bootlog
-  bool r = util::create_directories(Path::log_root() + "/boot/", 0775);
+  bool r = true;
+  std::string boot_log_dir = Path::log_root() + "/boot/";
+  if (!util::file_exists(boot_log_dir)) {
+    r = util::create_directories(boot_log_dir, 0775);
+  }
   assert(r);
 
   ZstdFileWriter file(path, LOG_COMPRESSION_LEVEL);

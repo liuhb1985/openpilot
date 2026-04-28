@@ -181,7 +181,10 @@ bool LoggerState::next() {
   }
 
   segment_path = route_path + "--" + std::to_string(++part);
-  bool ret = util::create_directories(segment_path, 0775);
+  bool ret = true;
+  if (!util::file_exists(segment_path)) {
+    ret = util::create_directories(segment_path, 0775);
+  }
   assert(ret == true);
 
   lock_file = segment_path + "/rlog.lock";
