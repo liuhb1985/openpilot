@@ -140,6 +140,7 @@ class LatControlTorque(LatControl):
     # carrot stability optimization
     self.error_filter = FirstOrderFilter(0.0, 0.0, 0.01) # [深度优化] 误差低通滤波器
     self.desired_curvature_filter = FirstOrderFilter(0.0, 0.02, 0.01) # [深度优化] 目标曲率平滑滤波器，减少指令突变
+    self.error_rate_filter = FirstOrderFilter(0.0, 0.05, 0.01) # [大师级优化] 误差变化率滤波器，抑制 Kd 抖动
     self.lat_kd_v = 0.0
     self.lat_error_filter_t = 0.0
     self.last_error = 0.0 # [深度优化] 用于计算误差变化率
@@ -361,7 +362,8 @@ class LatControlTorque(LatControl):
         pid_log.error = self.error_filter.update(pid_log.error)
       
       # 计算误差变化率以供 Kd 使用
-      error_rate = (pid_log.error - self.last_error) / 0.01
+      # [大师级优化] 对 Kd 使用的误差变化率进行低通滤波，防止微分项放大高频噪声
+      error_rate = self.error_rate_filter.update((pid_log.error - self.last_error) / 0.01)
       self.last_error = pid_log.error
 
       # [进阶优化] 1. 转向速率抗积分饱和：在高转向速率时冻结积分
@@ -380,6 +382,10 @@ class LatControlTorque(LatControl):
       # [极致优化] 3. 转向速率增益抑制：在剧烈纠偏时降低增益，防止过冲
       if steering_rate > 100.0:
         kp_scale *= np.interp(steering_rate, [100.0, 200.0], [1.0, 0.7])
+
+      # [大师级优化] 4. 高负荷增益衰减：在急弯（高侧向G）时降低增益，增加稳定性
+      if abs(desired_lateral_accel) > 1.5:
+        kp_scale *= np.interp(abs(desired_lateral_accel), [1.5, 3.0], [1.0, 0.75])
 
       # 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
       if self.lat_kd_v > 0:

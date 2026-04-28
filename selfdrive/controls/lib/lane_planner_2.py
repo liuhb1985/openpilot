@@ -218,6 +218,15 @@ class LanePlanner:
     else:
       offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
 
+    # [大师级优化] 弯道外偏补偿：修正视觉模型固有的向内切弯倾向
+    # 如果正在转弯，将路径稍微向外侧推移 3-6cm。 curvature > 0 通常为左转（向 y+ 偏移），我们需要向右偏移（减小 y）
+    curvature_abs = abs(self.curvature) if hasattr(self, 'curvature') else 0.0
+    if curvature_abs > 0.0008:
+      outward_compensate = np.interp(curvature_abs, [0.0008, 0.02], [0.0, 0.05])
+      # curvature 为正（左转）时，减去偏移量（向右偏）；为负（右转）时，加上偏移量（向左偏）
+      offset_total -= outward_compensate * np.sign(self.curvature)
+      offset_total = np.clip(offset_total, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+
     ## self.d_prob = 0 如果正在变道
     self.d_prob *= self.lane_change_multiplier  ## 变道过程中关闭
     if self.lane_change_multiplier < 0.5:
