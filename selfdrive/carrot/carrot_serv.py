@@ -213,7 +213,7 @@ class CarrotServ:
     self.autoTurnControl = self.params.get_int("AutoTurnControl")
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
     #self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
-    self.autoCurveSpeedLowerLimit = int(self.params.get("AutoCurveSpeedLowerLimit"))
+    self.autoCurveSpeedLowerLimit = int(self.params.get("AutoCurveSpeedLowerLimit") or 30)
     self.is_metric = self.params.get_bool("IsMetric")
     self.autoRoadSpeedLimitOffset = self.params.get_int("AutoRoadSpeedLimitOffset")
 
@@ -856,8 +856,8 @@ class CarrotServ:
       distanceTraveled = sm['selfdriveState'].distanceTraveled
       delta_dist = distanceTraveled - self.totalDistance
       self.totalDistance = distanceTraveled
-      if CS.speedLimit > 0 and self.active_carrot <= 1:
-        self.nRoadLimitSpeed = CS.speedLimit
+      if CS.speedLimit > 0:
+        self.nRoadLimitSpeed = CS.speedLimit * 3.6  # m/s -> km/h
     else:
       v_ego = v_ego_kph = 0
       delta_dist = 0
@@ -879,16 +879,18 @@ class CarrotServ:
     elif self.active_count > 0:
       self.active_carrot = 2 if self.active_sdi_count > 0 else 1
     else:
-      self.active_carrot = 0
+      self.active_carrot = 1  # 即使无 App 连接，也保持基础控速开启
 
-    if self.autoRoadSpeedLimitOffset >= 0 and self.active_carrot>=2:
+    if self.autoRoadSpeedLimitOffset >= 0 and self.active_carrot>=1:
       if self.nRoadLimitSpeed >= 30:
         road_speed_limit_offset = self.autoRoadSpeedLimitOffset
         if not self.is_metric:
           road_speed_limit_offset *= CV.KPH_TO_MPH
         limit_speed = self.nRoadLimitSpeed + road_speed_limit_offset
+      else:
+        limit_speed = 250
     else:
-      limit_speed = 200
+      limit_speed = 250
 
     if self.active_carrot <= 1:
       self.xSpdType = self.navType = self.xTurnInfo = self.xTurnInfoNext = -1
@@ -923,7 +925,7 @@ class CarrotServ:
     elif CS is not None and CS.speedLimit > 0 and CS.speedLimitDistance > 0:
       sdi_speed = min(sdi_speed,
                       self.calculate_current_speed(CS.speedLimitDistance,
-                                                   CS.speedLimit * self.autoNaviSpeedSafetyFactor,
+                                                   CS.speedLimit * 3.6 * self.autoNaviSpeedSafetyFactor,
                                                    self.autoNaviSpeedCtrlEnd,
                                                    self.autoNaviSpeedDecelRate))
       hda_active = True
@@ -945,7 +947,7 @@ class CarrotServ:
       (sdi_speed, "hda" if hda_active else "bump" if self.xSpdType == 22 else "section" if self.xSpdType == 4 else "police" if self.xSpdType == 100 else "waze" if self.xSpdType == 101 else "cam"),
       (limit_speed, "road"),
     ]
-    if self.turnSpeedControlMode in [1,2]:
+    if self.turnSpeedControlMode >= 0: # 默认开启，除非显式禁用
       speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
 
     route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
@@ -956,7 +958,7 @@ class CarrotServ:
       speed_n_sources.append((route_speed, "route"))
 
     model_turn_speed = max(sm['modelV2'].meta.modelTurnSpeed, self.autoCurveSpeedLowerLimit)
-    if model_turn_speed < 200 and abs(vturn_speed) < 120:
+    if model_turn_speed < 200:
       speed_n_sources.append((model_turn_speed, "model"))
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
@@ -977,7 +979,8 @@ class CarrotServ:
         source = "gas"
         desired_speed = self.gas_override_speed
 
-      self.debugText += f"route={route_speed:.1f}"
+      # 增强调试信息显示到 UI (格式: 来源 | 目标速度 | 道路限速 | 视觉弯道速 | 地图弯道速)
+      self.debugText = f" [{source}|{desired_speed:.0f}|L:{limit_speed:.0f}|V:{vturn_speed:.0f}|R:{route_speed:.0f}]"
 
     left_spd_sec = 100
     left_tbt_sec = 100

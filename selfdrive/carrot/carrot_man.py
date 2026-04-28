@@ -206,7 +206,17 @@ class CarrotMan:
 
     self.turn_speed_last = 250
     self.curvatureFilter = MyMovingAverage(20)
+    self.vturn_speed_filter = MyMovingAverage(5)
     self.carrot_curve_speed_params()
+
+    self.v_cruise_last = 0
+    self.long_active = False
+    self.v_cruise_change = 0
+    self._last_vt = 0.0
+    self.gas_pressed_count = 0
+    self._last_viz_t = 0.0
+    self.autoNaviSpeedDecelRate = 1.5
+    self.activeCarrot = 0
 
     self.carrot_zmq_thread = threading.Thread(target=self.carrot_cmd_zmq, args=[])
     self.carrot_zmq_thread.daemon = True
@@ -282,16 +292,12 @@ class CarrotMan:
 
     rk = Ratekeeper(20, print_delay_threshold=None)
 
+    frame = 0
+    self.save_toggle_values()
+
     carrotIndex_last = self.carrot_serv.carrotIndex
     phone_gps_frame = self.carrot_serv.phone_gps_frame
     carrot_speed_active_count = 0
-    self.v_cruise_last = 0
-    self.long_active = False
-    self.v_cruise_change = 0
-    self._last_vt = 0.0
-    self.gas_pressed_count = 0
-    self._last_viz_t = 0.0
-
     while self.is_running:
       try:
         self.sm.update(0)
@@ -302,8 +308,6 @@ class CarrotMan:
         vturn_speed = self.carrot_curve_speed(self.sm)
         coords, distances, route_speed = self.carrot_navi_route()
 
-        #print("coords=", coords)
-        #print("curvatures=", curvatures)
         self.carrot_serv.update_navi(remote_ip, self.sm, self.pm, vturn_speed, coords, distances, route_speed, self.gps_location_service)
 
         if phone_gps_frame != self.carrot_serv.phone_gps_frame:
@@ -981,8 +985,10 @@ class CarrotMan:
       print(e)
 
   def carrot_curve_speed_params(self):
-    self.autoCurveSpeedFactor = self.params.get_int("AutoCurveSpeedFactor")*0.01
-    self.autoCurveSpeedAggressiveness = self.params.get_int("AutoCurveSpeedAggressiveness")*0.01
+    val_factor = self.params.get_int("AutoCurveSpeedFactor")
+    self.autoCurveSpeedFactor = (val_factor if val_factor > 0 else 100) * 0.01
+    val_agg = self.params.get_int("AutoCurveSpeedAggressiveness")
+    self.autoCurveSpeedAggressiveness = (val_agg if val_agg > 0 else 100) * 0.01
 
   def carrot_curve_speed(self, sm):
     self.carrot_curve_speed_params()
@@ -998,27 +1004,30 @@ class CarrotMan:
     TARGET_LAT_A = 1.9  # m/s^2
 
     modelData = sm['modelV2']
-    v_ego = max(CS.vEgo, 0.1)
+    if len(modelData.orientationRate.z) == 0 or len(modelData.velocity.x) == 0:
+      return 250
+
     # 设置弯道敏感度
-    orientation_rate = np.array(modelData.orientationRate.z) * self.autoCurveSpeedFactor
-    velocity = np.array(modelData.velocity.x)
+    orientation_rate = np.abs(np.array(modelData.orientationRate.z)) * self.autoCurveSpeedFactor
+    velocity = np.maximum(np.array(modelData.velocity.x), 1.0) # 避免除以零
 
-    # 从模型获取最大侧向加速度
-    max_index = np.argmax(np.abs(orientation_rate))
-    curv_direction = np.sign(orientation_rate[max_index])
-    max_pred_lat_acc = np.amax(np.abs(orientation_rate) * velocity)
-
-    # 根据当前速度获取最大曲率
-    max_curve = max_pred_lat_acc / (v_ego**2)
+    # 计算曲率 kappa = yaw_rate / velocity
+    curvatures = orientation_rate / velocity
+    max_idx = np.argmax(np.abs(curvatures))
+    max_curvature = np.abs(curvatures[max_idx])
+    curv_direction = np.sign(modelData.orientationRate.z[max_idx])
 
     # 设置目标侧向加速度
     adjusted_target_lat_a = TARGET_LAT_A * self.autoCurveSpeedAggressiveness
 
-    # 获取最大曲率下的目标速度
-    #turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, self.autoCurveSpeedLowerLimit)
-    turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, 5)
-    turnSpeed = min(turnSpeed, 250)
-    return turnSpeed * curv_direction
+    if max_curvature < 1e-4:
+      turnSpeed = 250
+    else:
+      # turnSpeed = sqrt(a / kappa)
+      turnSpeed = (adjusted_target_lat_a / max_curvature)**0.5 * 3.6
+
+    turnSpeed = self.vturn_speed_filter.process(turnSpeed)
+    return np.clip(turnSpeed, 5, 250) * curv_direction
 
 
 
