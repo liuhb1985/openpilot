@@ -68,6 +68,7 @@ class LanePlanner:
     self.lane_width_left_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
     self.lane_width_right_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
     self.lane_offset_filtered = FirstOrderFilter(0.0, 2.0, DT_MDL)
+    self.lane_offset_lead_filtered = FirstOrderFilter(0.0, 1.0, DT_MDL)
 
     self.lanefull_mode = False
     self.d_prob_count = 0
@@ -102,7 +103,7 @@ class LanePlanner:
       self.l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
       self.r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
 
-  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed):
+  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed, adjustLaneOffset, adjustCurveOffset, radar_state):
     #if v_ego > 0.1:
     #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
     # 减少对间距过大或几秒后间距会过大的车道线的依赖
@@ -157,12 +158,15 @@ class LanePlanner:
       self.lane_width_right_filtered.update(self.lane_width_right)
       #self.lane_width_right_filtered.x = self.lane_width_right # 立即应用
 
-    self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
-    self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
-    ADJUST_OFFSET_LIMIT = 0.4 #max(self.adjustLaneOffset, self.adjustCurveOffset)
-    offset_curve = 0.0
-    ## 弯道偏移 (curve offset)
-    offset_curve = np.interp(abs(curve_speed), [50, 200], [self.adjustCurveOffset, 0.0]) * np.sign(curve_speed)
+    self.adjustLaneOffset = adjustLaneOffset
+    self.adjustCurveOffset = adjustCurveOffset
+    ADJUST_OFFSET_LIMIT = 0.4
+    # [优化] 增加切大弯平滑抑制 (Curve Offset Smoothing)
+    raw_offset_curve = np.interp(abs(curve_speed), [40, 50, 200, 250], [0.0, self.adjustCurveOffset, 0.0, 0.0]) * np.sign(curve_speed)
+    if not hasattr(self, 'offset_curve_ema'):
+      self.offset_curve_ema = raw_offset_curve
+    self.offset_curve_ema = 0.02 * raw_offset_curve + 0.98 * self.offset_curve_ema
+    offset_curve = self.offset_curve_ema
 
     offset_lane = 0.0
     if self.lane_width_left_filtered.x > 2.2 and self.lane_width_right_filtered.x > 2.2: # 两侧车道都有余量的情况
@@ -202,21 +206,39 @@ class LanePlanner:
       else:
         lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
 
-    use_laneless_center_adjust = False
+    # [Optimization] 激活纯视觉模型下的动态居中偏移对齐 (Fix Right Bias)
+    use_laneless_center_adjust = True
     if use_laneless_center_adjust:
-      ## 观察 0.5 秒前的中心
-      lane_path_y_center = np.interp(0.5, path_t, lane_path_y)
-      path_xyz_y_center = np.interp(0.5, path_t, path_xyz[:,1])
-      #lane_path_y_center = lane_path_y[0]
-      #path_xyz_y_center = path_xyz[:,1][0]
-      diff_center = (lane_path_y_center - path_xyz_y_center) if not self.lanefull_mode else 0.0
+      # 看前方 1.0 秒
+      lane_path_y_center = np.interp(1.0, path_t, lane_path_y)
+      path_xyz_y_center = np.interp(1.0, path_t, path_xyz[:,1])
+
+      if not self.lanefull_mode:
+        diff_center = (lane_path_y_center - path_xyz_y_center) * 0.6 * self.d_prob
+      else:
+        diff_center = 0.0
     else:
       diff_center = 0.0
+
+    self.offset_lead = 0.0
+    if radar_state is not None and radar_state.leadOne.status:
+      lead = radar_state.leadOne
+      if 2.0 < lead.dRel < 50.0:
+        is_stationary_or_slow = lead.vLead < 5.0
+        if is_stationary_or_slow and 0.5 < abs(lead.yRel) < 2.5:
+          self.offset_lead = np.interp(abs(lead.yRel), [0.5, 1.5, 2.5], [0.3, 0.5, 0.0]) * -np.sign(lead.yRel)
+        elif not is_stationary_or_slow and abs(lead.yRel) < 1.2:
+          follow_strength = np.interp(self.d_prob, [0.0, 0.6], [0.4, 0.0])
+          self.offset_lead = np.interp(abs(lead.yRel), [0.0, 1.2], [0.0, follow_strength]) * np.sign(lead.yRel)
+        dist_factor = np.interp(lead.dRel, [2, 10, 35, 50], [0.0, 1.0, 1.0, 0.0])
+        self.offset_lead *= dist_factor
+
+    self.lane_offset_lead_filtered.update(self.offset_lead)
     
     if offset_curve * offset_lane < 0:
-      offset_total = np.clip(offset_curve + offset_lane + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+      offset_total = np.clip(offset_curve + offset_lane + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
     else:
-      offset_total = np.clip(max(offset_curve, offset_lane, key=abs) + diff_center, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
+      offset_total = np.clip(max_abs(offset_curve, offset_lane) + diff_center + self.lane_offset_lead_filtered.x, - ADJUST_OFFSET_LIMIT, ADJUST_OFFSET_LIMIT)
 
     # [大师级优化] 弯道外偏补偿：修正视觉模型固有的向内切弯倾向
     # 如果正在转弯，将路径稍微向外侧推移 3-6cm。 curvature > 0 通常为左转（向 y+ 偏移），我们需要向右偏移（减小 y）
@@ -233,6 +255,10 @@ class LanePlanner:
       #self.lane_offset_filtered.x = 0.0
       pass
     else:
+      # [Task 15] 高速稳定性增强：自适应路径平滑 (Adaptive Offset Filtering)
+      # 随速动态调节 RC 时间常数：低速保持灵敏，高速（> 100km/h）显著增大 RC 压制抖动
+      rc_lane = np.interp(v_ego * 3.6, [60, 100, 150], [2.0, 5.0, 8.0])
+      self.lane_offset_filtered.update_alpha(rc_lane)
       self.lane_offset_filtered.update(np.interp(self.d_prob, [0, 0.3], [0, offset_total]))
 
     ## 低速时进入无车道线模式 (laneless)

@@ -9,6 +9,7 @@ import cereal.messaging as messaging
 from cereal import log
 
 from openpilot.common.params import Params
+from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.selfdrive.controls.lib.lane_planner_2 import LanePlanner
 from collections import deque
 
@@ -18,11 +19,9 @@ CAMERA_OFFSET = 0.04
 
 PATH_COST = 1.0
 LATERAL_MOTION_COST = 0.11
-LATERAL_ACCEL_COST = 0.05    # [优化] 从 0.02 进一步提升，严厉惩罚“抄近道”行为
-LATERAL_JERK_COST = 0.3      # [极致优化] 从 0.15 进一步提升，追求绝对的静默规划
-# 极端的转向速率是令人不悦的，即使它没有导致严重的颠簸。
-# TODO 当所有车上的低速横向控制稳定后，应降低此代价
-STEERING_RATE_COST = 1200.0  # [优化] 从 700.0 提升，抑制规划层面的频繁微动
+LATERAL_ACCEL_COST = 0.0
+LATERAL_JERK_COST = 0.04
+STEERING_RATE_COST = 700.0
 
 
 class LateralPlanner:
@@ -49,6 +48,8 @@ class LateralPlanner:
     # 车道模式
     self.LP = LanePlanner()
     self.readParams = 0
+    self.adjustLaneOffset = 0.0
+    self.adjustCurveOffset = 0.0
     self.lanelines_active = False
     self.lanelines_active_tmp = False
 
@@ -67,6 +68,7 @@ class LateralPlanner:
     self.curve_speed = 0
     self.lanemode_possible_count = 0
     self.laneless_only = True
+    self.lane_change_multiplier_filter = FirstOrderFilter(1.0, 0.5, DT_MDL)
 
   def reset_mpc(self, x0=None):
     if x0 is None:
@@ -83,10 +85,11 @@ class LateralPlanner:
       self.pathOffset = float(self.params.get_int("PathOffset")) * 0.01
       self.lateralPathCost = self.params.get_float("LatMpcPathCost") * 0.01
       self.lateralMotionCost = self.params.get_float("LatMpcMotionCost") * 0.01
-      self.lateralMotionCost = max(self.lateralMotionCost, 0.20) # [大师级优化] 提升偏航代价权重，强制车身与车道线平行，减少切弯趋势
       LATERAL_ACCEL_COST = self.params.get_float("LatMpcAccelCost") * 0.01
       LATERAL_JERK_COST = self.params.get_float("LatMpcJerkCost") * 0.01
       STEERING_RATE_COST = self.params.get_float("LatMpcSteeringRateCost")
+      self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
+      self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
 
     # 裁剪速度，零速时无法进行横向规划
     measured_curvature = sm['controlsState'].curvature
@@ -128,17 +131,24 @@ class LateralPlanner:
       self.useLaneLineMode = False
 
     # 变道期间关闭车道线
-    if md.meta.desire != log.Desire.none or carrot.atc_active:
-      self.LP.lane_change_multiplier = 0.0
-    else:
-      self.LP.lane_change_multiplier = 1.0
+    # [Task 21] 变道过程中的平滑过渡 (High-speed LC Smoothing)
+    # 变道瞬态平滑：高速（> 110km/h）变道时放慢路径权重切换 (0.5s -> 1.8s)，提升平稳性
+    rc_lc = np.interp(v_ego_car * 3.6, [60, 110, 150], [0.5, 1.8, 3.0])
+    self.lane_change_multiplier_filter.update_alpha(rc_lc)
+
+    target_multiplier = 0.0 if (md.meta.desire != log.Desire.none or carrot.atc_active) else 1.0
+    self.lane_change_multiplier_filter.update(target_multiplier)
+    self.LP.lane_change_multiplier = self.lane_change_multiplier_filter.x
+
+    # 在执行变道期间动态调增 1.5x 的转向速率成本，压制变道起手的突兀修正
+    lc_rate_cost_multiplier = 1.5 if (md.meta.desire != log.Desire.none) else 1.0
 
     # 车道线计算
     self.LP.lanefull_mode = self.useLaneLineMode
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
     self.LP.curvature = measured_curvature
-    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], v_ego_car, self.t_idxs, self.path_xyz, self.curve_speed)
+    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], v_ego_car, self.t_idxs, self.path_xyz, self.curve_speed, self.adjustLaneOffset, self.adjustCurveOffset, sm['radarState'])
 
     if self.lanelines_active:
       self.plan_yaw, self.plan_yaw_rate = yaw_from_path_no_scipy(
@@ -152,9 +162,24 @@ class LateralPlanner:
 
     self.path_xyz[:, 1] += self.pathOffset
 
-    self.lat_mpc.set_weights(self.lateralPathCost, self.lateralMotionCost,
-                             LATERAL_ACCEL_COST, LATERAL_JERK_COST,
-                             STEERING_RATE_COST)
+    # [Task 15] 高速稳定性增强：随速动态调增 MPC 运动与抖动权重 (Dynamic Dampening)
+    # 车速越高，感知抖动对稳定性影响越大。在 60-150km/h 区间通过线性插值增加成本，增强轨迹“粘性”
+    v_ego_kph = v_ego_car * 3.6
+    speed_damp_factor = np.interp(v_ego_kph, [60, 100, 150], [1.0, 1.5, 2.0])
+    # 低置信度车道线环境下进行额外抑制，防止方向盘“神经质”地追踪模糊信号
+    conf_damp_factor = np.interp(self.LP.d_prob, [0.1, 0.6], [1.5, 1.0])
+
+    total_damp = speed_damp_factor * conf_damp_factor
+
+    # 应用动态权重到 MPC 核心参数
+    motion_cost = self.lateralMotionCost * total_damp
+    jerk_cost = LATERAL_JERK_COST * total_damp
+    # [Task 21] 额外叠加变道期间的平滑倍率
+    rate_cost = STEERING_RATE_COST * total_damp * lc_rate_cost_multiplier
+
+    self.lat_mpc.set_weights(self.lateralPathCost, motion_cost,
+                             LATERAL_ACCEL_COST, jerk_cost,
+                             rate_cost)
 
     y_pts = self.path_xyz[:LAT_MPC_N+1, 1]
     heading_pts = self.plan_yaw[:LAT_MPC_N+1]
