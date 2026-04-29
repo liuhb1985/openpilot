@@ -8,7 +8,7 @@ from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
 
 # ======================================
-# 优化版 Native IMU 处理器
+# 高级优化版 Native IMU 处理器 (V2 - 稳重型)
 # ======================================
 
 class NativeIMUD:
@@ -24,33 +24,33 @@ class NativeIMUD:
     # 校准与偏置
     self.yaw_bias = 0.0
     self.bias_count = 0
-    self.is_calibrated = False
-
+    
     # 状态缓存
     self.last_yaw = 0.0
     self.last_lat = 0.0
     self.last_lon = 0.0
     self.has_valid_data = False
 
-    # 车辆几何参数 (由 carParams 获取)
+    # 车辆几何参数
     self.CP = None
     self.steerRatio = 15.0
     self.wheelbase = 2.8
 
+    # 滤波状态 (二阶滤波)
+    self.yaw_filtered = 0.0
+    self.yaw_rate_prev = 0.0
+
   def update_calibration(self, cs):
-    # 车辆静止且未打方向时，自动校准偏置
-    if cs.vEgo < 0.1 and not cs.steeringPressed:
+    # 车辆静止且未打方向时，校准偏置
+    if cs.vEgo < 0.05 and not cs.steeringPressed:
       raw_yaw = math.radians(cs.yawRate)
       self.yaw_bias = (self.yaw_bias * self.bias_count + raw_yaw) / (self.bias_count + 1)
-      self.bias_count = min(self.bias_count + 1, 500) # 最多记录 5 秒数据
-      if self.bias_count > 100:
-        self.is_calibrated = True
+      self.bias_count = min(self.bias_count + 1, 1000)
     else:
-      # 行驶中不再更新偏置，保持校准状态
       pass
 
   def main_loop(self):
-    print("******** Optimized Native IMU Started (100Hz) ********")
+    print("******** Advanced Native IMU V2 Started (Steady Mode) ********")
 
     while True:
       self.sm.update(0)
@@ -63,31 +63,44 @@ class NativeIMUD:
       if self.sm.updated['carState']:
         cs = self.sm['carState']
         v_ego = cs.vEgo
-
-        # 1. 自动校准
+        steer_angle = cs.steeringAngleDeg
+        
+        # 1. 校准
         self.update_calibration(cs)
 
-        # 2. 获取去偏后的原始值
+        # 2. 获取原始数据并去偏
         raw_yaw = math.radians(cs.yawRate) - self.yaw_bias
+        
+        # 3. 动态死区 (抑制静止时的微小抖动)
+        if abs(raw_yaw) < 0.0005: # 约 0.03 deg/s
+          raw_yaw = 0.0
 
-        # 3. 引入物理模型预测 (Kinematic Model)
-        # 公式: yaw_rate = (v * tan(steer_angle / ratio)) / L
-        # 物理模型对高频响应极快且没有噪声阶梯
-        steer_angle_rad = math.radians(cs.steeringAngleDeg)
-        if abs(v_ego) > 0.5:
+        # 4. 物理模型预测
+        steer_angle_rad = math.radians(steer_angle)
+        if abs(v_ego) > 0.3:
           model_yaw = (v_ego * math.tan(steer_angle_rad / self.steerRatio)) / self.wheelbase
         else:
           model_yaw = 0.0
 
-        # 4. 互补融合 (Complementary Filter)
-        # alpha 越大越信任 IMU，越小越信任模型预测（更平滑，无延迟）
-        # 高速时模型更准，增加模型权重
-        alpha = float(np.interp(v_ego, [10, 30], [0.8, 0.4]))
+        # 5. [核心优化] 直道稳定增强逻辑 (Straight-line Stability)
+        # 如果方向盘角度很小，大幅度增加模型权重，强行锁定直线
+        if abs(steer_angle) < 0.8:
+          alpha = 0.1 # 90% 信任模型 (模型在直道就是 0)
+        else:
+          # 弯道中动态调整融合权重
+          alpha = float(np.interp(v_ego, [10, 30], [0.7, 0.4]))
+
+        # 6. 互补融合
         yaw = alpha * raw_yaw + (1.0 - alpha) * model_yaw
 
-        # 5. 加速度处理
+        # 7. [核心优化] 二阶平滑滤波 (抑制方向盘微调反馈)
+        # 使用低通滤波防止角速度变化过快导致的转向震荡
+        self.yaw_filtered = 0.3 * yaw + 0.7 * self.yaw_filtered
+        yaw = self.yaw_filtered
+
+        # 8. 加速度处理
         lon = cs.aEgo
-        lat = v_ego * yaw # 基于融合后的 yaw 计算侧向加速度，极其平滑
+        lat = v_ego * yaw
 
         # 异常保护
         if abs(yaw) > 5.0: yaw = self.last_yaw
@@ -113,7 +126,7 @@ class NativeIMUD:
         'type': 16,
         'sensor': 5,
         'gyroUncalibrated': {
-          'v': [-float(yaw), 0.0, 0.0], # 坐标系转换
+          'v': [-float(yaw), 0.0, 0.0],
           'status': 1
         }
       }
