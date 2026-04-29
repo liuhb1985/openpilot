@@ -314,13 +314,13 @@ class AmapNaviServ:
       atc_left_right = False
 
       # 判断导航控制类型
-      if atc_type in ["turn left", "turn right"]: # 转弯请求
+      if "turn" in atc_type: # 转弯请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         turn_left_right = True
-      elif atc_type in ["fork left", "fork right"]: # 变道请求
+      elif "fork" in atc_type: # 变道请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         fork_left_right = True
-      elif atc_type in ["fork left now", "fork right now"]: # 立即变道请求
+      elif "now" in atc_type: # 立即变道请求
         atc_blinker_state = BLINKER_LEFT if "left" in atc_type else BLINKER_RIGHT
         fork_now = True
         fork_left_right = True

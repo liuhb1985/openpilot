@@ -248,7 +248,7 @@ class CarrotPlanner:
     atc_active = False
     if sm.alive['carrotMan']:
       carrot_man = sm['carrotMan']
-      atc_turn_left = carrot_man.atcType in ["turn left", "atc left"]
+      atc_turn_left = "left" in carrot_man.atcType
       trigger_start = self.carrot_staty_stop = False
       if atc_turn_left or sm['carState'].leftBlinker:
         if self.trafficState_carrot == 1 and carrot_man.trafficState == 3: # 红灯 -> 左转触发起步

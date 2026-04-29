@@ -20,6 +20,7 @@ from openpilot.system.hardware import PC, TICI
 from openpilot.selfdrive.navd.helpers import Coordinate
 from opendbc.car.common.conversions import Conversions as CV
 from openpilot.common.gps import get_gps_location_service
+from openpilot.selfdrive.carrot.config import UnifiedParams
 
 nav_type_mapping = {
   12: ("turn", "left", 1),
@@ -80,7 +81,7 @@ nav_type_mapping = {
 import collections
 class CarrotServ:
   def __init__(self):
-    self.params = Params()
+    self.params = UnifiedParams()
     self.params_memory = Params("/dev/shm/params")
 
     self.nRoadLimitSpeed = 30
@@ -112,6 +113,15 @@ class CarrotServ:
     self.nTBTDistNext = 0
     self.nTBTTurnTypeNext = -1
     self.szTBTMainTextNext = ""
+
+    self.xTurnInfo = -1
+    self.xDistToTurn = 0
+    self.xDistToTurnNav = 0
+    self.xDistToTurnMax = 0
+    self.xDistToTurnMaxCnt = 0 #最大转弯引导距离的次数
+    self.xDistToTurnNavLast = 0
+    self.xTurnInfoNext = -1
+    self.xDistToTurnNext = 0
 
     self.nGoPosDist = 0
     self.nGoPosTime = 0
@@ -157,10 +167,6 @@ class CarrotServ:
     self.xSpdDist = 0
     self.xSpdType = -1
 
-    self.xTurnInfo = -1
-    self.xDistToTurn = 0
-    self.xTurnInfoNext = -1
-    self.xDistToTurnNext = 0
 
     self.navType, self.navModifier = "invalid", ""
     self.navTypeNext, self.navModifierNext = "invalid", ""
@@ -205,17 +211,41 @@ class CarrotServ:
     self.autoNaviSpeedSafetyFactor = float(self.params.get_int("AutoNaviSpeedSafetyFactor")) * 0.01
     self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
     self.autoNaviCountDownMode = self.params.get_int("AutoNaviCountDownMode")
-    self.turnSpeedControlMode= self.params.get_int("TurnSpeedControlMode")
-    self.mapTurnSpeedFactor= self.params.get_float("MapTurnSpeedFactor") * 0.01
+    self.turnSpeedControlMode = self.params.get_int("TurnSpeedControlMode")
+    self.mapTurnSpeedFactor = self.params.get_float("MapTurnSpeedFactor") * 0.01
 
     self.autoTurnControlSpeedTurn = self.params.get_int("AutoTurnControlSpeedTurn")
     self.autoTurnMapChange = self.params.get_int("AutoTurnMapChange")
     self.autoTurnControl = self.params.get_int("AutoTurnControl")
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
-    #self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
     self.autoCurveSpeedLowerLimit = int(self.params.get("AutoCurveSpeedLowerLimit") or 30)
     self.is_metric = self.params.get_bool("IsMetric")
     self.autoRoadSpeedLimitOffset = self.params.get_int("AutoRoadSpeedLimitOffset")
+
+    self.autoTurnDistOffset = self.params.get_int("AutoTurnDistOffset")
+    self.autoForkDistOffset = self.params.get_int("AutoForkDistOffset")
+    self.autoDoForkBlinkerDist = self.params.get_int("AutoDoForkBlinkerDist")
+    self.autoDoForkNavDist = self.params.get_int("AutoDoForkNavDist")
+    self.autoForkDistOffsetH = self.params.get_int("AutoForkDistOffsetH")
+    self.autoDoForkDecalDistH = self.params.get_int("AutoDoForkDecalDistH")
+    self.autoDoForkDecalDist = self.params.get_int("AutoDoForkDecalDist")
+    self.autoDoForkBlinkerDistH = self.params.get_int("AutoDoForkBlinkerDistH")
+    self.autoDoForkNavDistH = self.params.get_int("AutoDoForkNavDistH")
+    self.autoUpRoadLimit = self.params.get_int("AutoUpRoadLimit")
+    self.autoUpRoadLimit40KMH = self.params.get_int("AutoUpRoadLimit40KMH")
+    self.autoUpHighwayRoadLimit = self.params.get_int("AutoUpHighwayRoadLimit")
+    self.autoUpHighwayRoadLimit40KMH = self.params.get_int("AutoUpHighwayRoadLimit40KMH")
+    self.roadType = self.params.get_int("RoadType")
+    self.autoForkDecalRateH = float(self.params.get_int("AutoForkDecalRateH")) * 0.01
+    self.autoForkSpeedMinH = self.params.get_int("AutoForkSpeedMinH")
+    self.autoKeepForkSpeedH = self.params.get_int("AutoKeepForkSpeedH")
+    self.autoForkDecalRate = float(self.params.get_int("AutoForkDecalRate")) * 0.01
+    self.autoForkSpeedMin = self.params.get_int("AutoForkSpeedMin")
+    self.autoKeepForkSpeed = self.params.get_int("AutoKeepForkSpeed")
+    self.showDebugLog = self.params.get_int("ShowDebugLog")
+
+    if self.roadType >= 0: #手动设置道路类型
+      self.roadcate = self.roadType
 
     # 读取语言设置：优先使用 LanguageSetting，与 UI 保持一致；回退读取可能存在的 "lang"
     try:
@@ -397,7 +427,8 @@ class CarrotServ:
       self.navTypeNext, self.navModifierNext, self.xTurnInfoNext = "invalid", "", -1
 
     if self.nTBTDist > 0 and self.xTurnInfo > 0:
-      self.xDistToTurn = self.nTBTDist
+      self.xDistToTurnNav = self.nTBTDist
+      self.xDistToTurn = self.xDistToTurnNav
     if self.nTBTDistNext > 0 and self.xTurnInfoNext > 0:
       self.xDistToTurnNext = self.nTBTDistNext + self.nTBTDist
 
@@ -718,17 +749,47 @@ class CarrotServ:
     turn_speed = self.autoTurnControlSpeedTurn
     fork_speed = self.nRoadLimitSpeed
     stop_speed = 1
-    turn_dist_for_speed = self.autoTurnControlTurnEnd * turn_speed / 3.6 
-    fork_dist_for_speed = self.autoTurnControlTurnEnd * fork_speed / 3.6 
+    turn_dist_for_speed = self.autoTurnControlTurnEnd * turn_speed / 3.6 # 5
+    fork_dist_for_speed = self.autoTurnControlTurnEnd * fork_speed / 3.6 # 5
     stop_dist_for_speed = 5
-    start_fork_dist = np.interp(self.nRoadLimitSpeed, [30, 50, 100], [160, 200, 350])
-    start_turn_dist = np.interp(self.nTBTNextRoadWidth, [5, 10], [43, 60])
+    if self.roadcate > 1:
+      fork_dist_offset = self.autoForkDistOffset
+      # [Task 21] 导航变道策略：统一高速路口变道基准点为 500m
+      start_fork_dist = np.interp(self.nRoadLimitSpeed, [30, 50, 100, 120], [160, 200, 450, 500]) + fork_dist_offset
+      do_fork_dist = fork_dist_for_speed + self.autoDoForkBlinkerDist
+      do_speed_decal_dist = fork_dist_for_speed + self.autoDoForkDecalDist
+      auto_decel_rate = self.autoForkDecalRate
+      decel_speed_min = self.autoForkSpeedMin
+      do_fork_nav_dist = self.autoDoForkNavDist
+      fork_speed_keep_time = self.autoKeepForkSpeed
+    else:
+      fork_dist_offset = self.autoForkDistOffsetH
+      start_fork_dist = np.interp(self.nRoadLimitSpeed, [30, 50, 100], [160, 200, 350]) + fork_dist_offset
+      do_fork_dist = fork_dist_for_speed + self.autoDoForkBlinkerDistH
+      do_speed_decal_dist = fork_dist_for_speed + self.autoDoForkDecalDistH
+      auto_decel_rate = self.autoForkDecalRateH
+      decel_speed_min = self.autoForkSpeedMinH
+      do_fork_nav_dist = self.autoDoForkNavDistH
+      fork_speed_keep_time = self.autoKeepForkSpeedH
+
+    #对两个fork距离进行限制
+    if do_fork_nav_dist > 0:
+      do_fork_dist = max(do_fork_dist, do_fork_nav_dist)
+
+    #对变道和转弯距离作一个限制，不能比最大路口距离的80%还大
+    max_dist = self.xDistToTurnMax*0.8
+    if do_fork_dist > max_dist:
+      do_fork_dist = max_dist
+    if start_fork_dist > max_dist:
+      start_fork_dist = max_dist
+
+    start_turn_dist = np.interp(self.nTBTNextRoadWidth, [5, 10], [43, 60]) + self.autoTurnDistOffset
     turn_info_mapping = {
         1: {"type": "turn left", "speed": turn_speed, "dist": turn_dist_for_speed, "start": start_fork_dist},
         2: {"type": "turn right", "speed": turn_speed, "dist": turn_dist_for_speed, "start": start_fork_dist},
         5: {"type": "straight", "speed": turn_speed, "dist": turn_dist_for_speed, "start": start_turn_dist},
-        3: {"type": "fork left", "speed": fork_speed, "dist": fork_dist_for_speed, "start": start_fork_dist},
-        4: {"type": "fork right", "speed": fork_speed, "dist": fork_dist_for_speed, "start": start_fork_dist},
+        3: {"type": "fork left", "speed": fork_speed, "dist": do_fork_dist, "start": start_fork_dist},
+        4: {"type": "fork right", "speed": fork_speed, "dist": do_fork_dist, "start": start_fork_dist},
         6: {"type": "straight", "speed": fork_speed, "dist": fork_dist_for_speed, "start": start_fork_dist},
         7: {"type": "straight", "speed": stop_speed, "dist": stop_dist_for_speed, "start": 1000},
         8: {"type": "straight", "speed": stop_speed, "dist": stop_dist_for_speed, "start": 1000},
@@ -740,9 +801,18 @@ class CarrotServ:
 
     atc_type = mapping["type"]
     atc_speed = mapping["speed"]
-    atc_dist = mapping["dist"]
+    atc_dist = mapping["dist"] #这个距离主要是用来提前减速的距离
     atc_start_dist = mapping["start"]
+    atc_type_org = atc_type
+    atc_speed_org = atc_speed
+    atc_bsd_adjust_enable = False
+    atc_speed_up = 0
+    atc_control = False
+    delta_v = None
+    speed_up_enable = True
+    decel_priority = False
 
+    #导航给出在转弯距离大于开始转弯距离时，进入准备阶段
     if x_dist_to_turn > atc_start_dist:
       atc_type += " prepare"
       if check_steer:
@@ -750,18 +820,30 @@ class CarrotServ:
     else:
       if check_steer:
         self.atc_activate_count = max(0, self.atc_activate_count + 1)
-      if atc_type in ["turn left", "turn right"] and x_dist_to_turn > start_turn_dist:
-        atc_type = "atc left" if atc_type == "turn left" else "atc right"
 
-    if self.autoTurnMapChange > 0 and check_steer:
-      if self.atc_activate_count == 2:
-        self.carrotCmdIndex += 100
-        self.carrotCmd = "DISPLAY";
-        self.carrotArg = "MAP";
-      elif self.atc_activate_count == -50:
-        self.carrotCmdIndex += 100
-        self.carrotCmd = "DISPLAY";
-        self.carrotArg = "ROAD";
+      if atc_type in ["turn left", "turn right"]:
+        if x_dist_to_turn > start_turn_dist:
+          atc_type = "atc left" if "left" in atc_type else "atc right" #类型为atc left/right只是进入转弯准备状态，并不是真的在执行转弯
+          atc_bsd_adjust_enable = True
+          decel_priority = True
+        else:
+          atc_control = True
+      elif atc_type in ["fork left", "fork right"]: #说明x_dist_to_turn>do_fork_dist并且说明x_dist_to_turn <=atc_start_dist
+        #atc_dist = do_speed_decal_dist #替换减速距离
+        if (fork_dist_offset > 0) and (500 > x_dist_to_turn > do_fork_dist): # 修正：增加 500m 硬性卡点，解决 2km 过早变道问题
+          atc_type = "atc left" if "left" in atc_type else "atc right"
+          atc_bsd_adjust_enable = True
+          if x_dist_to_turn < 500: #小于500米时优先减速
+            decel_priority = True
+        elif (do_fork_nav_dist > 0) and (x_dist_to_turn <= do_fork_nav_dist): #设置了导航距离控制转弯后，如果距离小于设置值是立即变道
+          atc_type += " now"
+        if x_dist_to_turn < do_speed_decal_dist and (0 <= self.roadcate <= 1 or "right" in atc_type): #距离路口的距离小于设定值时要开始减速了，因为到匝道口前nRoadLimitSpeed其实没有变，所以只能用这种方法进行减速
+          atc_bsd_adjust_enable = False
+          if auto_decel_rate > 0 and check_steer: #设置了减速比率
+            if atc_speed > decel_speed_min: #只有车速大于最小设定速度时才允许降速
+              atc_speed = max(decel_speed_min, atc_speed*auto_decel_rate*0.8) # 强化0.8倍的进匝道减速要求
+              self.atc_speed_decal = atc_speed #保存进匝道减速的目标速度
+              self.fork_speed_keep_time = int(fork_speed_keep_time/0.1) #重置保持时间
 
     if check_steer:
       if 0 <= x_dist_to_turn < atc_start_dist and atc_type in ["fork left", "fork right"]:
@@ -784,8 +866,7 @@ class CarrotServ:
       safe_sec = 2.0
       atc_desired = min(atc_desired, self.calculate_current_speed(x_dist_to_turn - atc_dist, atc_speed, safe_sec, decel))
 
-
-    return atc_desired, atc_type, atc_speed, atc_dist
+    return atc_desired, atc_type, atc_speed, atc_dist, atc_speed_up
 
   def update_nav_instruction(self, sm):
     if sm.alive['navInstruction'] and sm.valid['navInstruction']:
@@ -868,8 +949,20 @@ class CarrotServ:
     self.bearing = self._update_gps(v_ego, sm, gps_service)
 
     self.xSpdDist = max(self.xSpdDist - delta_dist, -1000)
-    self.xDistToTurn = self.xDistToTurn - delta_dist
+    self.xDistToTurnNav = self.xDistToTurnNav - delta_dist
+    self.xDistToTurn = self.xDistToTurnNav
     self.xDistToTurnNext = self.xDistToTurnNext - delta_dist
+
+    if self.xDistToTurnNavLast != self.xDistToTurnNav:
+      if self.xDistToTurnNav > self.xDistToTurnMax:
+        self.xDistToTurnMax = self.xDistToTurnNav
+        self.xDistToTurnMaxCnt = 0
+      elif self.xDistToTurnNav < self.xDistToTurnMax:
+        self.xDistToTurnMaxCnt += 1
+        if self.xDistToTurnMaxCnt > 50: # 5秒
+          self.xDistToTurnMax = self.xDistToTurnNav
+          self.xDistToTurnMaxCnt = 0
+    self.xDistToTurnNavLast = self.xDistToTurnNav
     self.active_count = max(self.active_count - 1, 0)
     self.active_sdi_count = max(self.active_sdi_count - 1, 0)
     self.active_kisa_count = max(self.active_kisa_count - 1, 0)
@@ -931,8 +1024,8 @@ class CarrotServ:
       hda_active = True
 
     ### TBT 速度控制
-    atc_desired, self.atcType, self.atcSpeed, self.atcDist = self.update_auto_turn(v_ego*3.6, sm, self.xTurnInfo, self.xDistToTurn, True)
-    atc_desired_next, _, _, _ = self.update_auto_turn(v_ego*3.6, sm, self.xTurnInfoNext, self.xDistToTurnNext, False)
+    atc_desired, self.atcType, self.atcSpeed, self.atcDist, atc_speed_up = self.update_auto_turn(v_ego*3.6, sm, self.xTurnInfo, self.xDistToTurn, True)
+    atc_desired_next, _, _, _, _ = self.update_auto_turn(v_ego*3.6, sm, self.xTurnInfoNext, self.xDistToTurnNext, False)
 
     if self.autoTurnControl not in [2, 3]:    # 自动转向速度控制
       atc_desired = atc_desired_next = 250
@@ -992,10 +1085,11 @@ class CarrotServ:
           left_spd_sec = min(self.left_spd_sec, int(max(self.xSpdDist - v_ego, 1) / max(1, v_ego) + 0.5))
 
       if self.xDistToTurn > 0:
-        left_tbt_sec = min(self.left_tbt_sec, int(max(self.xDistToTurn - v_ego, 1) / max(1, v_ego) + 0.5))
+        left_tbt_sec = int(max(self.xDistToTurn - v_ego, 1) / max(1, v_ego) + 0.5)
 
     self.left_spd_sec = left_spd_sec
     self.left_tbt_sec = left_tbt_sec
+    self.carrot_left_sec = left_tbt_sec
 
     left_sec = min(left_spd_sec, left_tbt_sec)
 
@@ -1054,6 +1148,8 @@ class CarrotServ:
     msg.carrotMan.naviPaths = coords_str
 
     msg.carrotMan.leftSec = int(self.carrot_left_sec)
+    msg.carrotMan.roadCate = int(self.roadcate)
+    msg.carrotMan.xLeftTurnSec = int(self.carrot_left_sec)
     pm.send('carrotMan', msg)
 
     inst = messaging.new_message('navInstructionCarrot')

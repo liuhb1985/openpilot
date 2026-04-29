@@ -583,6 +583,7 @@ class CarrotMan:
     msg['carcruiseSpeed'] = carcruiseSpeed
     msg['v_ego_kph'] = v_ego_kph
     msg['tbt_dist'] = self.carrot_serv.xDistToTurn
+    msg['left_turn_sec'] = self.carrot_serv.carrot_left_sec
     msg['sdi_dist'] = self.carrot_serv.xSpdDist
     msg['active'] = self.controls_active
     msg['xState'] = self.xState
