@@ -5,188 +5,135 @@ import numpy as np
 
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
-from openpilot.common.swaglog import cloudlog
+from openpilot.common.params import Params
 
 # ======================================
-# 坐标系说明
+# 优化版 Native IMU 处理器
 # ======================================
-# locationd.py 的坐标变换规则（Comma设备→车辆坐标系）：
-#   gyro:  meas = [-v[2], -v[1], -v[0]]
-#   accel: meas = [-v[2], -v[1], -v[0]]
-#
-# PoseKalman 期望的车辆坐标系：
-#   meas[0] = X = 向前（纵向）/ roll
-#   meas[1] = Y = 向左（侧向）/ pitch
-#   meas[2] = Z = 向上（垂直）/ yaw
-#
-# 要让 yaw_rate → meas[2]：需要 v[0] = -yaw_rate → meas[2] = -v[0] = yaw_rate ✓
-# 要让 lon_accel → meas[0]：需要 v[2] = -lon     → meas[0] = -v[2] = lon     ✓
-# 要让 lat_accel → meas[1]：需要 v[1] = -lat     → meas[1] = -v[1] = lat     ✓
 
-# ======================================
-# 简单低通滤波
-# ======================================
-class LowPass:
-  def __init__(self, alpha=0.25):
-    self.alpha = alpha
-    self.x = 0.0
-    self.initialized = False
+class NativeIMUD:
+  def __init__(self):
+    self.params = Params()
+    self.sm = messaging.SubMaster(['carState', 'carParams'])
+    self.pm = messaging.PubMaster(['gyroscope', 'accelerometer'])
 
-  def reset(self, v):
-    self.x = v
-    self.initialized = True
+    # 核心参数
+    self.freq = 100.0
+    self.rk = Ratekeeper(self.freq, print_delay_threshold=None)
 
-  def update(self, v):
-    if not self.initialized:
-      self.x = v
-      self.initialized = True
+    # 校准与偏置
+    self.yaw_bias = 0.0
+    self.bias_count = 0
+    self.is_calibrated = False
+
+    # 状态缓存
+    self.last_yaw = 0.0
+    self.last_lat = 0.0
+    self.last_lon = 0.0
+    self.has_valid_data = False
+
+    # 车辆几何参数 (由 carParams 获取)
+    self.CP = None
+    self.steerRatio = 15.0
+    self.wheelbase = 2.8
+
+  def update_calibration(self, cs):
+    # 车辆静止且未打方向时，自动校准偏置
+    if cs.vEgo < 0.1 and not cs.steeringPressed:
+      raw_yaw = math.radians(cs.yawRate)
+      self.yaw_bias = (self.yaw_bias * self.bias_count + raw_yaw) / (self.bias_count + 1)
+      self.bias_count = min(self.bias_count + 1, 500) # 最多记录 5 秒数据
+      if self.bias_count > 100:
+        self.is_calibrated = True
     else:
-      self.x = self.alpha * v + (1 - self.alpha) * self.x
-    return self.x
+      # 行驶中不再更新偏置，保持校准状态
+      pass
 
+  def main_loop(self):
+    print("******** Optimized Native IMU Started (100Hz) ********")
 
-# ======================================
-# 主程序
-# ======================================
-def main():
+    while True:
+      self.sm.update(0)
 
-  sm = messaging.SubMaster(['carState'])
-  pm = messaging.PubMaster(['gyroscope', 'accelerometer'])
+      if self.CP is None and self.sm.updated['carParams']:
+        self.CP = self.sm['carParams']
+        self.steerRatio = self.CP.steerRatio
+        self.wheelbase = self.CP.wheelbase
 
-  rk = Ratekeeper(50, print_delay_threshold=None)
+      if self.sm.updated['carState']:
+        cs = self.sm['carState']
+        v_ego = cs.vEgo
 
-  # [优化] yaw 用更慢的 alpha（信号更稳），lon/lat 用 0.25
-  yaw_filter = LowPass(0.2)
-  lon_filter = LowPass(0.25)
-  lat_filter = LowPass(0.25)
+        # 1. 自动校准
+        self.update_calibration(cs)
 
-  # [优化] 保活：记录上一帧的有效值，carState 未更新时继续发布
-  last_yaw = 0.0
-  last_lon = 0.0
-  last_lat = 0.0
-  has_valid_data = False
+        # 2. 获取去偏后的原始值
+        raw_yaw = math.radians(cs.yawRate) - self.yaw_bias
 
-  print("******** Native Vehicle IMU Started ********")
+        # 3. 引入物理模型预测 (Kinematic Model)
+        # 公式: yaw_rate = (v * tan(steer_angle / ratio)) / L
+        # 物理模型对高频响应极快且没有噪声阶梯
+        steer_angle_rad = math.radians(cs.steeringAngleDeg)
+        if abs(v_ego) > 0.5:
+          model_yaw = (v_ego * math.tan(steer_angle_rad / self.steerRatio)) / self.wheelbase
+        else:
+          model_yaw = 0.0
 
-  while True:
+        # 4. 互补融合 (Complementary Filter)
+        # alpha 越大越信任 IMU，越小越信任模型预测（更平滑，无延迟）
+        # 高速时模型更准，增加模型权重
+        alpha = float(np.interp(v_ego, [10, 30], [0.8, 0.4]))
+        yaw = alpha * raw_yaw + (1.0 - alpha) * model_yaw
 
-    sm.update(0)
+        # 5. 加速度处理
+        lon = cs.aEgo
+        lat = v_ego * yaw # 基于融合后的 yaw 计算侧向加速度，极其平滑
 
-    if sm.updated['carState']:
+        # 异常保护
+        if abs(yaw) > 5.0: yaw = self.last_yaw
+        if abs(lon) > 20.0: lon = self.last_lon
+        if abs(lat) > 20.0: lat = self.last_lat
 
-      cs = sm['carState']
+        self.last_yaw, self.last_lon, self.last_lat = yaw, lon, lat
+        self.has_valid_data = True
 
-      # ======================================
-      # 原车 IMU 数据
-      # ======================================
+      elif self.has_valid_data:
+        yaw, lon, lat = self.last_yaw, self.last_lon, self.last_lat
+      else:
+        self.rk.keep_time()
+        continue
 
-      raw_yaw = math.radians(cs.yawRate) if cs.yawRate != 0 else 0.0  # 横摆角速度 (rad/s)
-      raw_lon = cs.aEgo               # 纵向加速度 (m/s²)
+      # 发布数据
+      now_ns = time.monotonic_ns()
 
-      # [优化] 侧向加速度：低速时线性淡出，避免低速 yawRate 噪声被 vEgo 放大
-      # 在 vEgo < 1.0 m/s 时直接用 0，1.0~3.0 m/s 线性插值
-      v = cs.vEgo
-      lat_scale = float(np.interp(abs(v), [1.0, 3.0], [0.0, 1.0]))
-      raw_lat = v * raw_yaw * lat_scale
-
-      # ======================================
-      # [修复] 先做异常保护，再滤波（防止异常值污染滤波器状态）
-      # ======================================
-
-      if abs(raw_yaw) > 5.0:
-        raw_yaw = last_yaw  # 用上一帧值替代，避免滤波器跳变
-      if abs(raw_lon) > 20.0:
-        raw_lon = last_lon
-      if abs(raw_lat) > 20.0:
-        raw_lat = last_lat
-
-      # ======================================
-      # 滤波
-      # ======================================
-
-      yaw = yaw_filter.update(raw_yaw)
-      lon = lon_filter.update(raw_lon)
-      lat = lat_filter.update(raw_lat)
-
-      last_yaw = yaw
-      last_lon = lon
-      last_lat = lat
-      has_valid_data = True
-
-    elif has_valid_data:
-      # [优化] carState 未更新时使用上一帧的滤波值发布（保活，防止 sensor_alive 超时）
-      yaw = last_yaw
-      lon = last_lon
-      lat = last_lat
-    else:
-      # 还没有任何有效数据，跳过发布
-      rk.keep_time()
-      continue
-
-    # ======================================
-    # [修复] 在两次 send 之前统一采样一次时间戳，保证 gyro/accel 时间戳一致
-    # locationd 会比较 sensor_time=msg.timestamp*1e-9 与 t=logMonoTime*1e-9 的差
-    # 超过 100ms 即丢弃。两者必须尽量靠近 pm.send() 调用时刻。
-    # ======================================
-
-    now_ns = time.monotonic_ns()
-
-    # ======================================
-    # Gyroscope
-    # locationd 变换: meas = [-v[2], -v[1], -v[0]]
-    # 目标: meas[2] = yaw_rate（Z轴=横摆）
-    # 因此: v[0] = -yaw → meas[2] = -v[0] = yaw ✓
-    # ======================================
-
-    gyro_msg = messaging.new_message('gyroscope', valid=True)
-    gyro_msg.gyroscope = {
-      'timestamp': now_ns,           # [修复] 统一时间戳
-      'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
-      'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
-      'source': 0, # log.SensorEventData.SensorSource.android
-      'gyroUncalibrated': {
-        # v[0]=-yaw → meas[2]=-v[0]=yaw (Z轴=横摆) ✓
-        # v[1]=0    → meas[1]=-v[1]=0  (Y轴=俯仰) ✓
-        # v[2]=0    → meas[0]=-v[2]=0  (X轴=横滚) ✓
-        'v': [-float(yaw), 0.0, 0.0],
-        'status': 1
+      # Gyroscope
+      gyro_msg = messaging.new_message('gyroscope', valid=True)
+      gyro_msg.gyroscope = {
+        'timestamp': now_ns,
+        'type': 16,
+        'sensor': 5,
+        'gyroUncalibrated': {
+          'v': [-float(yaw), 0.0, 0.0], # 坐标系转换
+          'status': 1
+        }
       }
-    }
+      self.pm.send('gyroscope', gyro_msg)
 
-    pm.send('gyroscope', gyro_msg)
-
-    # ======================================
-    # Accelerometer
-    # locationd 变换: meas = [-v[2], -v[1], -v[0]]
-    # 目标:
-    #   meas[0] = lon (X轴=向前纵向)
-    #   meas[1] = lat (Y轴=向左侧向)
-    #   meas[2] = 0   (Z轴=垂直，忽略重力)
-    # 因此:
-    #   v[2] = -lon → meas[0] = -v[2] = lon ✓
-    #   v[1] = -lat → meas[1] = -v[1] = lat ✓
-    #   v[0] = 0    → meas[2] = -v[0] = 0   ✓
-    # ======================================
-
-    accel_msg = messaging.new_message('accelerometer', valid=True)
-    accel_msg.accelerometer = {
-      'timestamp': now_ns,           # [修复] 统一时间戳，与 gyro 完全一致
-      'type': 1,   # SENSOR_TYPE_ACCELEROMETER
-      'sensor': 1, # SENSOR_ACCELEROMETER
-      'source': 0, # log.SensorEventData.SensorSource.android
-      'acceleration': {
-        # v[0]=0    → meas[2]=-v[0]=0   (Z轴=垂直) ✓
-        # v[1]=-lat → meas[1]=-v[1]=lat (Y轴=侧向) ✓
-        # v[2]=-lon → meas[0]=-v[2]=lon (X轴=纵向) ✓
-        'v': [0.0, -float(lat), -float(lon)],
-        'status': 1
+      # Accelerometer
+      accel_msg = messaging.new_message('accelerometer', valid=True)
+      accel_msg.accelerometer = {
+        'timestamp': now_ns,
+        'type': 1,
+        'sensor': 1,
+        'acceleration': {
+          'v': [0.0, -float(lat), -float(lon)],
+          'status': 1
+        }
       }
-    }
+      self.pm.send('accelerometer', accel_msg)
 
-    pm.send('accelerometer', accel_msg)
-
-    rk.keep_time()
-
+      self.rk.keep_time()
 
 if __name__ == "__main__":
-  main()
+  imud = NativeIMUD()
+  imud.main_loop()
