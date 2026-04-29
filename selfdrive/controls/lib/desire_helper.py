@@ -101,9 +101,12 @@ class ExistCounter:
     return self.true_count
 
 
+from openpilot.selfdrive.carrot.config import UnifiedParams
+
+
 class DesireHelper:
   def __init__(self):
-    self.params = Params()
+    self.params = UnifiedParams()
     self.frame = 0
 
     # 车道变更 / 转向状态

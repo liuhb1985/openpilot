@@ -7,6 +7,7 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.selfdrived.events import Events
+from openpilot.selfdrive.carrot.config import UnifiedParams
 
 EventName = log.OnroadEvent.EventName
 LaneChangeState = log.LaneChangeState
@@ -44,7 +45,7 @@ A_CRUISE_MAX_BP_CARROT = [0., 10 * CV.KPH_TO_MS, 40 * CV.KPH_TO_MS, 60 * CV.KPH_
 
 class CarrotPlanner:
   def __init__(self):
-    self.params = Params()
+    self.params = UnifiedParams()
     self.params_count = 0
     self.frame = 0
 

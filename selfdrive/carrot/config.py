@@ -120,17 +120,17 @@ class UnifiedParams:
             print(f"❌ 保存自定义参数失败: {e}")
 
     def _get_default_nav_data(self):
-        """获取默认的自定义参数数据"""
+        """获取最优默认自定义参数数据"""
         return {
-            "AutoTurnDistOffset": 0,
+            "AutoTurnDistOffset": 50,          # 转向距离偏移量，提前 50m 准备
             "AutoForkDistOffset": 30,
-            "AutoDoForkBlinkerDist": 15,
-            "AutoDoForkNavDist": 15,
-            "AutoForkDistOffsetH": 1000,
-            "AutoDoForkDecalDistH": 50,
-            "AutoDoForkDecalDist": 20,
-            "AutoDoForkBlinkerDistH": 30,
-            "AutoDoForkNavDistH": 50,
+            "AutoDoForkBlinkerDist": 30,       # 市区分叉提前 30m 打灯
+            "AutoDoForkNavDist": 30,
+            "AutoForkDistOffsetH": 1000,       # 高速分叉提前 1000m 开始准备变道
+            "AutoDoForkDecalDistH": 150,       # 高速分叉提前 150m 开始减速准备
+            "AutoDoForkDecalDist": 50,
+            "AutoDoForkBlinkerDistH": 150,     # 高速分叉提前 150m 打灯 (原 30m 太短)
+            "AutoDoForkNavDistH": 200,         # 高速分叉提前 200m 进入导航引导模式
             "AutoUpRoadLimit": 0,
             "AutoUpRoadLimit40KMH": 15,
             "AutoUpHighwayRoadLimit": 0,
@@ -150,21 +150,21 @@ class UnifiedParams:
             "ExtBlinkerCtrlTest": 0,
             "BlinkerMode": 1,
             "LaneStabTime": 50,
-            "DynamicBlindRange": 0,
-            "DynamicBlindDistance":0,
+            "DynamicBlindRange": 1,            # 默认开启动态盲区
+            "DynamicBlindDistance": 50,        # 动态盲区检测距离 50m
             "DisableBlindSpot": 0,
-            "BsdDelayTime": 20,
-            "SideBsdDelayTime": 20,
-            "SideRelDistTime": 10,
+            "BsdDelayTime": 15,                # 缩短 BSD 响应延迟 (1.5s)
+            "SideBsdDelayTime": 15,
+            "SideRelDistTime": 12,
             "SidevRelDistTime": 10,
-            "SideRadarMinDist": 0,
+            "SideRadarMinDist": 2,
             "AutoTurnInNotRoadEdge": 1,
-            "ContinuousLaneChange": 1,
-            "ContinuousLaneChangeCnt": 4,
-            "ContinuousLaneChangeInterval": 2,
+            "ContinuousLaneChange": 1,         # 默认开启连续变道
+            "ContinuousLaneChangeCnt": 4,      # 最大连续变道 4 次
+            "ContinuousLaneChangeInterval": 3, # 变道间隔调整为 3秒，更符合人类驾驶习惯
             "AutoTurnLeft": 1,
-            "AutoEnTurnNewLaneTimeH": 0,
-            "AutoEnTurnNewLaneTime": 0,
+            "AutoEnTurnNewLaneTimeH": 20,      # 高速切入新车道后的稳定时间
+            "AutoEnTurnNewLaneTime": 15,       # 市区切入新车道后的稳定时间
             "NewLaneWidthDiff": 8,
             "LateralTorqueKd": 0,
             "LateralTorqueFilter": 0

@@ -24,6 +24,7 @@ from opendbc.car.common.conversions import Conversions as CV
 
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
 from openpilot.selfdrive.carrot.carrot_speed import CarrotSpeed
+from openpilot.selfdrive.carrot.config import UnifiedParams
 
 from openpilot.common.gps import get_gps_location_service
 
@@ -187,7 +188,7 @@ def calculate_curvature(p1, p2, p3):
 class CarrotMan:
   def __init__(self):
     print("************************************************CarrotMan init************************************************")
-    self.params = Params()
+    self.params = UnifiedParams()
     self.params_memory = Params("/dev/shm/params")
     self.gps_location_service = get_gps_location_service(self.params)
     self.sm = messaging.SubMaster(['deviceState', 'carState', 'controlsState', 'radarState', 'longitudinalPlan', 'modelV2', 'selfdriveState', 'carControl', 'navRouteNavd', self.gps_location_service, 'navInstruction'])

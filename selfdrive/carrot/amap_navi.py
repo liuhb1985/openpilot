@@ -9,6 +9,7 @@ import subprocess
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
 #from openpilot.common.params import Params
+from openpilot.selfdrive.carrot.config import UnifiedParams
 from openpilot.system.hardware import PC
 from openpilot.selfdrive.carrot.config import UnifiedParams
 from openpilot.selfdrive.carrot.web_interface import WebInterface

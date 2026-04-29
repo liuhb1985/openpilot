@@ -12,6 +12,7 @@ from opendbc.safety import ALTERNATIVE_EXPERIENCE
 
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
+from openpilot.selfdrive.carrot.config import UnifiedParams
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.gps import get_gps_location_service
 
@@ -44,7 +45,7 @@ IGNORED_SAFETY_MODES = (SafetyModel.silent, SafetyModel.noOutput)
 
 class SelfdriveD:
   def __init__(self, CP=None):
-    self.params = Params()
+    self.params = UnifiedParams()
 
     # Ensure the current branch is cached, otherwise the first cycle lags
     build_metadata = get_build_metadata()
