@@ -8,13 +8,13 @@ from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
 
 # ======================================
-# 终极优化版 Native IMU 处理器 (V4 - 全感官融合型)
+# V6 全知全能版 Native IMU 处理器 (终极进化型)
 # ======================================
 
 class NativeIMUD:
   def __init__(self):
     self.params = Params()
-    self.sm = messaging.SubMaster(['carState', 'carParams'])
+    self.sm = messaging.SubMaster(['carState', 'carParams', 'carrotMan'])
     self.pm = messaging.PubMaster(['gyroscope', 'accelerometer'])
 
     # 核心参数
@@ -22,24 +22,23 @@ class NativeIMUD:
     self.dt = 1.0 / self.freq
     self.rk = Ratekeeper(self.freq, print_delay_threshold=None)
 
-    # 状态缓存
+    # 状态估计器 (Kalman)
+    self.x = 0.0      # Yaw Rate
+    self.P = 1.0
+    self.Q = 0.0005   # 增加模型信任度
+    self.R = 0.02
+    
+    # [V6 核心] 在线转向比学习 (RLS 估算器)
+    self.learned_steer_ratio = 15.0
+    self.rls_P = 1.0
+    self.rls_lambda = 0.999 # 遗忘因子，保持长期稳定学习
+
     self.yaw_bias = 0.0
     self.bias_count = 0
     self.last_yaw = 0.0
-    self.last_lat = 0.0
-    self.last_lon = 0.0
-    self.has_valid_data = False
-
-    # 车辆几何参数 (初始化默认值)
-    self.CP = None
-    self.steerRatio = 15.0
-    self.wheelbase = 2.8
-    self.trackWidth = 1.6 # 轮距
-    self.lever_arm_offset = 1.5 # IMU 相对于后轴的前向偏移距离 (估计值)
-
-    # 滤波与预测状态
-    self.yaw_filtered = 0.0
     self.yaw_accel = 0.0
+    self.model_yaw_lag = 0.0
+    self.has_valid_data = False
 
   def update_calibration(self, cs):
     if cs.vEgo < 0.05 and not cs.steeringPressed:
@@ -47,114 +46,89 @@ class NativeIMUD:
       self.yaw_bias = (self.yaw_bias * self.bias_count + raw_yaw) / (self.bias_count + 1)
       self.bias_count = min(self.bias_count + 1, 1000)
 
+  def learn_parameters(self, cs, raw_yaw):
+    # 在转弯且速度稳定时，学习实际转向比
+    v_ego = cs.vEgo
+    steer_angle = math.radians(cs.steeringAngleDeg)
+    if abs(v_ego) > 10.0 and abs(steer_angle) > 0.05 and abs(raw_yaw) > 0.02:
+        # 物理公式变形: steerRatio = (v * tan(steer)) / (yaw * L)
+        instant_ratio = (v_ego * math.tan(steer_angle)) / (raw_yaw * 2.8) # 2.8 轴距
+        if 5.0 < instant_ratio < 25.0:
+            # RLS 更新
+            error = instant_ratio - self.learned_steer_ratio
+            self.rls_P = self.rls_P / self.rls_lambda
+            gain = self.rls_P / (1 + self.rls_P)
+            self.learned_steer_ratio += gain * error
+            self.rls_P = (1 - gain) * self.rls_P
+
   def main_loop(self):
-    print("******** Final-Grade Native IMU V4 Started (Full Fusion) ********")
+    print("******** Omniscient IMU V6 Started (Global Fusion) ********")
 
     while True:
       self.sm.update(0)
-
-      if self.CP is None and self.sm.updated['carParams']:
-        self.CP = self.sm['carParams']
-        self.steerRatio = self.CP.steerRatio
-        self.wheelbase = self.CP.wheelbase
-        # 尝试从参数获取真实轮距
-        self.trackWidth = getattr(self.CP, 'wheelStep', 1.6) 
 
       if self.sm.updated['carState']:
         cs = self.sm['carState']
         v_ego = cs.vEgo
         steer_angle = cs.steeringAngleDeg
-        steer_rate = cs.steeringRateDeg
         
-        # 1. 自动校准
         self.update_calibration(cs)
 
-        # 2. 数据获取与去偏
+        # 1. 信号预处理
         raw_yaw = math.radians(cs.yawRate) - self.yaw_bias
         
-        # 3. [终极优化] 轮速差辅助 Yaw Rate (如果可用)
-        # 轮速差对于低频转动极其精确，是防漂移的终极手段
-        wheel_yaw = 0.0
-        has_wheel_speed = False
-        if hasattr(cs, 'wheelSpeeds') and v_ego > 1.0:
-            # 使用后轮转速差计算 (不受转向影响)
-            try:
-                ws = cs.wheelSpeeds
-                # Yaw = (Vr - Vl) / TrackWidth
-                wheel_yaw = (ws.rl - ws.rr) / self.trackWidth
-                has_wheel_speed = True
-            except Exception:
-                pass
+        # 2. [V6] 在线参数学习
+        self.learn_parameters(cs, raw_yaw)
 
-        # 4. 非线性转向补偿预测
-        steer_factor = 1.0 + (abs(steer_angle) * 0.0005) 
-        model_yaw = 0.0
+        # 3. [V6] 引入导航先验曲率 ( carrotMan 提供的当前路径曲率 )
+        nav_curvature = 0.0
+        if self.sm.updated['carrotMan']:
+            nav_curvature = self.sm['carrotMan'].atcCurvature # 假设 carrotMan 输出曲率
+        nav_yaw_rate = v_ego * nav_curvature
+
+        # 4. 物理模型预测 (使用学习到的转向比)
+        steer_factor = 1.0 + (abs(steer_angle) * 0.0005)
+        model_ratio = self.learned_steer_ratio * steer_factor
         if abs(v_ego) > 0.3:
-          model_yaw = (v_ego * math.tan(math.radians(steer_angle) / (self.steerRatio * steer_factor))) / self.wheelbase
-
-        # 5. 三源动态融合 (IMU + Model + Wheel)
-        intent_factor = np.interp(abs(steer_rate), [0, 50], [0.0, 0.3])
-        # 基础权重
-        alpha_imu = 0.6 + intent_factor
-        alpha_model = 0.3
-        alpha_wheel = 0.1 if has_wheel_speed else 0.0
+          target_model_yaw = (v_ego * math.tan(math.radians(steer_angle) / model_ratio)) / 2.8
+        else:
+          target_model_yaw = 0.0
         
-        # 归一化权重
-        total_w = alpha_imu + alpha_model + alpha_wheel
-        yaw = (alpha_imu * raw_yaw + alpha_model * model_yaw + alpha_wheel * wheel_yaw) / total_w
+        # 混合导航前馈：让物理模型提前感知弯道
+        model_yaw_combined = 0.8 * target_model_yaw + 0.2 * nav_yaw_rate
+        self.model_yaw_lag = 0.2 * model_yaw_combined + 0.8 * self.model_yaw_lag
 
-        # 6. 直道高精度锁定
-        if abs(steer_angle) < 0.7:
-          yaw = 0.05 * yaw + 0.95 * model_yaw # 在直道几乎完全相信模型和轮速平衡
-
-        # 7. 相位超前预测 (25ms)
-        current_yaw_accel = (yaw - self.last_yaw) / self.dt
-        self.yaw_accel = 0.15 * current_yaw_accel + 0.85 * self.yaw_accel
-        yaw_predicted = yaw + self.yaw_accel * 0.025
-
-        # 8. 二阶自适应滤波
-        self.yaw_filtered = 0.35 * yaw_predicted + 0.65 * self.yaw_filtered
-        yaw_final = self.yaw_filtered
-
-        # 9. [终极优化] 杠杆臂补偿 (Lever Arm Compensation)
-        # 修正侧向加速度计因为安装位置不在重心而产生的偏差
-        # Lat_accel_corrected = Lat_accel - (Yaw_accel * Offset)
-        lon = cs.aEgo
-        raw_lat = v_ego * yaw_final
-        lat_corrected = raw_lat - (self.yaw_accel * self.lever_arm_offset * 0.1) # 适度补偿
+        # 5. 卡尔曼状态估计
+        self.P = self.P + self.Q
+        K = self.P / (self.P + self.R)
+        self.x = self.x + K * (raw_yaw - self.x)
+        self.P = (1 - K) * self.P
         
-        # 异常保护
-        if abs(yaw_final) > 5.0: yaw_final = self.last_yaw
+        # 6. 极致稳定融合
+        blend_factor = np.interp(abs(steer_angle), [0.5, 2.0], [0.1, 0.5])
+        yaw = blend_factor * self.x + (1.0 - blend_factor) * self.model_yaw_lag
+
+        # 7. 全维相位补偿预测
+        yaw_accel = (yaw - self.last_yaw) / self.dt
+        yaw_final = yaw + yaw_accel * 0.03 # 30ms 深度预测
+
+        # 8. 加速度处理
+        lat = v_ego * yaw_final
         
-        self.last_yaw, self.last_lon, self.last_lat = yaw_final, lon, lat_corrected
+        self.last_yaw, self.last_lat = yaw_final, lat
         self.has_valid_data = True
 
-      elif self.has_valid_data:
-        yaw_final, lon, lat_corrected = self.last_yaw, self.last_lon, self.last_lat
-      else:
-        self.rk.keep_time()
-        continue
+        # 发布消息
+        now_ns = time.monotonic_ns()
+        gyro_msg = messaging.new_message('gyroscope', valid=True)
+        gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
+                             'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
+        self.pm.send('gyroscope', gyro_msg)
 
-      # 发布消息
-      now_ns = time.monotonic_ns()
-      
-      gyro_msg = messaging.new_message('gyroscope', valid=True)
-      gyro_msg.gyroscope = {
-        'timestamp': now_ns,
-        'type': 16,
-        'sensor': 5,
-        'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}
-      }
-      self.pm.send('gyroscope', gyro_msg)
-
-      accel_msg = messaging.new_message('accelerometer', valid=True)
-      accel_msg.accelerometer = {
-        'timestamp': now_ns,
-        'type': 1,
-        'sensor': 1,
-        'acceleration': {'v': [0.0, -float(lat_corrected), -float(lon)], 'status': 1}
-      }
-      self.pm.send('accelerometer', accel_msg)
+        accel_msg = messaging.new_message('accelerometer', valid=True)
+        accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
+                                 'acceleration': {'v': [0.0, -float(lat), -float(cs.aEgo)], 'status': 1}}
+        self.pm.send('accelerometer', accel_msg)
 
       self.rk.keep_time()
 
