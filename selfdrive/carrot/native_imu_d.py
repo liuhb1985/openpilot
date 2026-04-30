@@ -132,6 +132,9 @@ class NativeIMUD:
 
       self.rk.keep_time()
 
-if __name__ == "__main__":
+def main():
   imud = NativeIMUD()
   imud.main_loop()
+
+if __name__ == "__main__":
+  main()

@@ -170,61 +170,43 @@ class UnifiedParams:
             "LateralTorqueFilter": 0
         }
 
-    def get_bool(self, key, default=False):
+    def get_bool(self, key, block=False):
         """获取布尔值参数 - 统一接口"""
         # 优先尝试系统参数
         try:
-            value = self.system_params.get_bool(key)
-            if value is not None:
-                return value
-        except (KeyError, AttributeError, UnknownKeyName) as e:
-            pass
+            return self.system_params.get_bool(key, block=block)
+        except (KeyError, AttributeError, UnknownKeyName):
+            # 系统参数不存在，尝试自定义参数
+            if key in self.nav_data:
+                try:
+                    return bool(int(self.nav_data[key]))
+                except (ValueError, TypeError):
+                    pass
+        return False
 
-        # 系统参数不存在，尝试自定义参数
-        if key in self.nav_data:
-            value = self.nav_data[key]
-            try:
-                return bool(int(value))
-            except (ValueError, TypeError):
-                return default
-
-        return default
-
-    def get_int(self, key, default=0):
+    def get_int(self, key, block=False):
         """获取整数值参数 - 统一接口"""
         try:
-            value = self.system_params.get_int(key)
-            if value is not None:
-                return value
-        except (KeyError, AttributeError, UnknownKeyName) as e:
-            pass
+            return self.system_params.get_int(key, block=block)
+        except (KeyError, AttributeError, UnknownKeyName):
+            if key in self.nav_data:
+                try:
+                    return int(self.nav_data[key])
+                except (ValueError, TypeError):
+                    pass
+        return 0
 
-        if key in self.nav_data:
-            value = self.nav_data[key]
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return default
-
-        return default
-
-    def get_float(self, key, default=0.0):
+    def get_float(self, key, block=False):
         """获取浮点数值参数 - 统一接口"""
         try:
-            value = self.system_params.get_float(key)
-            if value is not None:
-                return value
-        except (KeyError, AttributeError, UnknownKeyName) as e:
-            pass
-
-        if key in self.nav_data:
-            value = self.nav_data[key]
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-
-        return default
+            return self.system_params.get_float(key, block=block)
+        except (KeyError, AttributeError, UnknownKeyName):
+            if key in self.nav_data:
+                try:
+                    return float(self.nav_data[key])
+                except (ValueError, TypeError):
+                    pass
+        return 0.0
 
     def put_bool(self, key, value):
       """设置布尔值参数 - 统一接口"""
@@ -316,10 +298,18 @@ class UnifiedParams:
         except (OSError, IOError):
           pass
 
+    def put_nonblocking(self, key, dat):
+        """异步设置原始数据"""
+        try:
+            self.system_params.put_nonblocking(key, dat)
+        except (KeyError, AttributeError, UnknownKeyName):
+            self.nav_data[key] = dat
+            self._save_nav_data() # 注意：这里会同步保存 json
+
     # 为了保持兼容性，也提供原始的 get/put 方法
-    def get(self, key, encoding='utf-8'):
+    def get(self, key, block=False, encoding=None):
         """获取原始数据 - 系统参数专用"""
-        return self.system_params.get(key, encoding=encoding)
+        return self.system_params.get(key, block=block, encoding=encoding)
 
 # 全局实例，便于导入使用
 unified_params = UnifiedParams()
