@@ -116,8 +116,6 @@ class NativeIMUD:
         lat = v_ego * yaw_final
         
         self.last_yaw, self.last_lat = yaw_final, lat
-        self.has_valid_data = True
-
         # 发布消息
         now_ns = time.monotonic_ns()
         gyro_msg = messaging.new_message('gyroscope', valid=True)
@@ -129,6 +127,9 @@ class NativeIMUD:
         accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
                                  'acceleration': {'v': [0.0, -float(lat), -float(cs.aEgo)], 'status': 1}}
         self.pm.send('accelerometer', accel_msg)
+
+        if self.rk.frame % 100 == 0:
+          print(f"IMU: v={v_ego:.1f}, yaw={yaw_final:.4f}, lat={lat:.3f}, ratio={self.learned_steer_ratio:.2f}, nav_curv={nav_curvature:.5f}")
 
       self.rk.keep_time()
 

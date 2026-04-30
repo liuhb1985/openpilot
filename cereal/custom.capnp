@@ -43,6 +43,7 @@ struct CarrotMan @0x81c2f05a394cf4af {
 	leftSec @28 : Int32;
 	roadCate @29 : Int32;
 	xLeftTurnSec @30 : Int32;
+	atcCurvature @31 : Float32;
 }
 
 struct AmapNavi @0xaedffd8f31e7b55d {

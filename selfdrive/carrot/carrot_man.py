@@ -306,10 +306,10 @@ class CarrotMan:
           self.send_routes(self.sm['navRouteNavd'].coordinates, True)
         remote_addr = self.remote_addr
         remote_ip = remote_addr[0] if remote_addr is not None else ""
-        vturn_speed = self.carrot_curve_speed(self.sm)
+        vturn_speed, atc_curvature = self.carrot_curve_speed(self.sm)
         coords, distances, route_speed = self.carrot_navi_route()
 
-        self.carrot_serv.update_navi(remote_ip, self.sm, self.pm, vturn_speed, coords, distances, route_speed, self.gps_location_service)
+        self.carrot_serv.update_navi(remote_ip, self.sm, self.pm, vturn_speed, coords, distances, route_speed, self.gps_location_service, atc_curvature=atc_curvature)
 
         if phone_gps_frame != self.carrot_serv.phone_gps_frame:
           phone_gps_frame = self.carrot_serv.phone_gps_frame
@@ -1001,10 +1001,10 @@ class CarrotMan:
   def carrot_curve_speed(self, sm):
     self.carrot_curve_speed_params()
     if not sm.alive['carState'] and not sm.alive['modelV2']:
-        return 250
+        return 250, 0.0
     #print(len(sm['modelV2'].orientationRate.z))
     if len(sm['modelV2'].orientationRate.z) == 0:
-        return 250
+        return 250, 0.0
 
     return self.vturn_speed(sm['carState'], sm)
 
@@ -1013,7 +1013,7 @@ class CarrotMan:
 
     modelData = sm['modelV2']
     if len(modelData.orientationRate.z) == 0 or len(modelData.velocity.x) == 0:
-      return 250
+      return 250, 0.0
 
     # 设置弯道敏感度
     orientation_rate = np.abs(np.array(modelData.orientationRate.z)) * self.autoCurveSpeedFactor
@@ -1035,7 +1035,7 @@ class CarrotMan:
       turnSpeed = (adjusted_target_lat_a / max_curvature)**0.5 * 3.6
 
     turnSpeed = self.vturn_speed_filter.process(turnSpeed)
-    return np.clip(turnSpeed, 5, 250) * curv_direction
+    return np.clip(turnSpeed, 5, 250) * curv_direction, max_curvature * curv_direction
 
 
 

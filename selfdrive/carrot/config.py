@@ -306,6 +306,15 @@ class UnifiedParams:
             self.nav_data[key] = dat
             self._save_nav_data() # 注意：这里会同步保存 json
 
+    def remove(self, key):
+        """删除原始数据"""
+        try:
+            self.system_params.remove(key)
+        except (KeyError, AttributeError, UnknownKeyName):
+            if key in self.nav_data:
+                del self.nav_data[key]
+                self._save_nav_data()
+
     # 为了保持兼容性，也提供原始的 get/put 方法
     def get(self, key, block=False, encoding=None):
         """获取原始数据 - 系统参数专用"""

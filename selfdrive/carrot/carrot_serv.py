@@ -926,7 +926,7 @@ class CarrotServ:
         self.xSpdDist = distance
         self.xSpdType =xSpdType
 
-  def update_navi(self, remote_ip, sm, pm, vturn_speed, coords, distances, route_speed, gps_service):
+  def update_navi(self, remote_ip, sm, pm, vturn_speed, coords, distances, route_speed, gps_service, atc_curvature=0.0):
 
     self.debugText = ""
     self.update_params()
@@ -1150,6 +1150,7 @@ class CarrotServ:
     msg.carrotMan.leftSec = int(self.carrot_left_sec)
     msg.carrotMan.roadCate = int(self.roadcate)
     msg.carrotMan.xLeftTurnSec = int(self.carrot_left_sec)
+    msg.carrotMan.atcCurvature = float(atc_curvature)
     pm.send('carrotMan', msg)
 
     inst = messaging.new_message('navInstructionCarrot')
