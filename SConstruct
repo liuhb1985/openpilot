@@ -83,6 +83,8 @@ assert arch in ["larch64", "aarch64", "x86_64", "Darwin"]
 
 lenv = {
   "PATH": os.environ['PATH'],
+  "HOME": os.environ.get('HOME', ''),
+  "OPENPILOT_PREFIX": os.environ.get('OPENPILOT_PREFIX', ''),
   "LD_LIBRARY_PATH": [Dir(f"#third_party/acados/{arch}/lib").abspath],
   "PYTHONPATH": Dir("#").abspath + ':' + Dir(f"#third_party/acados").abspath,
 
