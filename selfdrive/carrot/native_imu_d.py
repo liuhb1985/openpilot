@@ -42,7 +42,7 @@ class NativeIMUD:
 
   def update_calibration(self, cs):
     if cs.vEgo < 0.05 and not cs.steeringPressed:
-      raw_yaw = math.radians(cs.yawRate)
+      raw_yaw = cs.yawRate # Hyundai yawRate 已经是 rad/s
       self.yaw_bias = (self.yaw_bias * self.bias_count + raw_yaw) / (self.bias_count + 1)
       self.bias_count = min(self.bias_count + 1, 1000)
 
@@ -50,9 +50,10 @@ class NativeIMUD:
     # 在转弯且速度稳定时，学习实际转向比
     v_ego = cs.vEgo
     steer_angle = math.radians(cs.steeringAngleDeg)
+    wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
     if abs(v_ego) > 10.0 and abs(steer_angle) > 0.05 and abs(raw_yaw) > 0.02:
         # 物理公式变形: steerRatio = (v * tan(steer)) / (yaw * L)
-        instant_ratio = (v_ego * math.tan(steer_angle)) / (raw_yaw * 2.8) # 2.8 轴距
+        instant_ratio = (v_ego * math.tan(steer_angle)) / (raw_yaw * wheelbase)
         if 5.0 < instant_ratio < 25.0:
             # RLS 更新
             error = instant_ratio - self.learned_steer_ratio
@@ -71,11 +72,12 @@ class NativeIMUD:
         cs = self.sm['carState']
         v_ego = cs.vEgo
         steer_angle = cs.steeringAngleDeg
+        wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
         
         self.update_calibration(cs)
 
         # 1. 信号预处理
-        raw_yaw = math.radians(cs.yawRate) - self.yaw_bias
+        raw_yaw = cs.yawRate - self.yaw_bias
         
         # 2. [V6] 在线参数学习
         self.learn_parameters(cs, raw_yaw)
@@ -90,7 +92,7 @@ class NativeIMUD:
         steer_factor = 1.0 + (abs(steer_angle) * 0.0005)
         model_ratio = max(5.0, self.learned_steer_ratio * steer_factor) # 保护转向比
         if abs(v_ego) > 0.3:
-          target_model_yaw = (v_ego * math.tan(math.radians(steer_angle) / model_ratio)) / 2.8
+          target_model_yaw = (v_ego * math.tan(math.radians(steer_angle) / model_ratio)) / wheelbase
         else:
           target_model_yaw = 0.0
         
