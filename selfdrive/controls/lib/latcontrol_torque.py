@@ -161,8 +161,7 @@ class LatControlTorque(LatControl):
     self.torque_params.friction = friction
 
   def update(self, active, CS, VM, params, steer_limited_by_controls, desired_curvature, CC, curvature_limited, model_data=None):
-    # [移植优化] 恢复响应感：默认不使用重度平滑滤波
-    # desired_curvature = self.desired_curvature_filter.update(desired_curvature)
+    desired_curvature = self.desired_curvature_filter.update(desired_curvature)
     self.frame += 1
     if self.frame % 200 == 0:
       self.lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
@@ -367,14 +366,31 @@ class LatControlTorque(LatControl):
       self.last_error = pid_log.error
 
       # [进阶优化] 1. 转向速率抗积分饱和：在高转向速率时冻结积分
-      # steeringRateDeg 是当前实际转向速度，如果太快，Ki 往往会导致过冲
       steering_rate = abs(CS.steeringRateDeg)
-      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5 or steering_rate > 50.0 # [优化] 从 80 降至 50，更早防止过冲
+      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5 or steering_rate > 50.0 
+
+      # [进阶优化] 2. NNFF-PID 解耦：当前馈非常强时，适度降低 PID 灵敏度，防止反馈震荡
+      kp_scale = 1.0
+      if self.use_nnff or self.use_nnff_lite:
+        ff_abs = abs(ff)
+        if ff_abs > 0.05:
+          kp_scale = np.interp(ff_abs, [0.05, 0.5], [1.0, 0.85])
+
+      # [极致优化] 3. 转向速率增益抑制：在剧烈纠偏时降低增益，防止过冲
+      if steering_rate > 100.0:
+        kp_scale *= np.interp(steering_rate, [100.0, 200.0], [1.0, 0.75])
+
+      # [大师级优化] 4. 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
+      if self.lat_kd_v > 0:
+        dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 5, 30, 40], [1.0, 0.8, 1.5, 2.0])
+        self.pid._k_d = [[0], [dynamic_kd]]
 
       output_torque = self.pid.update(pid_log.error,
                                       feedforward=ff,
                                       speed=CS.vEgo,
-                                      freeze_integrator=freeze_integrator)
+                                      freeze_integrator=freeze_integrator,
+                                      k_p_scale=kp_scale,
+                                      k_i_scale=kp_scale)
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)

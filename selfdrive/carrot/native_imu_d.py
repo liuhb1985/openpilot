@@ -6,6 +6,7 @@ import numpy as np
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
+from openpilot.common.filter_simple import FirstOrderFilter
 
 # ======================================
 # V6 全知全能版 Native IMU 处理器 (终极进化型)
@@ -38,6 +39,7 @@ class NativeIMUD:
     self.last_yaw = 0.0
     self.yaw_accel = 0.0
     self.model_yaw_lag = 0.0
+    self.nav_curvature_filter = FirstOrderFilter(0.0, 0.1, 0.01) # 100ms 快速平滑导航曲率
     self.has_valid_data = False
 
   def update_calibration(self, cs):
@@ -61,6 +63,9 @@ class NativeIMUD:
             gain = self.rls_P / (1 + self.rls_P)
             self.learned_steer_ratio += gain * error
             self.rls_P = (1 - gain) * self.rls_P
+            
+            # 转向比下限保护：防止学习值过低导致欠转向
+            self.learned_steer_ratio = max(13.0, self.learned_steer_ratio)
 
   def main_loop(self):
     print("******** Omniscient IMU V6 Started (Global Fusion) ********")
@@ -85,7 +90,7 @@ class NativeIMUD:
         # 3. [V6] 引入导航先验曲率 ( carrotMan 提供的当前路径曲率 )
         nav_curvature = 0.0
         if self.sm.updated['carrotMan']:
-            nav_curvature = self.sm['carrotMan'].atcCurvature # 假设 carrotMan 输出曲率
+            nav_curvature = self.nav_curvature_filter.update(self.sm['carrotMan'].atcCurvature) 
         nav_yaw_rate = v_ego * nav_curvature
 
         # 4. 物理模型预测 (使用学习到的转向比)
@@ -107,12 +112,12 @@ class NativeIMUD:
         self.P = (1 - K) * self.P
         
         # 6. 极致稳定融合
-        blend_factor = np.interp(abs(steer_angle), [0.5, 2.0], [0.1, 0.5])
+        blend_factor = np.interp(abs(steer_angle), [1.0, 5.0], [0.1, 0.7])
         yaw = blend_factor * self.x + (1.0 - blend_factor) * self.model_yaw_lag
 
         # 7. 全维相位补偿预测
         yaw_accel = (yaw - self.last_yaw) / self.dt
-        yaw_final = yaw + yaw_accel * 0.03 # 30ms 深度预测
+        yaw_final = yaw + yaw_accel * 0.08 # 80ms 深度预测 (抵消滤波延迟)
 
         # 8. 加速度处理
         lat = v_ego * yaw_final
