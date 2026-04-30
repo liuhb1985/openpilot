@@ -88,7 +88,7 @@ class NativeIMUD:
 
         # 4. 物理模型预测 (使用学习到的转向比)
         steer_factor = 1.0 + (abs(steer_angle) * 0.0005)
-        model_ratio = self.learned_steer_ratio * steer_factor
+        model_ratio = max(5.0, self.learned_steer_ratio * steer_factor) # 保护转向比
         if abs(v_ego) > 0.3:
           target_model_yaw = (v_ego * math.tan(math.radians(steer_angle) / model_ratio)) / 2.8
         else:
@@ -115,7 +115,13 @@ class NativeIMUD:
         # 8. 加速度处理
         lat = v_ego * yaw_final
         
-        self.last_yaw, self.last_lat = yaw_final, lat
+        # 数据合理性检查
+        if not np.isfinite(yaw_final) or abs(yaw_final) > 2.0:
+            yaw_final = 0.0
+        if not np.isfinite(lat) or abs(lat) > 20.0:
+            lat = 0.0
+
+        self.last_yaw, self.last_lat = yaw, lat
         # 发布消息
         now_ns = time.monotonic_ns()
         gyro_msg = messaging.new_message('gyroscope', valid=True)
