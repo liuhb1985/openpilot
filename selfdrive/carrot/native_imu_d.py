@@ -7,6 +7,7 @@ import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
 from openpilot.common.filter_simple import FirstOrderFilter
+from collections import deque
 
 # ======================================
 # V6 全知全能版 Native IMU 处理器 (终极进化型)
@@ -40,6 +41,7 @@ class NativeIMUD:
     self.yaw_accel = 0.0
     self.model_yaw_lag = 0.0
     self.nav_curvature_filter = FirstOrderFilter(0.0, 0.1, 0.01) # 100ms 快速平滑导航曲率
+    self.yaw_history = deque(maxlen=5) # 5采样中值滤波
     self.has_valid_data = False
 
   def update_calibration(self, cs):
@@ -82,7 +84,12 @@ class NativeIMUD:
         self.update_calibration(cs)
 
         # 1. 信号预处理
-        raw_yaw = cs.yawRate - self.yaw_bias
+        raw_yaw_raw = cs.yawRate - self.yaw_bias
+        self.yaw_history.append(raw_yaw_raw)
+        if len(self.yaw_history) >= 3:
+            raw_yaw = sorted(list(self.yaw_history))[len(self.yaw_history)//2]
+        else:
+            raw_yaw = raw_yaw_raw
         
         # 2. [V6] 在线参数学习
         self.learn_parameters(cs, raw_yaw)
