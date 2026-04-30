@@ -128,12 +128,12 @@ class NativeIMUD:
         now_ns = time.monotonic_ns()
         gyro_msg = messaging.new_message('gyroscope', valid=True)
         gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
-                             'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
+                             'gyroUncalibrated': {'v': [0.0, 0.0, float(yaw_final)], 'status': 1}}
         self.pm.send('gyroscope', gyro_msg)
 
         accel_msg = messaging.new_message('accelerometer', valid=True)
         accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
-                                 'acceleration': {'v': [0.0, -float(lat), -float(cs.aEgo)], 'status': 1}}
+                                 'acceleration': {'v': [float(cs.aEgo), float(lat), 9.81], 'status': 1}}
         self.pm.send('accelerometer', accel_msg)
 
         if self.rk.frame % 100 == 0:
