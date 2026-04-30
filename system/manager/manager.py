@@ -144,7 +144,7 @@ def get_default_params():
     ("PathOffset", "0"),  # 路径侧向偏移调整
     ("UseLaneLineCurveSpeed", "0"),  # 弯道中根据车道线预测降速
     ("AdjustLaneOffset", "0"),  # 周期性调整车道位置
-    ("AdjustCurveOffset", "15"),  # 弯道偏移修正
+    ("AdjustCurveOffset", "0"),  # 弯道偏移修正 (归零以保持居中)
     ("LaneChangeNeedTorque", "0"),  # 换道是否需要手动介入扭矩触发
     ("LaneChangeDelay", "0"),  # 自动换道前的延迟确认时间
     ("LaneChangeBsd", "1"),  # 变道盲区监测开关
@@ -158,9 +158,9 @@ def get_default_params():
     ("LateralTorqueKd", "0"),  # 侧向扭矩 D 微分增益
     ("LatMpcPathCost", "350"),  # 侧向 MPC 控制路径代价
     ("LatMpcMotionCost", "7"),  # 侧向 MPC 控制运动代价
-    ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数
-    ("LatMpcJerkCost", "4"),  # 侧向 MPC Jerk 代价系数
-    ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数
+    ("LatMpcAccelCost", "80"),  # 侧向 MPC 加速度代价系数 (放宽限制以保住弯道)
+    ("LatMpcJerkCost", "10"),  # 侧向 MPC Jerk 代价系数
+    ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数 (回退至平衡点 800)
     ("LatMpcInputOffset", "4"),  # 侧向 MPC 路径输入偏置
     ("CustomSteerMax", "0"),  # 自定义最大转向扭矩上限
     ("CustomSteerDeltaUp", "0"),  # 自定义最大增扭速率
@@ -168,8 +168,8 @@ def get_default_params():
     ("CustomSteerDeltaUpLC", "0"),  # 变道时自定义最大增扭速率
     ("CustomSteerDeltaDownLC", "0"),  # 变道时自定义最大减扭速率
     ("SpeedFromPCM", "2"),  # 巡航速度来源 (1: 车辆仪表, 2: openpilot)
-    ("SteerActuatorDelay", "25"),  # 转向执行延迟补偿时间
-    ("LatSmoothSec", "18"),  # 横向平滑处理时长系数
+    ("SteerActuatorDelay", "15"),  # 转向执行延迟补偿时间 (优化为 0.15s)
+    ("LatSmoothSec", "10"),  # 横向平滑处理时长系数 (降低延迟)
     ("MaxTimeOffroadMin", "60"),  # 无操作后最大休眠前运行时长 (分)
     ("DisableDM", "1"),  # 禁用驾驶员监控（慎用）
     ("EnableConnect", "0"),  # 启用系统联网连接
