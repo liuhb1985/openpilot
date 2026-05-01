@@ -411,7 +411,20 @@ class CarrotMan:
     now = time.monotonic()
     heading = self.carrot_serv.bearing #nPosAnglePhone
     lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
-    vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    # 优化点：前瞻查询 (Lookahead Query)
+    # 不仅看当前 (0.0m)，还看前方 30m 和 60m 的速度趋势，实现提前预判减速
+    vt_now = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    vt_mid = carrot_speed.query_target_dist(lat, lon, heading, 30.0)
+    vt_far = carrot_speed.query_target_dist(lat, lon, heading, 60.0)
+
+    vt_candidates = [v for v in [vt_now, vt_mid, vt_far] if v > 5.0]
+    vt_target = min(vt_candidates) if vt_candidates else vt_now
+
+    # 增加变化率平滑 (Rate Limiting)，防止车速指令跳变
+    if not hasattr(self, 'vt_filtered'): self.vt_filtered = vt_target
+    self.vt_filtered = self.vt_filtered * 0.9 + vt_target * 0.1
+    vt = self.vt_filtered
+
     if self.v_cruise_change != 0:
       carrot_speed.add_sample(lat, lon, heading, v_cruise_apply if self.v_cruise_change > 0 else (- v_cruise_apply))
       if self.v_cruise_change > 0:
@@ -533,15 +546,13 @@ class CarrotMan:
 
             #distance_advance = self.sm['carState'].vEgo * 3.0  # 提前 3.0 秒预测距离
             #out_speed = interp(distance_advance, distances, out_speeds)
-            out_speed = out_speeds[0]
-            #print(f"out_speeds= {[round(s, 1) for s in out_speeds]}")
-    else:
-        resampled_points = []
-        resampled_distances = []
-        curvatures = []
-        speeds = []
-        distances = []
-        #self.params.remove("NavDestination")
+    # 优化点：目标速度平滑限制器 (Rate Limiter)
+    # 防止在导航路径曲率剧变时，目标速度指令出现阶跃
+    if not hasattr(self, 'out_speed_filtered'): self.out_speed_filtered = float(out_speed)
+    # 限制每帧速度变化不超过 2.0 km/h (约 20km/h 每秒，考虑到 10Hz 更新)
+    speed_diff = float(out_speed) - self.out_speed_filtered
+    self.out_speed_filtered += np.clip(speed_diff, -2.0, 1.0) # 减速可以快一点，加速要平稳
+    out_speed = self.out_speed_filtered
 
     return resampled_points, resampled_distances, out_speed #speeds, distances
 

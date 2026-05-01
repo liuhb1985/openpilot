@@ -203,6 +203,13 @@ class CarrotPlanner:
       self.jerk_factor_apply = self.jerk_factor * self.dynamicTFollowLC   # 变道时减小加加速度 (Jerk)，表现更激进。
     elif lead.status:
       t_follow += np.interp(prev_a[0], [-2.0, -0.5], [0.1, 0.0])
+      
+      # 优化点：弯道自动增加安全距离 (Lateral-Force Aware Gap)
+      # 获取侧向力，当侧向力大时，司机的视野通常受阻，增加时距以提升安全性
+      lat_accel = abs(self.sm['carState'].latAccel)
+      lat_gap_bonus = np.interp(lat_accel, [0.8, 2.5], [0.0, 0.25])
+      t_follow += lat_gap_bonus
+
       if self.dynamicTFollow > 0.0:
         gap_dist_adjust = np.clip((desired_follow_distance - lead.dRel) * self.dynamicTFollow, - 0.1, 1.0) * 0.1
         t_follow += gap_dist_adjust
