@@ -244,14 +244,12 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   //QObject::connect(default_btn, &QPushButton::clicked, this, &DevicePanel::poweroff);
   QObject::connect(default_btn, &QPushButton::clicked, [&]() {
     if (ConfirmationDialog::confirm(tr("Set to default?"), tr("Yes"), this)) {
-      //emit parent->closeSettings();
       QTimer::singleShot(1000, []() {
-        printf("Set to default\n");
+        printf("Set to default (reboot will be triggered by hardware service)\n");
         Params().putInt("SoftRestartTriggered", 2);
-        printf("Set to default2\n");
-        });
+      });
     }
-    });
+  });
 
   QPushButton* remove_mapbox_key_btn = new QPushButton(tr("Remove MapboxKey"));
   remove_mapbox_key_btn->setObjectName("remove_mapbox_key_btn");
@@ -407,7 +405,9 @@ void DevicePanel::reboot() {
 
 //车道线校准
 void execAndReboot(const std::string& cmd) {
-    system(cmd.c_str());
+    if (!cmd.empty()) {
+        system(cmd.c_str());
+    }
     Params().putBool("DoReboot", true);
 }
 
@@ -435,17 +435,17 @@ if (selectedParam.isEmpty()) return;
       return;
     }
     std::thread worker([selectedParam]() {
+      Params params;
       if (selectedParam == "AllCalibParams") {
-        std::string cmd = "rm -f " + Params().getParamPath("CalibrationParams") + " " +
-                          Params().getParamPath("LiveParameters") + " " +
-                          Params().getParamPath("LiveParametersV2") + " " +
-                          Params().getParamPath("LiveTorqueParameters") + " " +
-                          Params().getParamPath("LiveDelay");
-        execAndReboot(cmd);
+        params.remove("CalibrationParams");
+        params.remove("LiveParameters");
+        params.remove("LiveParametersV2");
+        params.remove("LiveTorqueParameters");
+        params.remove("LiveDelay");
+        execAndReboot("");
       } else {
-        // 修复校准参数删除路径
-        std::string cmd = "rm -f " + Params().getParamPath(selectedParam.toStdString());
-        execAndReboot(cmd);
+        params.remove(selectedParam.toStdString());
+        execAndReboot("");
       }
     });
     worker.detach();

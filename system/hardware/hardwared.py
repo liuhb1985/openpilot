@@ -172,6 +172,7 @@ def update_restart_condition(current_time, restart_triggered_ts, params, onroad_
       if softRestartTriggered == 2:
         print("Parameter set to default")
         set_default_params()
+        params.put_bool("DoReboot", True)
 
       params.put_int("SoftRestartTriggered", 0)
       restart_triggered_ts = current_time

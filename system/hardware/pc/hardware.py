@@ -18,7 +18,12 @@ class Pc(HardwareBase):
     return "pc"
 
   def reboot(self, reason=None):
-    subprocess.check_output(["sudo", "reboot"])
+    for cmd in [["sudo", "reboot"], ["sudo", "systemctl", "reboot"], ["reboot"]]:
+      try:
+        subprocess.check_output(cmd, timeout=5)
+        return
+      except Exception:
+        continue
 
   def uninstall(self):
     print("uninstall")
