@@ -36,6 +36,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"DoUninstall", CLEAR_ON_MANAGER_START},
     {"DriverTooDistracted", CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION},
     {"AlphaLongitudinalEnabled", PERSISTENT | DEVELOPMENT_ONLY},
+    {"AutoPandaUpdate", PERSISTENT},
     {"ExperimentalMode", PERSISTENT},
     {"ExperimentalModeConfirmed", PERSISTENT},
     {"FirmwareQueryDone", CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION},
