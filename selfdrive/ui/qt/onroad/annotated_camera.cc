@@ -167,17 +167,34 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       skip_frame_count = 5;
     }
 
-    // Wide or narrow cam dependent on speed
+    // --- 深度优化：智能视角切换逻辑 (Smart Camera Switching) ---
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam) {
-      float v_ego = sm["carState"].getCarState().getVEgo();
-      if ((v_ego < 10) || available_streams.size() == 1) {
+      const auto &car_state = sm["carState"].getCarState();
+      const auto &radar_state = sm["radarState"].getRadarState();
+      float v_ego = car_state.getVEgo();
+      float steer_angle = std::abs(car_state.getSteeringAngleDeg());
+      bool lead_near = radar_state.getLeadOne().getStatus() && radar_state.getLeadOne().getDRel() < 10.0;
+      
+      // 触发条件：1.低速大弯 (>60deg)  2.极低速起步  3.近距离切入 (Lead < 10m)
+      bool wide_trigger = (v_ego < 11.1 && steer_angle > 60.0) || (v_ego < 2.0) || lead_near;
+
+      static double last_wide_trigger_t = 0;
+      double now = millis_since_boot();
+
+      if (wide_trigger) {
+        last_wide_trigger_t = now;
+      }
+
+      // 保持广角视角至少 3 秒，防止闪烁
+      if (now - last_wide_trigger_t < 3000) {
         wide_cam_requested = true;
-      } else if (v_ego > 15) {
+      } else {
         wide_cam_requested = false;
       }
-      //wide_cam_requested = wide_cam_requested && sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
-      wide_cam_requested = wide_cam_requested && s->scene.carrot_experimental_mode;
+      
+      // 如果用户手动开启了实验模式，则强制跟随实验模式设定（可选）
+      // wide_cam_requested = wide_cam_requested || s->scene.carrot_experimental_mode;
     }
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
