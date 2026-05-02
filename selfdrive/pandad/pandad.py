@@ -37,7 +37,7 @@ def flash_panda(panda_serial: str, params: Params) -> Panda:
   cloudlog.warning(f"Panda {panda_serial} connected, version: {panda_version}, signature {panda_signature.hex()[:16]}, expected {fw_signature.hex()[:16]}")
 
   if panda.bootstub or panda_signature != fw_signature:
-    if params.get_bool("AutoPandaUpdate"):
+    if params.get_bool("AutoPandaUpdate") or panda.bootstub:
       cloudlog.info("Panda firmware out of date, update required")
       panda.flash()
       cloudlog.info("Done flashing")
@@ -173,8 +173,11 @@ def main() -> None:
     first_run = False
 
     # run pandad with all connected serials as arguments
-    os.environ['MANAGER_DAEMON'] = 'pandad'
-    process = subprocess.Popen(["./pandad", *panda_serials], cwd=os.path.join(BASEDIR, "selfdrive/pandad"))
+    env = os.environ.copy()
+    env['MANAGER_DAEMON'] = 'pandad'
+    if not params.get_bool("AutoPandaUpdate"):
+      env['BOARDD_SKIP_FW_CHECK'] = "1"
+    process = subprocess.Popen(["./pandad", *panda_serials], cwd=os.path.join(BASEDIR, "selfdrive/pandad"), env=env)
     process.wait()
 
 

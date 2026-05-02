@@ -178,7 +178,7 @@ def get_default_params():
     ("RecordRoadCam", "0"),  # 循环记录前方路面视频
     ("HDPuse", "0"),  # 使用高精度感知增强 (HDP)
     ("CruiseOnDist", "400"),  # 距离检测开启巡航距离
-    ("UseUsbCamera", "1"),  # 默认使用 C++ 摄像头驱动
+    ("AutoPandaUpdate", "1"),  # 默认开启 Panda 固件自动更新
     ("HotspotOnBoot", "0"),  # 开机自动开启 WiFi 热点
     ("SoftwareMenu", "1"),  # 开启软件菜单显示
     ("CustomSR", "145"),  # 自定义转向比 (14.5)

@@ -310,7 +310,6 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"EnableDisconnectShutdown", PERSISTENT},
     {"DisconnectShutdownDelay", PERSISTENT},
     {"ShowDebugLog", PERSISTENT},
-    {"UseUsbCamera", PERSISTENT},
 
     // carrot custom nav params
     {"AutoTurnDistOffset", PERSISTENT},
