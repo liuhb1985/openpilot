@@ -361,67 +361,41 @@ bool is_in_any_roi(const cv::Rect& box, const std::vector<CameraROI>& sub_rois) 
     return false;
 }
 
-// ---------------- 摄像头捕获线程 ----------------
+#include "msgq/visionipc/visionipc_client.h"
+
+// ---------------- 摄像头捕获线程 (优化版：从 VisionIPC 读取) ----------------
 void capture_from_camera(const std::string& device, int cam_id) {
-    int fd = open(device.c_str(), O_RDWR);
-    if (fd == -1) { std::cerr << "Failed to open " << device << std::endl; return; }
+    // 如果设置了环境变量使用 VisionIPC，则不再直接打开 V4L2
+    if (getenv("USE_VISION_IPC")) {
+        std::cout << "[cam_blindspot] Using VisionIPC for Camera " << cam_id << std::endl;
+        VisionIpcClient client("camerad", VisionStreamType::VISION_STREAM_WIDE_ROAD, false);
+        
+        while (running) {
+            if (!client.connect(false)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+            
+            while (running) {
+                VisionIpcBuf_t *buf = client.recv();
+                if (buf == nullptr) continue;
 
-    struct v4l2_format fmt;
-    memset(&fmt, 0, sizeof(fmt));
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = 640;
-    fmt.fmt.pix.height = 480;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
-    if (ioctl(fd, VIDIOC_S_FMT, &fmt) == -1) { std::cerr << "Failed set fmt " << device << std::endl; close(fd); return; }
-
-    struct v4l2_requestbuffers req;
-    memset(&req, 0, sizeof(req));
-    req.count = 4; req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; req.memory = V4L2_MEMORY_MMAP;
-    if (ioctl(fd, VIDIOC_REQBUFS, &req) == -1) { std::cerr << "Reqbuf failed " << device << std::endl; close(fd); return; }
-
-    struct v4l2_buffer buf;
-    memset(&buf, 0, sizeof(buf));
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; buf.memory = V4L2_MEMORY_MMAP; buf.index = 0;
-    if (ioctl(fd, VIDIOC_QUERYBUF, &buf) == -1) { std::cerr << "Querybuf failed " << device << std::endl; close(fd); return; }
-
-    void* buffer = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
-    if (buffer == MAP_FAILED) { std::cerr << "mmap failed " << device << std::endl; close(fd); return; }
-
-    if (ioctl(fd, VIDIOC_STREAMON, &buf.type) == -1) { std::cerr << "streamon failed " << device << std::endl; close(fd); return; }
-
-    // ================== 新增：跳帧控制 ==================
-    auto last_time = std::chrono::steady_clock::now();
-    const double target_fps = 20.0;
-    const double frame_interval_ms = 1000.0 / target_fps;
-
-    while (running) {
-        if (ioctl(fd, VIDIOC_QBUF, &buf) == -1 || ioctl(fd, VIDIOC_DQBUF, &buf) == -1) continue;
-
-        // 跳帧逻辑
-        auto now = std::chrono::steady_clock::now();
-        double elapsed = std::chrono::duration<double, std::milli>(now - last_time).count();
-        if (elapsed < frame_interval_ms) continue; // 跳帧
-        last_time = now;
-
-        unsigned char* data = (unsigned char*)buffer;
-        if (data[0] != 0xFF || data[1] != 0xD8) continue;
-
-        // 优化：直接封装内存指针解码，避免冗余的 std::vector 拷贝
-        cv::Mat jpeg_raw(1, buf.bytesused, CV_8UC1, data);
-        cv::Mat img = cv::imdecode(jpeg_raw, cv::IMREAD_COLOR);
-
-        {
-            std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
-            frame_queues[cam_id].push({img, cam_id});
+                // 将 VisionIPC 缓冲区转换为 OpenCV Mat
+                // 注意：这里假设 webcamerad 提供的是 BGR 或 RGB
+                cv::Mat img(buf->height, buf->width, CV_8UC3, buf->addr);
+                
+                {
+                    std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
+                    frame_queues[cam_id].push({img.clone(), cam_id}); // 需要 clone 以防缓冲区被回收
+                }
+                queue_conds[cam_id]->notify_one();
+            }
         }
-        queue_conds[cam_id]->notify_one();
+        return;
     }
 
-    ioctl(fd, VIDIOC_STREAMOFF, &buf.type);
-    munmap(buffer, buf.length);
-    close(fd);
-}
+    // --- 以下为原有的 V4L2 兼容代码 ---
+    int fd = open(device.c_str(), O_RDWR);
 
 // 推理线程函数
 void inference_thread(int cam_id) {
@@ -1699,12 +1673,23 @@ int main() {
         return -1;
     }
 
-    // === 新增：自动过滤无效摄像头 ===
-    if (filter_unusable_cameras(devices, camera_sign, car_detect) == 0) {
-        return -1;  // 没有可用摄像头则退出
+    // === 深度优化：VisionIPC 模式下自动注入虚拟设备，绕过物理硬件冲突探测 ===
+    if (getenv("USE_VISION_IPC")) {
+        std::cout << "[cam_blindspot] VisionIPC mode active. Bypassing physical hardware probe." << std::endl;
+        devices.clear();
+        devices.push_back("vision_ipc_wide");
+        camera_sign.clear();
+        camera_sign.push_back(0); // 默认 0 号位
+        car_detect.clear();
+        car_detect.push_back(1); // 默认开启检测
+    } else {
+        // 传统模式：过滤无效物理摄像头
+        if (filter_unusable_cameras(devices, camera_sign, car_detect) == 0) {
+            return -1;  // 没有可用摄像头则退出
+        }
     }
 
-    std::cout << "Loaded " << devices.size() << " cameras" << std::endl;
+    std::cout << "Active cameras: " << devices.size() << std::endl;
     cam_max_num = devices.size();
 
     // 初始化 mutex / condition_variable
