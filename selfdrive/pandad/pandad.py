@@ -21,7 +21,7 @@ def get_expected_signature(panda: Panda) -> bytes:
     cloudlog.exception("Error computing expected signature")
     return b""
 
-def flash_panda(panda_serial: str) -> Panda:
+def flash_panda(panda_serial: str, params: Params) -> Panda:
   try:
     panda = Panda(panda_serial)
   except PandaProtocolMismatch:
@@ -37,9 +37,12 @@ def flash_panda(panda_serial: str) -> Panda:
   cloudlog.warning(f"Panda {panda_serial} connected, version: {panda_version}, signature {panda_signature.hex()[:16]}, expected {fw_signature.hex()[:16]}")
 
   if panda.bootstub or panda_signature != fw_signature:
-    cloudlog.info("Panda firmware out of date, update required")
-    panda.flash()
-    cloudlog.info("Done flashing")
+    if params.get_bool("AutoPandaUpdate"):
+      cloudlog.info("Panda firmware out of date, update required")
+      panda.flash()
+      cloudlog.info("Done flashing")
+    else:
+      cloudlog.info("Panda firmware out of date, but AutoPandaUpdate is disabled. Skipping update.")
 
   if panda.bootstub:
     bootstub_version = panda.get_version()
@@ -118,7 +121,7 @@ def main() -> None:
       # Flash pandas
       pandas: list[Panda] = []
       for serial in panda_serials:
-        pandas.append(flash_panda(serial))
+        pandas.append(flash_panda(serial, params))
 
       # Ensure internal panda is present if expected
       internal_pandas = [panda for panda in pandas if panda.is_internal()]

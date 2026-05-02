@@ -862,6 +862,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   });
 
   startToggles->addItem(selectCarBtn);
+  startToggles->addItem(new CValueControl("AutoPandaUpdate", tr("Panda 固件自动更新"), tr("关闭此选项将跳过启动时的 Panda 固件自动更新。注意：如果协议不匹配，系统仍会尝试强制更新以保证运行。"), 0, 1, 1));
   auto usbCamToggle = new ParamControl("UseUsbCamera", tr("使用 C++ 摄像头驱动"), tr("开启后使用 C++ 编写的摄像头驱动(usbcamerad)，关闭则回退到 Python 版本(webcamerad)。切换后将自动重启以生效。"), "");
   connect(usbCamToggle, &ParamControl::confirmed, [=]() {
     QTimer::singleShot(1000, []() {

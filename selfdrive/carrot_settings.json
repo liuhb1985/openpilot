@@ -1369,6 +1369,19 @@
     },
     {
       "group": "시작",
+      "name": "AutoPandaUpdate",
+      "title": "Panda固件自动更新(ON)",
+      "descr": "关闭此选项将跳过启动时的Panda固件自动更新。\n注意：如果协议不匹配，系统仍会尝试强制更新以保证运行。",
+      "egroup": "START",
+      "etitle": "Auto Panda Update(ON)",
+      "edescr": "Turning this off will skip the automatic Panda firmware update at startup.",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "unit": 1
+    },
+    {
+      "group": "시작",
       "name": "HyundaiCameraSCC",
       "title": "HYUNDAI: CAMERA SCC",
       "descr": "1:롱컨차량\n 2:크루즈 상태 동기화\n 3:순정크루즈(CANFD롱컨배선)",
@@ -1799,7 +1812,7 @@
     {
       "group": "감속제어",
       "name": "AutoNaviSpeedSafetyFactor",
-      "title": "과속카메라 제한속도적용율(105)%",
+      "title": "과속카메라 제한속度적용율(105)%",
       "descr": "과속카메라에서 도로제한속도*설정값으로 감속합니다",
       "egroup": "SPEED",
       "etitle": "NaviSpeedLimitRatio(105)%",
