@@ -951,8 +951,8 @@ void display_loop() {
                 }
 
                 static cv::Mat combined;
-                if (combined.empty() || combined.cols != cols_n * width || combined.rows != rows_n * height) {
-                    combined = cv::Mat::zeros(rows_n * height, cols_n * width, type);
+                if (combined.empty() || combined.cols != cols_n * width || combined.rows != rows_n * (height/2)) {
+                    combined = cv::Mat::zeros(rows_n * (height/2), cols_n * width, type);
                 } else {
                     combined.setTo(cv::Scalar(0, 0, 0));
                 }
@@ -968,14 +968,21 @@ void display_loop() {
                     if (img.channels() == 1) {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
                     }
-                    if (img.cols != width || img.rows != height) {
-                        cv::resize(img, img, cv::Size(width, height));
+
+                    // --- 深度优化：垂直裁剪 (Center Vertical Crop) ---
+                    // 只保留中间 50% 的高度，去除天空和车头盖，大幅减小界面占用面积
+                    int crop_h = img.rows * 0.5;
+                    int start_y = (img.rows - crop_h) / 2;
+                    img = img(cv::Rect(0, start_y, img.cols, crop_h)).clone();
+
+                    if (img.cols != width || img.rows != height/2) {
+                        cv::resize(img, img, cv::Size(width, height/2));
                     }
 
                     // col 决定 x 偏移（左右），row 决定 y 偏移（上下）
                     int col = frame_idx % cols_n;
                     int row = frame_idx / cols_n;
-                    cv::Rect roi(col * width, row * height, width, height);
+                    cv::Rect roi(col * width, row * (height/2), width, height/2);
                     img.copyTo(combined(roi));
                     frame_idx++;
                     has_any_frame = true;

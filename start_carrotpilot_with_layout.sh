@@ -125,13 +125,19 @@ for i in {1..100}; do
     sleep 0.2
 done
 
-# 定义摄像头窗口位置
-CAMERA_WINDOW_HEIGHT=528
-CAMERA_WINDOW_WIDTH=640
+# 定义摄像头窗口位置 (极致优化：超宽窄带模式，减少 70% 遮挡)
+CAMERA_WINDOW_HEIGHT=160
+CAMERA_WINDOW_WIDTH=480
 
-# 定义摄像头窗口预设位置
-CAMERA_1_X=737   # Camera 1的X坐标
-CAMERA_1_Y=1129  # Camera 1的Y坐标
+# 定义摄像头窗口预设位置 (紧贴屏幕底部)
+CAMERA_1_X=50
+CAMERA_1_Y=1350
+
+CAMERA_2_X=1850
+CAMERA_2_Y=1350
+
+CAMERA_0_X=950
+CAMERA_0_Y=1350
 
 CAMERA_2_X=2240  # Camera 2的X坐标
 CAMERA_2_Y=1129  # Camera 2的Y坐标 (与Camera 1相同)
