@@ -161,6 +161,7 @@ def get_default_params():
     ("LatMpcAccelCost", "80"),  # 侧向 MPC 加速度代价系数 (放宽限制以保住弯道)
     ("LatMpcJerkCost", "10"),  # 侧向 MPC Jerk 代价系数
     ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数 (回退至平衡点 800)
+    ("LateralTorqueFilter", "0"),  # 横向扭矩低通滤波 (默认关闭)
     ("LatMpcInputOffset", "4"),  # 侧向 MPC 路径输入偏置
     ("CustomSteerMax", "0"),  # 自定义最大转向扭矩上限
     ("CustomSteerDeltaUp", "0"),  # 自定义最大增扭速率
