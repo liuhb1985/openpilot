@@ -436,7 +436,7 @@ protected:
             data[0] = car_state.getSteeringAngleDeg();
             data[1] = car_control.getActuators().getSteeringAngleDeg();
             data[2] = live_params.getAngleOffsetDeg() * 10.0;
-            sprintf(title, "7.转向角 (黄:实际, 绿:目标, 橙:偏移*10)");
+            sprintf(title, "7.转向角 (Y:Actual, G:Target, O:Offset*10)");
             break;
         case 8:
             data[0] = car_control.getActuators().getCurvature()*10000;

@@ -53,7 +53,7 @@ def get_default_params():
     ("ShowPathColorCruiseOff", "19"),  # 巡航关闭时的路径颜色
     ("ShowPathModeLane", "0"),  # 车道线路径模式
     ("ShowPathColorLane", "13"),  # 车道线路径颜色
-    ("ShowPlotMode", "0"),  # 显示实时波形图
+    ("ShowPlotMode", "7"),  # 默认显示转向角波形图 (Y:Actual, G:Target, O:Offset)
     ("AutoCruiseControl", "1"),  # 自动巡航控制开关
     ("CruiseEcoControl", "0"),  # 巡航节能模式
     ("CarrotCruiseDecel", "-1"),  # Carrot 模式减速量
