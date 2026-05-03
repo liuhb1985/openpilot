@@ -1,7 +1,8 @@
 import os
 from SCons.Script import DefaultEnvironment, Dir
 
-env = DefaultEnvironment()
+Import('env')
+env = env.Clone()
 
 # ---------------- OpenCV 配置 ----------------
 opencv_cflags = os.popen('pkg-config --cflags opencv4').read().strip().split()

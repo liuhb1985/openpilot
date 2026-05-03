@@ -381,12 +381,11 @@ void capture_from_camera(const std::string& device, int cam_id) {
                 if (buf == nullptr) continue;
 
                 // 将 VisionIPC 缓冲区转换为 OpenCV Mat
-                // 注意：这里假设 webcamerad 提供的是 BGR 或 RGB
                 cv::Mat img(buf->height, buf->width, CV_8UC3, buf->addr);
                 
                 {
                     std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
-                    frame_queues[cam_id].push({img.clone(), cam_id}); // 需要 clone 以防缓冲区被回收
+                    frame_queues[cam_id].push({img.clone(), cam_id});
                 }
                 queue_conds[cam_id]->notify_one();
             }
