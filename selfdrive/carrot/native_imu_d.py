@@ -7,6 +7,9 @@ from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
 from openpilot.common.filter_simple import FirstOrderFilter
 
+def main():
+  NativeIMUD().main_loop()
+
 # 物理常数
 G = 9.80665
 

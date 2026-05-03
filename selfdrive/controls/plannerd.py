@@ -36,6 +36,9 @@ def main():
   while True:
     sm.update()
     if sm.updated['modelV2']:
+      v_cruise_kph = min(sm['carState'].vCruise, V_CRUISE_MAX)
+      carrot.update(sm, v_cruise_kph, longitudinal_planner.mpc.mode)
+
       lateral_planner.update(sm, carrot)
       lateral_planner.publish(sm, pm, carrot)
       longitudinal_planner.update(sm, carrot)

@@ -138,11 +138,8 @@ class LongitudinalPlanner:
       accel_coast = ACCEL_MAX
 
     v_ego = sm['carState'].vEgo
-    v_cruise_kph = min(sm['carState'].vCruise, V_CRUISE_MAX)
-
-    self.v_cruise_kph = carrot.update(sm, v_cruise_kph, self.mpc.mode)
     self.mpc.mode = carrot.mode
-    v_cruise = self.v_cruise_kph * CV.KPH_TO_MS
+    v_cruise = carrot.v_cruise
 
     vCluRatio = sm['carState'].vCluRatio
     if vCluRatio > 0.5:
