@@ -427,9 +427,9 @@ class CarState(CarStateBase):
     if "YRS11" in cp.vl:
       ret.yawRate = cp.vl["YRS11"]["CR_Yrs_Yr"] * np.pi / 180.
       raw_lat_accel = cp.vl["YRS11"]["CR_Yrs_LatAc"] * 9.80665
-      ret.lateralAcceleration = self.lat_accel_filter.update(raw_lat_accel)
+      ret.latAccel = self.lat_accel_filter.update(raw_lat_accel)
     if "YRS12" in cp.vl:
-      ret.longitudinalAcceleration = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
+      ret.longAccel = cp.vl["YRS12"]["CR_Yrs_LongAc"] * 9.80665
 
     return ret
 

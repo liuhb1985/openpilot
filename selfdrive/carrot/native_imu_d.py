@@ -127,7 +127,7 @@ class NativeIMUD:
       # 加速度计: 映射后满足 meas = [Long, Lat, Vert]
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
-                               'acceleration': {'v': [-float(G), -float(clean_lat), -float(cs.aEgo)], 'status': 1}}
+                               'acceleration': {'v': [float(cs.aEgo), -float(clean_lat), float(G)], 'status': 1}}
       self.pm.send('accelerometer', accel_msg)
 
       if self.frame % 1000 == 0:
