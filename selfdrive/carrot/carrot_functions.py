@@ -48,6 +48,7 @@ class CarrotPlanner:
     self.params = UnifiedParams()
     self.params_count = 0
     self.frame = 0
+    self.sm = None
 
     self.trafficState = TrafficState.off
     self.xStopFilter = MyMovingAverage(3)
@@ -307,6 +308,7 @@ class CarrotPlanner:
     return v_cruise_kph_apply
 
   def update(self, sm, v_cruise_kph, mode):
+    self.sm = sm
     self._params_update()
     self._update_model_desire(sm)
 

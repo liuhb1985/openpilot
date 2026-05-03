@@ -7,7 +7,7 @@
   "single_window": true,
 
   "dashcam": {
-    "enabled": true,
+    "enabled": false,
     "record_fps": 20,
     "save_dir": "/home/$LOGNAME/data/camera/dashcam_videos",
     "segment_duration": 300,

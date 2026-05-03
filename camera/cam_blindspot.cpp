@@ -377,7 +377,7 @@ void capture_from_camera(const std::string& device, int cam_id) {
             }
             
             while (running) {
-                VisionIpcBuf_t *buf = client.recv();
+                VisionBuf *buf = client.recv();
                 if (buf == nullptr) continue;
 
                 // 将 VisionIPC 缓冲区转换为 OpenCV Mat
@@ -395,9 +395,28 @@ void capture_from_camera(const std::string& device, int cam_id) {
     }
 
     // --- 以下为原有的 V4L2 兼容代码 ---
-    int fd = open(device.c_str(), O_RDWR);
+    cv::VideoCapture cap(device, cv::CAP_V4L2);
+    if (!cap.isOpened()) {
+        std::cerr << "[cam_blindspot] Error: Could not open camera " << device << std::endl;
+        return;
+    }
 
-// 推理线程函数
+    while (running) {
+        cv::Mat frame;
+        cap >> frame;
+        if (frame.empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
+            frame_queues[cam_id].push({frame.clone(), cam_id});
+        }
+        queue_conds[cam_id]->notify_one();
+    }
+}
+
 void inference_thread(int cam_id) {
     while (running) {
         FrameData data;
