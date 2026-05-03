@@ -9,7 +9,7 @@
   "dashcam": {
     "enabled": false,
     "record_fps": 20,
-    "save_dir": "/home/$LOGNAME/data/camera/dashcam_videos",
+    "save_dir": "/data/dashcam_videos",
     "segment_duration": 300,
     "codec": "MJPG",
     "max_disk_usage_gb": 50

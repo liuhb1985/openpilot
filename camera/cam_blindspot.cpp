@@ -560,9 +560,17 @@ std::mutex roi_file_mutex;
 
 // ================== 行车记录仪功能 ==================
 
-// 替换路径中的环境变量（如 $LOGNAME）
+// 替换路径中的环境变量（如 $LOGNAME）和波浪号（~）
 std::string expand_env_vars(const std::string& path) {
     std::string result = path;
+    // 1. 处理波浪号 ~
+    if (!result.empty() && result[0] == '~') {
+        char* home = getenv("HOME");
+        if (home) {
+            result.replace(0, 1, home);
+        }
+    }
+    // 2. 处理 $ 变量
     size_t pos = 0;
     while ((pos = result.find("$", pos)) != std::string::npos) {
         size_t end = result.find_first_of("/\\", pos + 1);
@@ -581,16 +589,25 @@ std::string expand_env_vars(const std::string& path) {
     return result;
 }
 
-// 创建目录（递归）
+// 创建目录（递归，类似 mkdir -p）
 bool create_directory(const std::string& path) {
     std::string expanded_path = expand_env_vars(path);
-    struct stat info;
-    if (stat(expanded_path.c_str(), &info) == 0) {
-        if (info.st_mode & S_IFDIR) {
-            return true;
+    if (expanded_path.empty()) return false;
+
+    char tmp[1024];
+    snprintf(tmp, sizeof(tmp), "%s", expanded_path.c_str());
+    size_t len = strlen(tmp);
+    if (tmp[len - 1] == '/') tmp[len - 1] = 0;
+
+    // 逐级创建
+    for (char *p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            mkdir(tmp, 0755);
+            *p = '/';
         }
     }
-    return mkdir(expanded_path.c_str(), 0755) == 0 || errno == EEXIST;
+    return mkdir(tmp, 0755) == 0 || errno == EEXIST;
 }
 
 // 生成视频文件名：cam0_20240218_143025.mp4
