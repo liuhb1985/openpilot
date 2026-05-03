@@ -118,16 +118,16 @@ class NativeIMUD:
       # 5. 发布经过物理映射的传感器数据
       now_ns = time.monotonic_ns()
       
-      # 陀螺仪: 映射后 meas[2] 为 YawRate
+      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = yaw
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
                            'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
       self.pm.send('gyroscope', gyro_msg)
 
-      # 加速度计: 映射后满足 meas = [Long, Lat, Vert]
+      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = lat
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
-                               'acceleration': {'v': [float(cs.aEgo), -float(clean_lat), float(G)], 'status': 1}}
+                               'acceleration': {'v': [0.0, float(clean_lat), -float(cs.aEgo)], 'status': 1}}
       self.pm.send('accelerometer', accel_msg)
 
       if self.frame % 1000 == 0:
