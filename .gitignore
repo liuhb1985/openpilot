@@ -41,6 +41,17 @@ config.json
 clcache
 compile_commands.json
 compare_runtime*.html
+__pycache__/
+.sconf_temp/
+config.log
+
+# Compiled Binaries
+camera/c3cam
+camera/cam_blindspot
+system/sensord/sensord
+system/sensord/sensord_jy62
+system/ubloxd/ubloxd
+tools/webcam/camerad
 
 persist
 selfdrive/pandad/pandad
