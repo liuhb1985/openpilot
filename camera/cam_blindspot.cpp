@@ -1041,6 +1041,8 @@ void display_loop() {
                 if (display_tick++ % 100 == 0) {
                     std::cout << "[cam_blindspot] Display heartbeat, active images: " << shared_images.size() << std::endl;
                 }
+
+                for (int i = 0; i < (int)shared_images.size(); ++i) {
                     if (shared_images[i].empty() || shared_images[i].cols < 10 || shared_images[i].rows < 10) continue;
                     
                     std::string window_name = "Camera " + std::to_string(i);
@@ -1052,7 +1054,7 @@ void display_loop() {
 
                     // 为每个摄像头创建ROI区域数据（用于多窗口模式切换编辑）
                     static std::vector<std::array<int, 2>> cam_roi_ids;
-                    if(cam_roi_ids.size() <= i) cam_roi_ids.resize(i + 1);
+                    if(cam_roi_ids.size() <= (size_t)i) cam_roi_ids.resize(i + 1);
 
                     // 存储当前摄像头的ID和当前编辑的ROI索引
                     cam_roi_ids[i][0] = i;  // cam_id
