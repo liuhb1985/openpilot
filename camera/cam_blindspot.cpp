@@ -377,8 +377,13 @@ void capture_from_camera(const std::string& device, int cam_id) {
             }
             
             while (running) {
-                VisionBuf *buf = client.recv();
-                if (buf == nullptr) continue;
+            VisionBuf *buf = client.recv();
+            if (buf == nullptr) continue;
+
+            static int frame_cnt = 0;
+            if (frame_cnt++ % 100 == 0) {
+                std::cout << "[cam_blindspot] Received VisionIPC frame: " << buf->width << "x" << buf->height << std::endl;
+            }
 
                 // 将 VisionIPC 缓冲区转换为 OpenCV Mat
                 cv::Mat img(buf->height, buf->width, CV_8UC3, buf->addr);
@@ -1032,10 +1037,18 @@ void display_loop() {
                 }
             }
             else {
-                for (int i = 0; i < shared_images.size(); ++i) {
-                    if (shared_images[i].empty()) continue;
+                static int display_tick = 0;
+                if (display_tick++ % 100 == 0) {
+                    std::cout << "[cam_blindspot] Display heartbeat, active images: " << shared_images.size() << std::endl;
+                }
+                    if (shared_images[i].empty() || shared_images[i].cols < 10 || shared_images[i].rows < 10) continue;
+                    
                     std::string window_name = "Camera " + std::to_string(i);
-                    cv::imshow(window_name, shared_images[i]);
+                    try {
+                        cv::imshow(window_name, shared_images[i]);
+                    } catch (const cv::Exception& e) {
+                        std::cerr << "[ERROR] imshow failed for " << window_name << ": " << e.what() << std::endl;
+                    }
 
                     // 为每个摄像头创建ROI区域数据（用于多窗口模式切换编辑）
                     static std::vector<std::array<int, 2>> cam_roi_ids;
