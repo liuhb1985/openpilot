@@ -63,7 +63,7 @@ std::vector<std::unique_ptr<std::mutex>> queue_mutexes(MAX_CAM);
 std::vector<std::unique_ptr<std::condition_variable>> queue_conds(MAX_CAM);
 
 // 配置端口
-const int LOCAL_SEND_PORT = 4120;
+// const int LOCAL_SEND_PORT = 4120;
 const int LOCAL_RECV_PORT = 4210;
 const int REMOTE_PORT = 4211;
 
