@@ -126,6 +126,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
 
     // carrot
     {"LongitudinalPersonalityMax", PERSISTENT},
+    {"LatMpcSteerRatio", PERSISTENT},
     {"NetworkAddress", CLEAR_ON_MANAGER_START},
 
     {"ApiCache_NavDestinations", PERSISTENT},

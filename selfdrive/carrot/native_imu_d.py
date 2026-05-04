@@ -38,7 +38,11 @@ class NativeIMUD:
     self.last_yaw = 0.0
     
     # 转向比学习状态
-    sr = self.params.get_float("LatMpcSteerRatio") if self.params.get("LatMpcSteerRatio") else 15.0
+    try:
+      sr_val = self.params.get("LatMpcSteerRatio")
+      sr = float(sr_val) if sr_val else 15.0
+    except:
+      sr = 15.0
     self.learned_steer_ratio = max(13.0, min(20.0, sr))
     self.rls_P = 1.0
     

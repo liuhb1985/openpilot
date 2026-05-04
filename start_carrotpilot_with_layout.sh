@@ -47,7 +47,7 @@ ROAD_PATH=$(ls /dev/v4l/by-path/*usb*-0:2.3:1.0-video-index0 2>/dev/null | head 
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
-    export ROAD_CAM=$(basename "$ROAD_PATH")
+    export ROAD_CAM=$ROAD_CAM_IDX
     echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
 else
     export ROAD_CAM=2
@@ -105,8 +105,8 @@ export USE_VISION_IPC=1
 
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
-# 现在 WIDE_CAM 已设置，webcamerad 将同时打开长焦和广角头，喂给 modeld
-SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_CAM_IDX WIDE_CAM=$WIDE_CAM NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+# 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
+SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 
 MANAGER_PID=$!
 
