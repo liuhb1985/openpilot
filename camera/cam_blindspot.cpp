@@ -613,8 +613,6 @@ bool create_directory(const std::string& path) {
 std::string generate_video_filename(int cam_id) {
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()) % 1000;
 
     std::string expanded_dir = expand_env_vars(dashcam_config.save_dir);
     std::stringstream ss;
@@ -1602,9 +1600,9 @@ void udp_comm_thread(UDPComm &comm) {
 */
 
 // === 新增：检测摄像头可用性，并移除无效项 ===
-int filter_unusable_cameras(std::vector<std::string> &devices,
-                            std::vector<int> &camera_sign,
-                            std::vector<int> &car_detect) {
+int filter_unusable_cameras(std::vector<std::string> &f_devices,
+                            std::vector<int> &f_camera_sign,
+                            std::vector<int> &f_car_detect) {
     auto probe_device = [&](const std::string &dev)->bool {
         // 1. v4l2 ioctl 查询（最快最可靠）
         int fd = open(dev.c_str(), O_RDWR | O_NONBLOCK);
@@ -1638,9 +1636,9 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
     while (true) {
         bool all_ok = true;
 
-        for (size_t i = 0; i < devices.size(); i++) {
-            bool ok = probe_device(devices[i]);
-            std::cout << "[CHECK] Camera " << devices[i]
+        for (size_t i = 0; i < f_devices.size(); i++) {
+            bool ok = probe_device(f_devices[i]);
+            std::cout << "[CHECK] Camera " << f_devices[i]
                       << " => " << (ok ? "OK" : "FAIL") << std::endl;
             if (!ok) all_ok = false;
         }
@@ -1663,19 +1661,23 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
     // ---------------------------------------------------
     // 最终删除检测失败的摄像头
     // ---------------------------------------------------
-    int removed = 0;
-    for (size_t i = 0; i < devices.size();) {
-        if (!probe_device(devices[i])) {
+    int removed_count = 0;
+    for (size_t i = 0; i < f_devices.size();) {
+        if (!probe_device(f_devices[i])) {
             std::cerr << "[WARN] Camera not available after timeout: "
-                      << devices[i] << " — removing\n";
+                      << f_devices[i] << " — removing\n";
 
-            devices.erase(devices.begin() + i);
-            if (i < camera_sign.size()) camera_sign.erase(camera_sign.begin() + i);
-            if (i < car_detect.size()) car_detect.erase(car_detect.begin() + i);
-            removed++;
+            f_devices.erase(f_devices.begin() + i);
+            if (i < f_camera_sign.size()) f_camera_sign.erase(f_camera_sign.begin() + i);
+            if (i < f_car_detect.size()) f_car_detect.erase(f_car_detect.begin() + i);
+            removed_count++;
         } else {
             i++;
         }
+    }
+
+    if (removed_count > 0) {
+        std::cout << "[INFO] Removed " << removed_count << " unusable cameras." << std::endl;
     }
 
     if (devices.empty()) {
