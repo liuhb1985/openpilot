@@ -1051,21 +1051,34 @@ void display_loop() {
                 for (int i = 0; i < (int)shared_images.size(); ++i) {
                     if (shared_images[i].empty() || shared_images[i].cols < 10 || shared_images[i].rows < 10) continue;
                     
+                    cv::Mat img = shared_images[i].clone(); // 克隆一份用于显示处理
+                    if (img.channels() == 1) {
+                        cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
+                    }
+
+                    // --- 极致优化：垂直裁剪 (与单窗口模式逻辑对齐) ---
+                    // 只保留中间 50% 的高度，去除天空和车头盖
+                    int crop_h = img.rows * 0.5;
+                    int start_y = (img.rows - crop_h) / 2;
+                    img = img(cv::Rect(0, start_y, img.cols, crop_h));
+
+                    // 缩放到合理的大小（例如宽 640，高按比例）
+                    int target_w = 640;
+                    int target_h = (target_w * img.rows) / img.cols;
+                    cv::resize(img, img, cv::Size(target_w, target_h));
+
                     std::string window_name = "Camera " + std::to_string(i);
                     try {
-                        cv::imshow(window_name, shared_images[i]);
+                        cv::imshow(window_name, img);
                     } catch (const cv::Exception& e) {
                         std::cerr << "[ERROR] imshow failed for " << window_name << ": " << e.what() << std::endl;
                     }
 
-                    // 为每个摄像头创建ROI区域数据（用于多窗口模式切换编辑）
+                    // 为每个摄像头注册鼠标回调
                     static std::vector<std::array<int, 2>> cam_roi_ids;
                     if(cam_roi_ids.size() <= (size_t)i) cam_roi_ids.resize(i + 1);
-
-                    // 存储当前摄像头的ID和当前编辑的ROI索引
-                    cam_roi_ids[i][0] = i;  // cam_id
-                    cam_roi_ids[i][1] = (g_current_cam_id == i) ? g_current_roi_idx : 0;  // roi_idx
-
+                    cam_roi_ids[i][0] = i; 
+                    cam_roi_ids[i][1] = (g_current_cam_id == i) ? g_current_roi_idx : 0; 
                     cv::setMouseCallback(window_name, mouse_callback, cam_roi_ids[i].data());
                 }
             }
