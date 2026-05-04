@@ -167,11 +167,19 @@ position_camera_window 1 $CAMERA_1_X $CAMERA_1_Y
 position_camera_window 2 $CAMERA_2_X $CAMERA_2_Y
 position_camera_window 0 $CAMERA_0_X $CAMERA_0_Y
 
-# 最后将UI窗口保持在最前面
+# 最后将UI窗口保持在最前面，然后将摄像头窗口置于最前
 sleep 2
 if wmctrl -l | grep -q "ui"; then
     wmctrl -a "ui"
 fi
+
+# 确保摄像头窗口始终置顶 (Always on Top)
+for i in 0 1 2; do
+    if wmctrl -l | grep -q "Camera $i"; then
+        wmctrl -r "Camera $i" -b add,above
+        wmctrl -a "Camera $i"
+    fi
+done
 
 # 等待所有后台进程结束
 wait
