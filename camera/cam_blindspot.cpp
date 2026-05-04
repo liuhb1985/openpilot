@@ -377,22 +377,28 @@ void capture_from_camera(const std::string& device, int cam_id) {
             }
             
             while (running) {
-            VisionBuf *buf = client.recv();
-            if (buf == nullptr) continue;
+                VisionBuf *buf = client.recv();
+                if (buf == nullptr) continue;
 
-            static int frame_cnt = 0;
-            if (frame_cnt++ % 100 == 0) {
-                std::cout << "[cam_blindspot] Received VisionIPC frame: " << buf->width << "x" << buf->height << std::endl;
-            }
+                static int frame_cnt = 0;
+                if (frame_cnt++ % 100 == 0) {
+                    std::cout << "[cam_blindspot] Received VisionIPC frame: " << buf->width << "x" << buf->height << " len=" << buf->len << std::endl;
+                }
 
-                // 将 VisionIPC 缓冲区转换为 OpenCV Mat
-                cv::Mat img(buf->height, buf->width, CV_8UC3, buf->addr);
-                
-                {
+                // [重要] 将 YUV420 转换为 BGR，防止内存越界导致崩溃
+                cv::Mat img;
+                if (buf->len >= buf->width * buf->height * 3 / 2) {
+                    cv::Mat yuv(buf->height * 3 / 2, buf->width, CV_8UC1, buf->addr);
+                    cv::cvtColor(yuv, img, cv::COLOR_YUV2BGR_NV12);
+                } else {
+                    continue;
+                }
+
+                if (!img.empty()) {
                     std::lock_guard<std::mutex> lock(*queue_mutexes[cam_id]);
                     frame_queues[cam_id].push({img.clone(), cam_id});
+                    queue_conds[cam_id]->notify_one();
                 }
-                queue_conds[cam_id]->notify_one();
             }
         }
         return;
