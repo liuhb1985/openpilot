@@ -98,7 +98,7 @@ class NativeIMUD:
       # 1. 信号平滑处理 (自适应响应)
       # 高速时降低平滑(T=0.03)，增加灵敏度；低速时增加平滑(T=0.1)
       yaw_t = np.interp(v_ego, [0.0, 20.0], [0.1, 0.03])
-      self.yaw_filter.update_alpha(yaw_t, self.dt)
+      self.yaw_filter.update_alpha(yaw_t)
       
       clean_yaw = self.yaw_filter.update(cs.yawRate - self.yaw_bias)
       clean_lat = self.accel_filter.update(cs.latAccel - self.lat_bias)
