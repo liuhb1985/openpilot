@@ -51,7 +51,7 @@ class NativeIMUD:
     self.fast_lambda = 0.995
 
   def update_calibration(self, cs):
-    # 只有在车速接近0且方向盘无输入时校准
+    # 1. 静态校准 (车速接近0且方向盘无输入)
     if cs.vEgo < 0.01 and not cs.steeringPressed:
       self.bias_count += 1
       # 增加动态收敛速率
@@ -59,6 +59,11 @@ class NativeIMUD:
       self.yaw_bias = (1 - alpha) * self.yaw_bias + alpha * cs.yawRate
       self.lat_bias = (1 - alpha) * self.lat_bias + alpha * cs.latAccel
       if self.bias_count > 500: self.bias_stabled = True
+    
+    # 2. 动态行驶校准 (高速直行时自动修正 Bias)
+    elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 1.0:
+      # 以极低速率吸收残余偏差 (0.001 的学习率约等于 10秒收敛)
+      self.yaw_bias = 0.9995 * self.yaw_bias + 0.0005 * cs.yawRate
 
   def learn_steer_ratio(self, v_ego, steer_angle_rad, clean_yaw):
     wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
