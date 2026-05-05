@@ -25,8 +25,8 @@ class NativeIMUD:
     self.frame = 0
     
     # 传感器偏置校准
-    self.yaw_bias = 0.0
-    self.lat_bias = 0.0
+    self.yaw_bias = None
+    self.lat_bias = None
     self.bias_count = 0
     self.bias_stabled = False
     
@@ -51,6 +51,10 @@ class NativeIMUD:
     self.fast_lambda = 0.995
 
   def update_calibration(self, cs):
+    # 初始化偏置 (防止从0开始爬升导致的巨大初值误差)
+    if self.yaw_bias is None: self.yaw_bias = cs.yawRate
+    if self.lat_bias is None: self.lat_bias = cs.latAccel
+
     # 1. 静态校准 (车速接近0且方向盘无输入)
     if cs.vEgo < 0.01 and not cs.steeringPressed:
       self.bias_count += 1
@@ -127,7 +131,7 @@ class NativeIMUD:
       yaw_accel_raw = (yaw_fusion - self.last_yaw) * self.freq
       yaw_accel = self.yaw_accel_filter.update(yaw_accel_raw)
       self.last_yaw = yaw_fusion
-      yaw_final = yaw_fusion + yaw_accel * 0.04
+      yaw_final = np.clip(yaw_fusion + yaw_accel * 0.04, -2.0, 2.0)
       
       # 5. 发布经过物理映射的传感器数据
       now_ns = time.monotonic_ns()

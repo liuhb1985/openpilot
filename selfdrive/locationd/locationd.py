@@ -134,6 +134,13 @@ class LocationEstimator:
       meas = np.array([-v[2], -v[1], -v[0]])
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
+      
+      # 增加硬重置逻辑：如果偏置超过 1.0 rad/s (57度/秒)，判定滤波器已崩溃，强制重置
+      if np.abs(gyro_bias[2]) > 1.0:
+        # print(f"[IMU_FATAL] Gyro bias too large ({gyro_bias[2]:.4f}), resetting KF...")
+        self.reset(t)
+        return HandleLogResult.INPUT_INVALID
+
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
       gyro_camodo_yawrate_err_threshold = max(0.2, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
       gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
