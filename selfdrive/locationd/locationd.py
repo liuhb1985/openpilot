@@ -23,8 +23,8 @@ CALIB_RPY_SANITY_CHECK = 0.5  # rad (+- 30 deg)
 MIN_STD_SANITY_CHECK = 1e-5  # m or rad
 MAX_FILTER_REWIND_TIME = 0.8  # s
 MAX_SENSOR_TIME_DIFF = 0.1  # s
-YAWRATE_CROSS_ERR_CHECK_FACTOR = 100
-INPUT_INVALID_LIMIT = 5.0 # 1 (camodo) / 9 (sensor) bad input[s] ignored
+YAWRATE_CROSS_ERR_CHECK_FACTOR = 10
+INPUT_INVALID_LIMIT = 2.0 # 1 (camodo) / 9 (sensor) bad input[s] ignored
 INPUT_INVALID_RECOVERY = 10.0 # ~10 secs to resume after exceeding allowed bad inputs by one
 POSENET_STD_INITIAL_VALUE = 10.0
 POSENET_STD_HIST_HALF = 20
@@ -136,12 +136,7 @@ class LocationEstimator:
       gyro_bias = self.kf.x[States.GYRO_BIAS]
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
       gyro_camodo_yawrate_err_threshold = max(0.05, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
-      
-      # 调试日志：每 100 帧打印一次详细数据
-      if self.frame % 100 == 0:
-        print(f"[IMU_DEBUG] err: {gyro_camodo_yawrate_err:.4f}, thresh: {gyro_camodo_yawrate_err_threshold:.4f}, meas_z: {meas[2]:.4f}, bias_z: {gyro_bias[2]:.4f}, cam_yaw: {self.camodo_yawrate_distribution[0]:.4f}, norm: {np.linalg.norm(meas):.4f}")
-
-      gyro_valid = True # 调试期间强制设为 True
+      gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
 
       if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:
         return HandleLogResult.INPUT_INVALID
