@@ -62,8 +62,8 @@ class NativeIMUD:
     
     # 2. 动态行驶校准 (高速直行时自动修正 Bias)
     elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 1.0:
-      # 以极低速率吸收残余偏差 (0.001 的学习率约等于 10秒收敛)
-      self.yaw_bias = 0.9995 * self.yaw_bias + 0.0005 * cs.yawRate
+      # 提升学习率到 0.005，确保 5秒内完成对齐 (针对 PC 模拟器加速)
+      self.yaw_bias = 0.995 * self.yaw_bias + 0.005 * cs.yawRate
 
   def learn_steer_ratio(self, v_ego, steer_angle_rad, clean_yaw):
     wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
