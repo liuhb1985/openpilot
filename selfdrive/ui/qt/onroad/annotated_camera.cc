@@ -171,10 +171,8 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam) {
       const auto &car_state = sm["carState"].getCarState();
-      const auto &radar_state = sm["radarState"].getRadarState();
       float v_ego = car_state.getVEgo();
       float steer_angle = std::abs(car_state.getSteeringAngleDeg());
-      bool lead_near = radar_state.getLeadOne().getStatus() && radar_state.getLeadOne().getDRel() < 10.0;
       
       // 触发条件：仅在低速大弯 (>60deg) 时切换广角
       bool wide_trigger = (v_ego < 11.1 && steer_angle > 60.0);
