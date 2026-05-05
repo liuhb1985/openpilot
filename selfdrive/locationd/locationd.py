@@ -62,6 +62,7 @@ class LocationEstimator:
     obs_kinds = [ObservationKind.PHONE_ACCEL, ObservationKind.PHONE_GYRO, ObservationKind.CAMERA_ODO_ROTATION, ObservationKind.CAMERA_ODO_TRANSLATION]
     self.observations = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
     self.observation_errors = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
+    self.frame = 0
 
   def reset(self, t: float, x_initial: np.ndarray = PoseKalman.initial_x, P_initial: np.ndarray = PoseKalman.initial_P):
     self.kf.init_state(x_initial, covs=P_initial, filter_time=t)
@@ -95,6 +96,7 @@ class LocationEstimator:
       self.reset(t)
 
   def handle_log(self, t: float, which: str, msg: capnp._DynamicStructReader) -> HandleLogResult:
+    self.frame += 1
     new_x, new_P = None, None
     if which == "accelerometer" and msg.which() == "acceleration":
       sensor_time = msg.timestamp * 1e-9
