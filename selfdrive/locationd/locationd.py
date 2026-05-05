@@ -137,6 +137,9 @@ class LocationEstimator:
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
       gyro_camodo_yawrate_err_threshold = max(0.2, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
       gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
+      
+      if self.frame % 50 == 0:
+        print(f"[IMU_DEBUG] err: {gyro_camodo_yawrate_err:.4f}, thresh: {gyro_camodo_yawrate_err_threshold:.4f}, meas_z: {meas[2]:.4f}, bias_z: {gyro_bias[2]:.4f}, cam_yaw: {self.camodo_yawrate_distribution[0]:.4f}")
 
       if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:
         return HandleLogResult.INPUT_INVALID

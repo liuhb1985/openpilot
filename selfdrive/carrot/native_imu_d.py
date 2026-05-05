@@ -61,9 +61,11 @@ class NativeIMUD:
       if self.bias_count > 500: self.bias_stabled = True
     
     # 2. 动态行驶校准 (高速直行时自动修正 Bias)
-    elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 1.0:
+    elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 5.0:
       # 提升学习率到 0.005，确保 5秒内完成对齐 (针对 PC 模拟器加速)
       self.yaw_bias = 0.995 * self.yaw_bias + 0.005 * cs.yawRate
+      if self.frame % 100 == 0:
+        print(f"[IMU_CALIB] Adjusting Bias: {self.yaw_bias:.5f}, RawYaw: {cs.yawRate:.5f}")
 
   def learn_steer_ratio(self, v_ego, steer_angle_rad, clean_yaw):
     wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
