@@ -966,8 +966,9 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
-                int width = shared_images[valid_index].cols;
-                int height = shared_images[valid_index].rows;
+                // 强制回归到 2.2 版本的 640x480 显示标准，确保 ROI 对齐
+                int width = 640;
+                int height = 480;
                 int type = shared_images[valid_index].channels() == 1 ? CV_8UC3 : shared_images[valid_index].type();
 
                 // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
@@ -1051,9 +1052,10 @@ void display_loop() {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
                     }
 
-                    // 移除裁剪和强制缩放，保持原始比例
-                    // int crop_h = img.rows * 0.5;
-                    // ...
+                    // 统一缩放到 640x480，确保多窗口模式也与 2.2 版本一致
+                    if (img.cols != 640 || img.rows != 480) {
+                        cv::resize(img, img, cv::Size(640, 480));
+                    }
 
                     std::string window_name = "Camera " + std::to_string(i);
                     try {
