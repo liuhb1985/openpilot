@@ -1033,6 +1033,13 @@ void display_loop() {
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
+                    // 核心修复：强制窗口容器收缩到与图像一致，解决“图像距离窗口2侧有白边”的问题
+                    static bool window_init = false;
+                    if (!window_init) {
+                        cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
+                        window_init = true;
+                    }
+                    cv::resizeWindow("All Cameras", combined.cols, combined.rows);
                     cv::imshow("All Cameras", combined);
 
                     // 为单窗口模式注册鼠标回调
