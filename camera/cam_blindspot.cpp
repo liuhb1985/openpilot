@@ -439,9 +439,9 @@ void inference_thread(int cam_id) {
         }
 
         cv::Mat img;
-        // 核心修复：在所有逻辑开始前，强制将原始帧(1080P)缩放到 ROI 标准坐标系(640x480)
+        // 核心修复：强制缩放到 640x360 比例
         if (!data.frame.empty()) {
-            cv::resize(data.frame, img, cv::Size(640, 480));
+            cv::resize(data.frame, img, cv::Size(640, 360));
         } else {
             img = data.frame;
         }
@@ -972,9 +972,9 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
-                // 强制回归到 2.2 版本的 640x480 显示标准，确保 ROI 对齐
+                // 适配 16:9 比例，消除两侧白边，同时保持 640 宽度以对齐 ROI
                 int width = 640;
-                int height = 480;
+                int height = 360;
                 int type = shared_images[valid_index].channels() == 1 ? CV_8UC3 : shared_images[valid_index].type();
 
                 // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
@@ -1035,6 +1035,11 @@ void display_loop() {
                 }
 
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
+                    static bool window_init = false;
+                    if (!window_init) {
+                        cv::namedWindow("All Cameras", cv::WINDOW_AUTOSIZE);
+                        window_init = true;
+                    }
                     cv::imshow("All Cameras", combined);
 
                     // 为单窗口模式注册鼠标回调
@@ -1058,9 +1063,9 @@ void display_loop() {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
                     }
 
-                    // 统一缩放到 640x480，确保多窗口模式也与 2.2 版本一致
-                    if (img.cols != 640 || img.rows != 480) {
-                        cv::resize(img, img, cv::Size(640, 480));
+                    // 统一缩放到 640x360，消除白边
+                    if (img.cols != 640 || img.rows != 360) {
+                        cv::resize(img, img, cv::Size(640, 360));
                     }
 
                     std::string window_name = "Camera " + std::to_string(i);
