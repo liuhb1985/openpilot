@@ -438,7 +438,13 @@ void inference_thread(int cam_id) {
             while (!frame_queues[cam_id].empty()) frame_queues[cam_id].pop();
         }
 
-        cv::Mat img = data.frame;
+        cv::Mat img;
+        // 核心修复：在所有逻辑开始前，强制将原始帧(1080P)缩放到 ROI 标准坐标系(640x480)
+        if (!data.frame.empty()) {
+            cv::resize(data.frame, img, cv::Size(640, 480));
+        } else {
+            img = data.frame;
+        }
 
         // 空帧防护
         if (img.empty() || img.cols < 10 || img.rows < 10) {
