@@ -1037,6 +1037,8 @@ void display_loop() {
                     static bool window_init = false;
                     if (!window_init) {
                         cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
+                        // 将窗口移动到屏幕左下角 (0, 600)，避免遮挡中央和上方视野
+                        cv::moveWindow("All Cameras", 0, 600);
                         window_init = true;
                     }
                     cv::resizeWindow("All Cameras", combined.cols, combined.rows);
