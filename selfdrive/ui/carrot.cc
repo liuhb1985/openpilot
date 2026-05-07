@@ -1611,13 +1611,14 @@ public:
             nvgFill(s->vg);
             if(show_lane_info >= 1)
             {
+                // 左侧箭头：向左指 (尖端在左)
                 nvgBeginPath(s->vg);
                 nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
                         arrow_body_length, arrow_body_width);
                 nvgFillColor(s->vg, red_arrow_color);
                 nvgFill(s->vg);
                 nvgBeginPath(s->vg);
-                nvgMoveTo(s->vg, cx - total_arrow_length/2, cy);
+                nvgMoveTo(s->vg, cx - total_arrow_length/2, cy); 
                 nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_head_width/2);
                 nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy + arrow_head_width/2);
                 nvgClosePath(s->vg);
@@ -1674,13 +1675,14 @@ public:
             nvgFill(s->vg);
             if(show_lane_info >= 1)
             {
+                // 左侧箭头：改为向左指
                 nvgBeginPath(s->vg);
                 nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
                         arrow_body_length, arrow_body_width);
                 nvgFillColor(s->vg, red_arrow_color);
                 nvgFill(s->vg);
                 nvgBeginPath(s->vg);
-                nvgMoveTo(s->vg, cx - total_arrow_length/2, cy);
+                nvgMoveTo(s->vg, cx - total_arrow_length/2, cy); // 尖端在最左侧
                 nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_head_width/2);
                 nvgLineTo(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy + arrow_head_width/2);
                 nvgClosePath(s->vg);
@@ -1705,15 +1707,22 @@ public:
             nvgFill(s->vg);
             if(show_lane_info >= 1)
             {
+                // 右侧红色箭头：强制向右指 (尖端在右)
+                float tip_x = cx + total_arrow_length/2;
+                float base_x = tip_x - arrow_head_length;
+                
+                // 画箭柄
                 nvgBeginPath(s->vg);
-                nvgRect(s->vg, cx - total_arrow_length/2, cy - arrow_body_width/2,
+                nvgRect(s->vg, base_x - arrow_body_length, cy - arrow_body_width/2,
                         arrow_body_length, arrow_body_width);
                 nvgFillColor(s->vg, red_arrow_color);
                 nvgFill(s->vg);
+                
+                // 画箭尖
                 nvgBeginPath(s->vg);
-                nvgMoveTo(s->vg, cx + total_arrow_length/2, cy);
-                nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy - arrow_head_width/2);
-                nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy + arrow_head_width/2);
+                nvgMoveTo(s->vg, tip_x, cy); 
+                nvgLineTo(s->vg, base_x, cy - arrow_head_width/2);
+                nvgLineTo(s->vg, base_x, cy + arrow_head_width/2);
                 nvgClosePath(s->vg);
                 nvgFillColor(s->vg, red_arrow_color);
                 nvgFill(s->vg);
@@ -1737,6 +1746,7 @@ public:
             nvgFill(s->vg);
             if(show_lane_info >= 1)
             {
+                // 左侧黄色箭头：向左指
                 nvgBeginPath(s->vg);
                 nvgRect(s->vg, cx - total_arrow_length/2 + arrow_head_length, cy - arrow_body_width/2,
                         arrow_body_length, arrow_body_width);
@@ -1762,15 +1772,22 @@ public:
             nvgFill(s->vg);
             if(show_lane_info >= 1)
             {
+                // 右侧黄色箭头：强制向右指 (尖端在右)
+                float tip_x = cx + total_arrow_length/2;
+                float base_x = tip_x - arrow_head_length;
+
+                // 画箭柄
                 nvgBeginPath(s->vg);
-                nvgRect(s->vg, cx - total_arrow_length/2, cy - arrow_body_width/2,
+                nvgRect(s->vg, base_x - arrow_body_length, cy - arrow_body_width/2,
                         arrow_body_length, arrow_body_width);
                 nvgFillColor(s->vg, yellow_arrow_color);
                 nvgFill(s->vg);
+
+                // 画箭尖
                 nvgBeginPath(s->vg);
-                nvgMoveTo(s->vg, cx + total_arrow_length/2, cy);
-                nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy - arrow_head_width/2);
-                nvgLineTo(s->vg, cx + total_arrow_length/2 - arrow_head_length, cy + arrow_head_width/2);
+                nvgMoveTo(s->vg, tip_x, cy);
+                nvgLineTo(s->vg, base_x, cy - arrow_head_width/2);
+                nvgLineTo(s->vg, base_x, cy + arrow_head_width/2);
                 nvgClosePath(s->vg);
                 nvgFillColor(s->vg, yellow_arrow_color);
                 nvgFill(s->vg);
