@@ -216,12 +216,12 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   }
   painter.endNativePainting();
 
-  // --- 新增：在主界面绘制 IMU 调试信息 ---
-  {
+  // --- 新增：在主界面绘制 IMU 调试信息 (仅当 ShowPlotMode == 7 时显示) ---
+  if (s->scene.show_plot_mode == 7) {
     const int x = 60;
-    int y = 300; // 起始高度，避开顶部状态栏
+    int y = 300; // 起始高度
     painter.setFont(InterFont(35, QFont::Bold));
-    painter.setPen(QColor(0, 255, 0, 200)); // 亮绿色
+    painter.setPen(Qt::white); // 改为白色
 
     if (sm.alive("gyroscope")) {
       float yaw_rate = -sm["gyroscope"].getGyroscope().getGyroUncalibrated().getV()[0];

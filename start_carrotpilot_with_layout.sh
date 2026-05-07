@@ -189,6 +189,9 @@ fi
 # 确保所有摄像头窗口（包括单窗口和多窗口模式）始终置顶
 for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2"; do
     if wmctrl -l | grep -q "$win"; then
+        # 破解 UI 全屏，强制让位，并将其置于底层
+        wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
+        wmctrl -r "ui" -b add,below
         wmctrl -r "$win" -b add,above
         wmctrl -a "$win"
     fi

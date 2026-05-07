@@ -71,6 +71,7 @@ typedef struct UIScene {
   uint64_t started_frame;
 
   bool carrot_experimental_mode = false;
+  int show_plot_mode = 0;
 
 } UIScene;
 

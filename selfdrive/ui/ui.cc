@@ -72,7 +72,7 @@ void ui_update_params(UIState *s) {
   s->scene.is_metric = params.getBool("IsMetric");
   s->show_brightness_ratio = params.getFloat("ShowCustomBrightness") / 100.;
   s->scene.map_on_left = params.getBool("NavSettingLeftSide");
-
+  s->scene.show_plot_mode = params.getInt("ShowPlotMode");
 }
 
 void UIState::updateStatus() {
