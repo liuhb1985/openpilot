@@ -53,13 +53,18 @@ def flash_panda(panda_serial: str, params: Params) -> Panda:
     cloudlog.info("Done flashing bootstub")
 
   if panda.bootstub:
-    cloudlog.info("Panda still not booting, exiting")
-    raise AssertionError
+    cloudlog.info("Panda still not booting")
+    if params.get_bool("AutoPandaUpdate"):
+      raise AssertionError
 
   panda_signature = panda.get_signature()
   if panda_signature != fw_signature:
-    cloudlog.info("Version mismatch after flashing, exiting")
-    raise AssertionError
+    cloudlog.info("Version mismatch after flashing")
+    if params.get_bool("AutoPandaUpdate"):
+      cloudlog.info("Exiting because AutoPandaUpdate is enabled")
+      raise AssertionError
+    else:
+      cloudlog.info("Continuing because AutoPandaUpdate is disabled")
 
   return panda
 
