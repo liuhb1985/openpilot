@@ -107,7 +107,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "longitudinalPlan",
     "carControl", "carrotMan", "liveTorqueParameters", "lateralPlan", "liveParameters",
     "navRoute", "navInstruction", "navInstructionCarrot", gps_service, "liveDelay",
-    "peripheralState", "amapNavi",
+    "peripheralState", "amapNavi", "gyroscope", "accelerometer",
   });
   prime_state = new PrimeState(this);
   language = QString::fromStdString(Params().get("LanguageSetting"));
