@@ -136,17 +136,21 @@ CAMERA_1_Y=600
 CAMERA_2_X=0
 CAMERA_2_Y=600
 
-# 等待UI窗口出现并移动到预设位置 (高频轮询)
-echo "Waiting for ui window..."
+# 等待UI窗口出现并移动到预设位置 (支持模糊匹配)
+echo "Waiting for UI window..."
 for i in {1..100}; do
-    if wmctrl -l | grep -q "ui"; then
-        echo "✓ Found ui window, forcing layout..."
-        # 1. 彻底解除全屏和最大化限制
-        wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
-        # 2. 强制定位到上半屏幕
-        wmctrl -r "ui" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-        # 3. 强制置于底层
-        wmctrl -r "ui" -b add,below
+    # 尝试匹配 "ui", "MainWindow", 或包含 "openpilot" 的窗口
+    UI_WIN=$(wmctrl -l | grep -Ei "ui|MainWindow|openpilot" | head -n 1 | cut -d' ' -f1)
+    if [ ! -z "$UI_WIN" ]; then
+        echo "✓ Found UI window ($UI_WIN), forcing layout..."
+        # 1. 暴力移除所有全屏和最大化状态
+        wmctrl -i -r "$UI_WIN" -b remove,fullscreen,maximized_horz,maximized_vert
+        # 2. 移除窗口装饰（边框），实现无缝拼接
+        wmctrl -i -r "$UI_WIN" -b remove,decorations
+        # 3. 强制定位到上半屏幕 (0,0,1920,600)
+        wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
+        # 4. 强制置于底层，防止遮挡盲区
+        wmctrl -i -r "$UI_WIN" -b add,below
         break
     fi
     sleep 0.2
