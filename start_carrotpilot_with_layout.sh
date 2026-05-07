@@ -140,8 +140,13 @@ CAMERA_2_Y=600
 echo "Waiting for ui window..."
 for i in {1..100}; do
     if wmctrl -l | grep -q "ui"; then
-        echo "✓ Found ui window, positioning to (${UI_WINDOW_X}, ${UI_WINDOW_Y})"
+        echo "✓ Found ui window, forcing layout..."
+        # 1. 彻底解除全屏和最大化限制
+        wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
+        # 2. 强制定位到上半屏幕
         wmctrl -r "ui" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
+        # 3. 强制置于底层
+        wmctrl -r "ui" -b add,below
         break
     fi
     sleep 0.2
