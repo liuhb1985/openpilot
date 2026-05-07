@@ -114,6 +114,28 @@ MANAGER_PID=$!
 # 在后台启动系统管理器
 # SCALE=1 USE_WEBCAM=1 USE_CAMPATH=1 python3 system/manager/manager.py &
 
+# -----------------------------------------------------------------------------
+# 窗口布局参数定义 (适配 1080P 屏幕)
+# -----------------------------------------------------------------------------
+UI_WINDOW_X=0
+UI_WINDOW_Y=0
+UI_WINDOW_WIDTH=1920
+UI_WINDOW_HEIGHT=600
+
+# 盲区窗口尺寸 (恢复 640x480 标准比例，避免挤压)
+CAMERA_WINDOW_WIDTH=640
+CAMERA_WINDOW_HEIGHT=480
+
+# 盲区窗口位置 (左下角锚点)
+CAMERA_0_X=0
+CAMERA_0_Y=600
+
+CAMERA_1_X=0
+CAMERA_1_Y=600
+
+CAMERA_2_X=0
+CAMERA_2_Y=600
+
 # 等待UI窗口出现并移动到预设位置 (高频轮询)
 echo "Waiting for ui window..."
 for i in {1..100}; do
@@ -124,26 +146,6 @@ for i in {1..100}; do
     fi
     sleep 0.2
 done
-
-# 定义摄像头窗口位置 (极致优化：超宽窄带模式，减少 70% 遮挡)
-CAMERA_WINDOW_HEIGHT=160
-CAMERA_WINDOW_WIDTH=480
-
-# 定义摄像头窗口预设位置 (紧贴屏幕底部)
-CAMERA_1_X=50
-CAMERA_1_Y=1350
-
-CAMERA_2_X=1850
-CAMERA_2_Y=1350
-
-CAMERA_0_X=950
-CAMERA_0_Y=1350
-
-CAMERA_2_X=2240  # Camera 2的X坐标
-CAMERA_2_Y=1129  # Camera 2的Y坐标 (与Camera 1相同)
-
-CAMERA_0_X=1475  # Camera 0的X坐标
-CAMERA_0_Y=1129  # Camera 0的Y坐标 (几乎与Camera 1相同)
 
 # 定义窗口排列函数
 position_camera_window() {
