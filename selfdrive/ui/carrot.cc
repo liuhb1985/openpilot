@@ -378,6 +378,7 @@ protected:
         auto    controls_state = sm["controlsState"].getControlsState();
         auto    torque_state = controls_state.getLateralControlState().getTorqueState();
 
+        auto live_pose = sm["livePose"].getLivePose();
         float   a_ego = car_state.getAEgo();
         float   v_ego = car_state.getVEgo();
 
@@ -443,6 +444,12 @@ protected:
             data[1] = car_control.getActuators().getCurvature()*10000;
             data[2] = car_control.getActuators().getCurvature()*10000;
             sprintf(title, "8.曲率 (x10000)");
+            break;
+        case 9:
+            data[0] = car_state.getSteeringAngleDeg();
+            data[1] = live_pose.getAngularVelocityDevice().getV()[2] * 57.29 * 5.0;
+            data[2] = torque_state.getActualLateralAccel() * 10.0;
+            sprintf(title, "9.IMU校验 (Y:Angle, G:YawRate*5, R:LatAccel*10)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
