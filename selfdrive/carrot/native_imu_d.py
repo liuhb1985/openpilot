@@ -94,7 +94,7 @@ class NativeIMUD:
           self.learned_steer_ratio = np.clip(self.learned_steer_ratio, 13.0, 20.0)
 
   def main_loop(self):
-    print("******** Native IMU V7.1 Pro Optimizer ********")
+    print("******** Native IMU V7.2 Baseline Restored ********")
     
     while True:
       self.sm.update(0)
@@ -106,43 +106,33 @@ class NativeIMUD:
       v_ego = cs.vEgo
       self.update_calibration(cs)
       
-      # 1. 信号平滑处理 (自适应响应)
-      # 高速时降低平滑(T=0.03)，增加灵敏度；低速时增加平滑(T=0.1)
-      yaw_t = np.interp(v_ego, [0.0, 20.0], [0.1, 0.03])
-      self.yaw_filter.update_alpha(yaw_t)
-      
+      # 1. 信号平滑处理 (保持 100Hz 高频响应)
       clean_yaw = self.yaw_filter.update(cs.yawRate - self.yaw_bias)
       clean_lat = self.accel_filter.update(cs.latAccel - self.lat_bias)
       
-      # 2. 转向比自适应演进
+      # 2. 转向比自适应演进 (保留核心学习逻辑)
       angle_offset = self.sm['liveParameters'].angleOffsetDeg if self.sm.seen['liveParameters'] else 0.0
       steer_angle_rad = math.radians(cs.steeringAngleDeg - angle_offset)
       self.learn_steer_ratio(v_ego, steer_angle_rad, clean_yaw)
       
-      # 3. 动态多源融合 (Speed-Weighted Fusion)
-      # 在超低速(<3.6km/h)下，传感器信噪比极低，此时 100% 信任模型预测
-      model_weight = np.interp(v_ego, [0.5, 2.0], [1.0, 0.0])
+      # 3. 动态融合 (回归简洁：仅在极低速下使用模型辅助)
+      model_weight = np.interp(v_ego, [0.0, 1.0], [1.0, 0.0])
       wheelbase = self.sm['carParams'].wheelbase if self.sm.seen['carParams'] else 2.8
       model_yaw = (v_ego * math.tan(steer_angle_rad / self.learned_steer_ratio)) / wheelbase
       
       yaw_fusion = model_weight * model_yaw + (1.0 - model_weight) * clean_yaw
       
-      # 4. 相位预测 (40ms Lead)
-      yaw_accel_raw = (yaw_fusion - self.last_yaw) * self.freq
-      yaw_accel = self.yaw_accel_filter.update(yaw_accel_raw)
-      self.last_yaw = yaw_fusion
-      yaw_final = np.clip(yaw_fusion + yaw_accel * 0.04, -2.0, 2.0)
+      # 4. 移除相位预测 (不再使用 yaw_accel * 0.04)，确保 locationd 校验通过
+      yaw_final = np.clip(yaw_fusion, -2.0, 2.0)
       
-      # 5. 发布经过物理映射的传感器数据
+      # 5. 发布经过物理映射的传感器数据 (满足 locationd 坐标系要求)
       now_ns = time.monotonic_ns()
       
-      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = yaw
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
                            'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
       self.pm.send('gyroscope', gyro_msg)
 
-      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = lat
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
                                'acceleration': {'v': [0.0, float(clean_lat), -float(cs.aEgo)], 'status': 1}}
@@ -154,9 +144,6 @@ class NativeIMUD:
 
       self.frame += 1
       self.rk.keep_time()
-
-def main():
-  NativeIMUD().main_loop()
 
 if __name__ == "__main__":
   main()

@@ -134,10 +134,10 @@ class LocationEstimator:
       meas = np.array([-v[2], -v[1], -v[0]])
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
-      
-      # 增加硬重置逻辑：如果偏置超过 1.0 rad/s (57度/秒)，判定滤波器已崩溃，强制重置
-      if np.abs(gyro_bias[2]) > 1.0:
-        # print(f"[IMU_FATAL] Gyro bias too large ({gyro_bias[2]:.4f}), resetting KF...")
+
+      # 增加硬重置逻辑：如果偏置超过 0.2 rad/s (死锁阈值)，判定滤波器已失效，强制重置
+      if np.abs(gyro_bias[2]) > 0.2:
+        print(f"[IMU_FATAL] Gyro bias enters deadlock zone ({gyro_bias[2]:.4f}), resetting KF...")
         self.reset(t)
         return HandleLogResult.INPUT_INVALID
 
