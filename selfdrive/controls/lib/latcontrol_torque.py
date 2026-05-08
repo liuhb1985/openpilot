@@ -144,6 +144,7 @@ class LatControlTorque(LatControl):
     self.lat_kd_v = 0.0
     self.lat_error_filter_t = 0.0
     self.last_error = 0.0 # [深度优化] 用于计算误差变化率
+    self.offset_filter = FirstOrderFilter(0.0, 2.0, 0.01) # [极致优化] 转向偏移量平滑滤波器，时间常数2.0秒
 
 
   def reset(self):
@@ -200,10 +201,13 @@ class LatControlTorque(LatControl):
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
     else:
+      # [极致优化] 对偏移量进行深度平滑，防止 IMU 噪声直接传导至方向盘
+      angle_offset = self.offset_filter.update(params.angleOffsetDeg)
+      
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
-      angle_steers_des += params.angleOffsetDeg
+      angle_steers_des += angle_offset
 
-      actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
+      actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - angle_offset), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       actual_lateral_jerk = 0.0
       if self.use_steering_angle:
