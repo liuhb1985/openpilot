@@ -436,7 +436,7 @@ protected:
             data[0] = car_state.getSteeringAngleDeg();
             data[1] = car_control.getActuators().getSteeringAngleDeg();
             data[2] = live_params.getAngleOffsetDeg() * 10.0;
-            sprintf(title, "7.转向角 (Y:Actual, G:Target, O:Offset*10)");
+            sprintf(title, "7.转向角 (Y:Actual, G:Target, R:Offset*10)");
             break;
         case 8:
             data[0] = car_control.getActuators().getCurvature()*10000;
@@ -542,7 +542,7 @@ public:
         */
         if (s->fb_w < 1200) return;
 
-        NVGcolor color[3] = { COLOR_YELLOW, COLOR_GREEN, COLOR_ORANGE };
+        NVGcolor color[3] = { COLOR_YELLOW, COLOR_GREEN, COLOR_RED };
         for (int i = 0; i < 3; i++) {
             drawPlotting(s, i, plotIndex, plotX, plotQueue[i], plotSize, &color[i], 3.0f);
         }

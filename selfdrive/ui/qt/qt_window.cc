@@ -6,9 +6,10 @@ void setMainWindow(QWidget *w) {
 
   if (Hardware::PC() && scale == 1.0 && !(sz - DEVICE_SCREEN_SIZE).isValid()) {
     w->setMinimumSize(QSize(640, 480)); // allow resize smaller than fullscreen
+    w->setMaximumSize(DEVICE_SCREEN_SIZE);
     w->resize(sz);
   } else {
-    w->resize(DEVICE_SCREEN_SIZE * scale);
+    w->setFixedSize(DEVICE_SCREEN_SIZE * scale);
   }
   w->show();
 
