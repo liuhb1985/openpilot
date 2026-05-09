@@ -447,7 +447,7 @@ protected:
             break;
         case 9:
             data[0] = car_state.getSteeringAngleDeg();
-            data[1] = live_pose.getAngularVelocityDevice().getV()[2] * 57.29 * 5.0;
+            data[1] = live_pose.getAngularVelocityDevice().getZ() * 57.29 * 5.0;
             data[2] = torque_state.getActualLateralAccel() * 10.0;
             sprintf(title, "9.IMU校验 (Y:Angle, G:YawRate*5, R:LatAccel*10)");
             break;
