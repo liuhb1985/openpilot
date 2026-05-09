@@ -31,7 +31,9 @@ class NativeIMUD:
     self.bias_stabled = False
     
     # 自适应滤波器集
-    self.yaw_filter = FirstOrderFilter(0.0, 0.05, self.dt)
+    # [修复] CAN 总线 yawRate 有严重的量化噪声，需要更强的滤波
+    # 时间常数从 0.05s 提升到 0.3s，平滑掉 CAN 量化跳变
+    self.yaw_filter = FirstOrderFilter(0.0, 0.3, self.dt)
     self.accel_filter = FirstOrderFilter(0.0, 0.1, self.dt)
     self.yaw_accel_filter = FirstOrderFilter(0.0, 0.2, self.dt)
     
@@ -66,8 +68,8 @@ class NativeIMUD:
     
     # 2. 动态行驶校准 (高速直行时自动修正 Bias)
     elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 5.0:
-      # 提升学习率到 0.005，确保 5秒内完成对齐 (针对 PC 模拟器加速)
-      self.yaw_bias = 0.995 * self.yaw_bias + 0.005 * cs.yawRate
+      # [修复] 降低动态校准学习率，防止 bias 追随噪声跳动
+      self.yaw_bias = 0.999 * self.yaw_bias + 0.001 * cs.yawRate
       if self.frame % 100 == 0:
         print(f"[IMU_CALIB] Adjusting Bias: {self.yaw_bias:.5f}, RawYaw: {cs.yawRate:.5f}")
 
