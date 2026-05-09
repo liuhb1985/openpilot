@@ -110,7 +110,15 @@ class NativeIMUD:
       
       # 1. 信号平滑处理 (保持 100Hz 高频响应)
       clean_yaw = self.yaw_filter.update(cs.yawRate - self.yaw_bias)
-      clean_lat = self.accel_filter.update(cs.latAccel - self.lat_bias)
+      
+      # [深度优化] 物理一致性合成逻辑
+      # 如果 cs.latAccel 缺失 (为0)，根据动力学公式 latAccel = vEgo * yawRate 合成
+      # 这能解决 locationd 因 yawRate 有波动但 latAccel 为 0 导致的卡尔曼滤波震荡（R线波动）
+      if abs(cs.latAccel) < 0.001 and v_ego > 1.0:
+        raw_lat = v_ego * clean_yaw
+      else:
+        raw_lat = cs.latAccel - self.lat_bias
+      clean_lat = self.accel_filter.update(raw_lat)
       
       # 2. 转向比自适应演进 (保留核心学习逻辑)
       angle_offset = self.sm['liveParameters'].angleOffsetDeg if self.sm.seen['liveParameters'] else 0.0
@@ -130,14 +138,16 @@ class NativeIMUD:
       # 5. 发布经过物理映射的传感器数据 (满足 locationd 坐标系要求)
       now_ns = time.monotonic_ns()
       
+      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = -yaw_final (Z-down frame)
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
-                           'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
+                           'gyroUncalibrated': {'v': [float(yaw_final), 0.0, 0.0], 'status': 1}}
       self.pm.send('gyroscope', gyro_msg)
 
+      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = lat, meas[2] = gravity
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
-                               'acceleration': {'v': [0.0, float(clean_lat), -float(cs.aEgo)], 'status': 1}}
+                               'acceleration': {'v': [G, float(clean_lat), -float(cs.aEgo)], 'status': 1}}
       self.pm.send('accelerometer', accel_msg)
 
       if self.frame % 1000 == 0:

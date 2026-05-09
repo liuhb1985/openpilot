@@ -109,6 +109,11 @@ class Controls:
     CC = car.CarControl.new_message()
     CC.enabled = self.sm['selfdriveState'].enabled
 
+    # Only calibrated (car) frame is relevant for the carcontroller
+    if self.calibrated_pose is not None:
+      CC.orientationNED = self.calibrated_pose.orientation.xyz.tolist()
+      CC.angularVelocity = self.calibrated_pose.angular_velocity.xyz.tolist()
+
     # carrot
     gear = car.CarState.GearShifter
     driving_gear = CS.gearShifter not in (gear.neutral, gear.park, gear.reverse, gear.unknown)
@@ -225,12 +230,6 @@ class Controls:
 
   def publish(self, CC, lac_log):
     CS = self.sm['carState']
-
-    # Orientation and angle rates can be useful for carcontroller
-    # Only calibrated (car) frame is relevant for the carcontroller
-    if self.calibrated_pose is not None:
-      CC.orientationNED = self.calibrated_pose.orientation.xyz.tolist()
-      CC.angularVelocity = self.calibrated_pose.angular_velocity.xyz.tolist()
 
     #acceleration_value = list(self.sm['liveLocationKalman'].accelerationCalibrated.value)
     #if len(acceleration_value) > 2:
