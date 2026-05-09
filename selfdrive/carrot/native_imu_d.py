@@ -53,9 +53,13 @@ class NativeIMUD:
     self.fast_lambda = 0.995
 
   def update_calibration(self, cs):
-    # 初始化偏置 (防止从0开始爬升导致的巨大初值误差)
-    if self.yaw_bias is None: self.yaw_bias = cs.yawRate
-    if self.lat_bias is None: self.lat_bias = cs.latAccel
+    # 初始化偏置 (仅在静止且无转向输入时初始化，防止捕获行驶状态)
+    if self.yaw_bias is None and cs.vEgo < 0.1 and not cs.steeringPressed: 
+      self.yaw_bias = cs.yawRate
+      print(f"[IMU_INIT] Initialized Yaw Bias: {self.yaw_bias:.5f}")
+    if self.lat_bias is None and cs.vEgo < 0.1 and not cs.steeringPressed: 
+      self.lat_bias = cs.latAccel
+      print(f"[IMU_INIT] Initialized Lat Bias: {self.lat_bias:.5f}")
 
     # 1. 静态校准 (车速接近0且方向盘无输入)
     if cs.vEgo < 0.01 and not cs.steeringPressed:
@@ -138,16 +142,16 @@ class NativeIMUD:
       # 5. 发布经过物理映射的传感器数据 (满足 locationd 坐标系要求)
       now_ns = time.monotonic_ns()
       
-      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = -yaw_final (Z-down frame)
+      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = -v[0] = +yaw_final (Z-up)
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
-                           'gyroUncalibrated': {'v': [float(yaw_final), 0.0, 0.0], 'status': 1}}
+                           'gyroUncalibrated': {'v': [-float(yaw_final), 0.0, 0.0], 'status': 1}}
       self.pm.send('gyroscope', gyro_msg)
 
-      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = lat, meas[2] = gravity
+      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = lat (Left is positive), meas[2] = gravity
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
-                               'acceleration': {'v': [G, float(clean_lat), -float(cs.aEgo)], 'status': 1}}
+                               'acceleration': {'v': [G, -float(clean_lat), -float(cs.aEgo)], 'status': 1}}
       self.pm.send('accelerometer', accel_msg)
 
       if self.frame % 1000 == 0:
