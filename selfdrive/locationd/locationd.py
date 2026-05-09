@@ -63,7 +63,6 @@ class LocationEstimator:
     self.observations = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
     self.observation_errors = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
     self.frame = 0
-    self.gyro_reject_count = 0  # [修复] 连续陀螺仪拒绝计数器，用于打破死锁
 
   def reset(self, t: float, x_initial: np.ndarray = PoseKalman.initial_x, P_initial: np.ndarray = PoseKalman.initial_P):
     self.kf.init_state(x_initial, covs=P_initial, filter_time=t)
@@ -134,11 +133,22 @@ class LocationEstimator:
       v = msg.gyroUncalibrated.v
       meas = np.array([-v[2], -v[1], -v[0]])
 
-      # [最终修复] PC/CAN 环境：禁用 gyro-vs-camera 交叉校验
-      # 该校验专为真实 MEMS 陀螺仪硬件故障检测设计
-      # CAN 总线的 yawRate 信号特性完全不同（大偏移、量化噪声），交叉校验永远无法可靠通过
-      # 仅保留 ROTATION_SANITY_CHECK (10 rad/s) 作为极端异常的安全兜底
-      if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK:
+      gyro_bias = self.kf.x[States.GYRO_BIAS]
+      
+      # 增加硬重置逻辑：如果偏置超过 1.0 rad/s (57度/秒)，判定滤波器已崩溃，强制重置
+      if np.abs(gyro_bias[2]) > 1.0:
+        # print(f"[IMU_FATAL] Gyro bias too large ({gyro_bias[2]:.4f}), resetting KF...")
+        self.reset(t)
+        return HandleLogResult.INPUT_INVALID
+
+      gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
+      gyro_camodo_yawrate_err_threshold = max(0.2, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
+      gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
+      
+      if self.frame % 50 == 0:
+        print(f"[IMU_DEBUG] err: {gyro_camodo_yawrate_err:.4f}, thresh: {gyro_camodo_yawrate_err_threshold:.4f}, meas_z: {meas[2]:.4f}, bias_z: {gyro_bias[2]:.4f}, cam_yaw: {self.camodo_yawrate_distribution[0]:.4f}")
+
+      if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:
         return HandleLogResult.INPUT_INVALID
 
       # Print gyroscope data in the desired format
@@ -287,23 +297,11 @@ def main():
 
   initial_pose_data = params.get("LocationFilterInitialState")
   if initial_pose_data is not None:
-    try:
-      with log.Event.from_bytes(initial_pose_data) as lp_msg:
-        filter_state = lp_msg.livePose.debugFilterState
-        x_initial = np.array(filter_state.value, dtype=np.float64) if len(filter_state.value) != 0 else PoseKalman.initial_x
-        P_initial = np.diag(np.array(filter_state.std, dtype=np.float64)) if len(filter_state.std) != 0 else PoseKalman.initial_P
-        if np.isfinite(x_initial).all() and np.isfinite(P_initial).all():
-          estimator.reset(None, x_initial, P_initial)
-          print("[LOCATIOND] Restored cached filter state successfully")
-        else:
-          print("[LOCATIOND] Cached filter state is corrupted (NaN/Inf), using default")
-          params.remove("LocationFilterInitialState")
-    except Exception as e:
-      print(f"[LOCATIOND] Failed to restore cached state: {e}, using default")
-      params.remove("LocationFilterInitialState")
-
-  init_start_time = time.monotonic()
-  init_diag_printed = False
+    with log.Event.from_bytes(initial_pose_data) as lp_msg:
+      filter_state = lp_msg.livePose.debugFilterState
+      x_initial = np.array(filter_state.value, dtype=np.float64) if len(filter_state.value) != 0 else PoseKalman.initial_x
+      P_initial = np.diag(np.array(filter_state.std, dtype=np.float64)) if len(filter_state.std) != 0 else PoseKalman.initial_P
+      estimator.reset(None, x_initial, P_initial)
 
   while True:
     sm.update()
@@ -337,22 +335,7 @@ def main():
           elif res == HandleLogResult.SUCCESS:
             observation_input_invalid[which] *= input_invalid_decay[which]
     else:
-      sm_ok = sm.all_checks()
-      sensor_ok = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
-      filter_initialized = sm_ok and sensor_ok
-
-      # [诊断] 每 2 秒打印一次初始化状态
-      elapsed = time.monotonic() - init_start_time
-      if not init_diag_printed or int(elapsed) % 2 == 0:
-        print(f"[LOCATIOND_INIT] elapsed={elapsed:.1f}s sm_ok={sm_ok} sensor_ok={sensor_ok} "
-              f"sensor_alive={dict(sensor_alive)} sensor_valid={dict(sensor_valid)} "
-              f"acc_msgs={len(acc_msgs)} gyro_msgs={len(gyro_msgs)}")
-        init_diag_printed = True
-
-      # [修复] 超过 10 秒仍未初始化，强制初始化（PC 环境安全）
-      if not filter_initialized and elapsed > 10.0:
-        print(f"[LOCATIOND_INIT] Force initializing after {elapsed:.1f}s (PC environment safe)")
-        filter_initialized = True
+      filter_initialized = sm.all_checks() and sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
     if sm.updated["cameraOdometry"]:
       critical_service_inputs_valid = all(observation_input_invalid[s] < input_invalid_threshold[s] for s in critcal_services)
