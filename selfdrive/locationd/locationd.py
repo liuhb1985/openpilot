@@ -63,6 +63,7 @@ class LocationEstimator:
     self.observations = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
     self.observation_errors = {kind: np.zeros(3, dtype=np.float32) for kind in obs_kinds}
     self.frame = 0
+    self.gyro_reject_count = 0  # [修复] 连续陀螺仪拒绝计数器，用于打破死锁
 
   def reset(self, t: float, x_initial: np.ndarray = PoseKalman.initial_x, P_initial: np.ndarray = PoseKalman.initial_P):
     self.kf.init_state(x_initial, covs=P_initial, filter_time=t)
@@ -135,21 +136,29 @@ class LocationEstimator:
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
 
-      # 增加硬重置逻辑：如果偏置超过 0.2 rad/s (死锁阈值)，判定滤波器已失效，强制重置
-      if np.abs(gyro_bias[2]) > 0.2:
-        print(f"[IMU_FATAL] Gyro bias enters deadlock zone ({gyro_bias[2]:.4f}), resetting KF...")
-        self.reset(t)
-        return HandleLogResult.INPUT_INVALID
-
+      # [修复] 交叉校验：IMU 偏航 vs 视觉里程计偏航
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
-      gyro_camodo_yawrate_err_threshold = max(0.2, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
+      # [修复] 将最小阈值从 0.2 提升到 1.0 rad/s
+      # PC/CAN 环境下，IMU yawRate 与视觉里程计天然存在较大差异
+      # 0.2 太严格会导致永久死锁，1.0 仍然能过滤掉真正异常的传感器故障
+      gyro_camodo_yawrate_err_threshold = max(1.0, YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1])
       gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
       
-      if self.frame % 50 == 0:
-        print(f"[IMU_DEBUG] err: {gyro_camodo_yawrate_err:.4f}, thresh: {gyro_camodo_yawrate_err_threshold:.4f}, meas_z: {meas[2]:.4f}, bias_z: {gyro_bias[2]:.4f}, cam_yaw: {self.camodo_yawrate_distribution[0]:.4f}")
+      if self.frame % 200 == 0:
+        print(f"[IMU_DEBUG] err: {gyro_camodo_yawrate_err:.4f}, thresh: {gyro_camodo_yawrate_err_threshold:.4f}, meas_z: {meas[2]:.4f}, bias_z: {gyro_bias[2]:.4f}, cam_yaw: {self.camodo_yawrate_distribution[0]:.4f}, rejects: {self.gyro_reject_count}")
 
       if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:
+        self.gyro_reject_count += 1
+        # [修复] 连续拒绝超过 200 次 (~2秒)，说明进入死锁，强制重置视觉基线
+        if self.gyro_reject_count > 200:
+          print(f"[IMU_RECOVERY] {self.gyro_reject_count} consecutive gyro rejections, resetting camodo baseline and KF...")
+          self.camodo_yawrate_distribution = np.array([0.0, 10.0])  # 重置为宽松初始值
+          self.reset(t)
+          self.gyro_reject_count = 0
         return HandleLogResult.INPUT_INVALID
+      
+      # [修复] 校验通过，重置连续拒绝计数
+      self.gyro_reject_count = 0
 
       # Print gyroscope data in the desired format
       # print(f"gyro:{v[0]:.6f} {v[1]:.6f} {v[2]:.6f}")
