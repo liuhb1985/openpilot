@@ -32,8 +32,6 @@ def get_radar_can_parser(CP, radar_tracks, enhanced_scc, msg_start_addr, msg_cou
     return CANParser('hyundai_canfd_radar_generated', messages, CAN.ACAN)
   else:
     messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
-    if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
-      messages += [("ESCC", 50)]
 
     return CANParser('hyundai_kia_mando_front_radar_generated', messages, 0)
 
@@ -44,6 +42,8 @@ def get_radar_can_parser_scc(CP):
     bus = CAN.ECAN
   else:
     messages = [("SCC11", 50)]
+    if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+      messages += [("ESCC", 50)]
     bus = CAN.ECAN
 
   print("$$$$$$$$ ECAN = ", CAN.ECAN)    
@@ -119,6 +119,17 @@ class RadarInterface(RadarInterfaceBase):
     if self.rcp_scc is not None:
       vls_s = self.rcp_scc.update(can_strings)
       self.updated_scc.update(vls_s)
+      if self.enhanced_scc and 0x2ab in vls_s:
+        self._update(self.updated_tracks)
+        self._update_scc(self.updated_scc)
+        self.updated_scc.clear()
+        self.updated_tracks.clear()
+        ret = structs.RadarData()
+        if not self.rcp_scc.can_valid:
+          ret.errors.canError = True
+        ret.points = list(self.pts.values())
+        return ret
+      
       if not self.radar_tracks and not self.enhanced_scc and self.frame % 5 == 0:
         self._update_scc(self.updated_scc)
         self.updated_scc.clear()
@@ -127,6 +138,7 @@ class RadarInterface(RadarInterfaceBase):
           ret.errors.canError = True
         ret.points = list(self.pts.values())
         return ret
+
     if (self.radar_tracks or self.enhanced_scc) and self.rcp_tracks is not None:
       vls_t = self.rcp_tracks.update(can_strings)
       self.updated_tracks.update(vls_t)
@@ -144,8 +156,8 @@ class RadarInterface(RadarInterfaceBase):
     return None
 
   def _update(self, updated_messages):
-    if self.enhanced_scc and "ESCC" in self.rcp_tracks.vl:
-      msg = self.rcp_tracks.vl["ESCC"]
+    if self.enhanced_scc and "ESCC" in self.rcp_scc.vl:
+      msg = self.rcp_scc.vl["ESCC"]
       valid = msg['ACC_ObjStatus'] and msg['ACC_ObjDist'] < 204.6
 
       ii = ESCC_TID
