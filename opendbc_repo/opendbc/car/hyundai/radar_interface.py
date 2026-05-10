@@ -28,10 +28,10 @@ def get_radar_can_parser(CP, radar_tracks, enhanced_scc, msg_start_addr, msg_cou
 
   if CP.flags & HyundaiFlags.CANFD:
     CAN = CanBus(CP)
-    messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
+    messages = [(f"RADAR_TRACK_{addr:x}", 0) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
     return CANParser('hyundai_canfd_radar_generated', messages, CAN.ACAN)
   else:
-    messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
+    messages = [(f"RADAR_TRACK_{addr:x}", 0) for addr in range(msg_start_addr, msg_start_addr + msg_count)]
 
     return CANParser('hyundai_kia_mando_front_radar_generated', messages, 0)
 
@@ -43,7 +43,7 @@ def get_radar_can_parser_scc(CP):
   else:
     messages = [("SCC11", 50)]
     if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
-      messages += [("ESCC", 50)]
+      messages += [("ESCC", 0)]
     bus = CAN.ECAN
 
   print("$$$$$$$$ ECAN = ", CAN.ECAN)    
@@ -84,9 +84,6 @@ class RadarInterface(RadarInterfaceBase):
     self.radar_off_can = CP.radarUnavailable
     self.enhanced_scc = CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC
     self.showDebugLog = self.params.get_int("ShowDebugLog")
-    if self.enhanced_scc:
-      self.trigger_msg_tracks = 0x2ab
-
     self.vRel_last = 0
     self.dRel_last = 0
 
@@ -119,7 +116,7 @@ class RadarInterface(RadarInterfaceBase):
     if self.rcp_scc is not None:
       vls_s = self.rcp_scc.update(can_strings)
       self.updated_scc.update(vls_s)
-      if self.enhanced_scc and 0x2ab in vls_s:
+      if self.enhanced_scc and 0x420 in vls_s:
         self._update(self.updated_tracks)
         self._update_scc(self.updated_scc)
         self.updated_scc.clear()

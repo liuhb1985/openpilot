@@ -715,8 +715,6 @@ class CarState(CarStateBase):
       return self.get_can_parsers_canfd(CP)
 
     msgs = []
-    if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
-      msgs.append(("ESCC", 50))
     
     if CP.flags & HyundaiFlags.USE_FCA:
       msgs.append(("FCA11", 50))

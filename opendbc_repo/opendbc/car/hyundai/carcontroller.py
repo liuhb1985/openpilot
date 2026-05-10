@@ -405,8 +405,13 @@ class CarController(CarControllerBase):
                                                           hud_control, set_speed_in_units, stopping,
                                                           CC.cruiseControl.override, casper_opt, CS, self.soft_hold_mode))
         elif escc:
-          if CS.escc_values is not None:
-            can_sends.append(hyundaican.create_escc(self.packer, self.frame, accel, CC.enabled, CS.escc_values))
+          escc_values = CS.escc_values if CS.escc_values is not None else {
+            "CP_Escc_aReqValue": 0,
+            "CF_Escc_Act": 0,
+            "CF_Escc_AliveCnt": 0,
+            "CF_Escc_Chksum": 0,
+          }
+          can_sends.append(hyundaican.create_escc(self.packer, self.frame, accel, CC.enabled, escc_values))
         else:
           can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
                                                 hud_control, set_speed_in_units, stopping,
