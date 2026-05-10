@@ -35,7 +35,7 @@ def get_radar_can_parser(CP, radar_tracks, enhanced_scc, msg_start_addr, msg_cou
     if CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
       messages += [("ESCC", 50)]
 
-    return CANParser('hyundai_kia_mando_front_radar_generated', messages, 1)
+    return CANParser('hyundai_kia_mando_front_radar_generated', messages, 0)
 
 def get_radar_can_parser_scc(CP):
   CAN = CanBus(CP)
