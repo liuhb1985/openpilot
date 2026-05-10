@@ -142,11 +142,13 @@ class CarInterface(CarInterfaceBase):
         print("$$$USE_FCA")
 
       if 0x2AB in fingerprint[0]:
-        if params.get_int("EnableEscc") == 1:
-          ret.spFlags |= HyundaiFlagsSP.SP_ENHANCED_SCC.value
-          print("$$$ESCC")
-        else:
-          print("$$$User disable ESCC")
+        ret.spFlags |= HyundaiFlagsSP.SP_ENHANCED_SCC.value
+        print("$$$ ESCC Auto-Detected via 0x2AB")
+      elif params.get_int("EnableEscc") == 1:
+        ret.spFlags |= HyundaiFlagsSP.SP_ENHANCED_SCC.value
+        print("$$$ ESCC Manually Enabled")
+      else:
+        print("$$$ User disabled ESCC or 0x2AB not found")
 
       if ret.flags & HyundaiFlags.LEGACY:
         # these cars require a special panda safety mode due to missing counters and checksums in the messages
@@ -255,7 +257,10 @@ class CarInterface(CarInterfaceBase):
       addr, bus = 0x7d0, 0
       if CP.flags & HyundaiFlags.CANFD_HDA2.value:
         addr, bus = 0x730, CanBus(CP).ECAN
+      print(f"$$$ Disabling ECU at {hex(addr)} on bus {bus}...")
       disable_ecu(can_recv, can_send, bus=bus, addr=addr, com_cont_req=b'\x28\x83\x01')
+    elif CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC:
+      print("$$$ ESCC Active: Skipping ECU disable (0x7d0) to keep radar alive.")
 
     params = Params()
     if params.get_int("EnableRadarTracks") > 0 and not CP.flags & HyundaiFlags.CANFD:

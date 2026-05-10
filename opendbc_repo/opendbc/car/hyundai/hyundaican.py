@@ -395,3 +395,15 @@ def create_mdps12(packer, frame, mdps12):
   values["CF_Mdps_Chksum2"] = checksum
 
   return packer.make_can_msg("MDPS12", 2, values)
+
+def create_escc(packer, frame, accel, enabled, escc_values):
+  values = copy.copy(escc_values)
+  values["CP_Escc_aReqValue"] = accel if enabled else 0
+  values["CF_Escc_Act"] = 1 if enabled else 0
+  values["CF_Escc_AliveCnt"] = frame % 0xf
+  values["CF_Escc_Chksum"] = 0
+
+  dat = packer.make_can_msg("ESCC", 0, values)[1]
+  values["CF_Escc_Chksum"] = 0x10 - sum(sum(divmod(i, 16)) for i in dat) % 0x10
+
+  return packer.make_can_msg("ESCC", 0, values)

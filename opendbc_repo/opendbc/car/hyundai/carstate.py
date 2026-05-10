@@ -170,6 +170,7 @@ class CarState(CarStateBase):
     self.escc_aeb_dec_cmd_act = 0
     self.escc_cmd_act = 0
     self.escc_aeb_dec_cmd = 0
+    self.escc_values = None
     self.pm = Params()
     self.showDebugLog = self.pm.get_int("ShowDebugLog")
     self.lat_accel_filter = FirstOrderFilter(0.0, 5.0, DT_CTRL) # 5.0Hz 低通滤波，平衡去噪与相位延迟
@@ -245,6 +246,9 @@ class CarState(CarStateBase):
     ret.steerFaultTemporary = cp.vl["MDPS12"]["CF_Mdps_ToiUnavail"] != 0 or cp.vl["MDPS12"]["CF_Mdps_ToiFlt"] != 0
 
     # cruise state
+    if self.CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC and "ESCC" in cp.vl:
+      self.escc_values = copy.copy(cp.vl["ESCC"])
+
     if self.CP.openpilotLongitudinalControl:
       # These are not used for engage/disengage since openpilot keeps track of state using the buttons
       ret.cruiseState.available = self.main_enabled #cp.vl["TCS13"]["ACCEnable"] == 0

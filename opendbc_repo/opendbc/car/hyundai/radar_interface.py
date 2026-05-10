@@ -19,8 +19,8 @@ ESCC_TID = 1
 
 # POC for parsing corner radars: https://github.com/commaai/openpilot/pull/24221/
 
-def get_radar_can_parser(CP, radar_tracks, msg_start_addr, msg_count):
-  if not radar_tracks:
+def get_radar_can_parser(CP, radar_tracks, enhanced_scc, msg_start_addr, msg_count):
+  if not radar_tracks and not enhanced_scc:
     return None
   #if Bus.radar not in DBC[CP.carFingerprint]:
   #  return None
@@ -69,10 +69,12 @@ class RadarInterface(RadarInterfaceBase):
       self.radar_msg_count = RADAR_MSG_COUNT
       
     self.params = Params()
+    self.radar_off_can = CP.radarUnavailable
+    self.enhanced_scc = CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC
     self.radar_tracks = self.params.get_int("EnableRadarTracks") >= 1
     self.updated_tracks = set()
     self.updated_scc = set()
-    self.rcp_tracks = get_radar_can_parser(CP, self.radar_tracks, self.radar_start_addr, self.radar_msg_count)
+    self.rcp_tracks = get_radar_can_parser(CP, self.radar_tracks, self.enhanced_scc, self.radar_start_addr, self.radar_msg_count)
     self.rcp_scc = get_radar_can_parser_scc(CP)
     self.trigger_msg_scc = 416 if self.canfd else 0x420
 

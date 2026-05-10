@@ -319,7 +319,11 @@ class CarController(CarControllerBase):
       addr, bus = 0x7d0, self.CAN.ECAN if self.CP.flags & HyundaiFlags.CANFD else 0
       if self.CP.flags & HyundaiFlags.CANFD_HDA2.value:
         addr, bus = 0x730, self.CAN.ECAN
-      can_sends.append(make_tester_present_msg(addr, bus, suppress_response=True))
+      
+      # [IMPORTANT] In ESCC mode, we don't want to silence the radar, but we might still need 
+      # to keep other ECUs in a certain state. For non-MitM ESCC, we typically skip 0x7d0 tester present.
+      if not (self.CP.spFlags & HyundaiFlagsSP.SP_ENHANCED_SCC):
+        can_sends.append(make_tester_present_msg(addr, bus, suppress_response=True))
 
       # for blinkers
       if self.CP.flags & HyundaiFlags.ENABLE_BLINKERS:
@@ -397,10 +401,12 @@ class CarController(CarControllerBase):
         #jerk = 3.0 if actuators.longControlState == LongCtrlState.pid else 1.0
         use_fca = self.CP.flags & HyundaiFlags.USE_FCA.value
         if camera_scc:
-          
           can_sends.extend(hyundaican.create_acc_commands_scc(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
                                                           hud_control, set_speed_in_units, stopping,
                                                           CC.cruiseControl.override, casper_opt, CS, self.soft_hold_mode))
+        elif escc:
+          if CS.escc_values is not None:
+            can_sends.append(hyundaican.create_escc(self.packer, self.frame, accel, CC.enabled, CS.escc_values))
         else:
           can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, self.hyundai_jerk, int(self.frame / 2),
                                                 hud_control, set_speed_in_units, stopping,
