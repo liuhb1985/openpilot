@@ -159,10 +159,10 @@ class RadarInterface(RadarInterfaceBase):
 
       ii = ESCC_TID
       if valid:
-        dRel = self.dRel_k.add(msg['ACC_ObjDist'])
-        vRel = self.vRel_k.add(msg['ACC_ObjRelSpd'])
+        dRel = self.dRel_k.process(msg['ACC_ObjDist'])
+        vRel = self.vRel_k.process(msg['ACC_ObjRelSpd'])
         aRel_raw = (vRel - self.vRel_last) / 0.05 if abs(vRel - self.vRel_last) < 2.0 else 0.0
-        aRel = self.aRel_k.add(aRel_raw)
+        aRel = self.aRel_k.process(aRel_raw)
         self.vRel_last = vRel
 
         self.pts[ii].measured = True
@@ -176,9 +176,9 @@ class RadarInterface(RadarInterfaceBase):
         if (self.showDebugLog & 128) > 0:
           print(f"***update escc: dRel={dRel:.2f}, vRel={vRel:.2f}, aRel={aRel:.2f}")
       else:
-        self.dRel_k.reset()
-        self.vRel_k.reset()
-        self.aRel_k.reset()
+        self.dRel_k.set(0)
+        self.vRel_k.set(0)
+        self.aRel_k.set(0)
         self.pts[ii].measured = False
         self.pts[ii].dRel = 0
         self.pts[ii].yRel = 0
