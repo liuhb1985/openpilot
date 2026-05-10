@@ -410,11 +410,13 @@ protected:
             sprintf(title, "2.速度/加速度 (黄:speed_0, 绿:v_ego, 橙:a_ego)");
             break;
         case 3:
-            data[0] = position.getX()[32];
-            data[1] = velocity.getX()[32];
-            data[2] = velocity.getX()[0];
+            if (position.getX().size() > 32 && velocity.getX().size() > 32) {
+                data[0] = position.getX()[32];
+                data[1] = velocity.getX()[32];
+                data[2] = velocity.getX()[0];
+            }
             sprintf(title, "3.模型 (黄:pos_32, 绿:vel_32, 橙:vel_0)");
-			      break;
+            break;
         case 4:
             data[0] = accel;
             data[1] = lead_radar.getALeadK();
@@ -1147,12 +1149,16 @@ protected:
             char str[128] = "";
 
             if (xSpdDist < 100) {
-                int idx = get_path_length_idx(lane_lines[2], xSpdDist);
-                _model->mapToScreen(lane_lines[2].getX()[idx], lane_lines[2].getY()[idx], lane_lines[2].getZ()[idx], &left_dist_point);
+                if (lane_lines.size() > 2 && lane_lines[2].getX().size() > 0) {
+                    int idx = get_path_length_idx(lane_lines[2], xSpdDist);
+                    _model->mapToScreen(lane_lines[2].getX()[idx], lane_lines[2].getY()[idx], lane_lines[2].getZ()[idx], &left_dist_point);
+                }
             }
             else {
-                int idx = get_path_length_idx(road_edges[0], xSpdDist);
-                _model->mapToScreen(road_edges[1].getX()[idx], road_edges[1].getY()[idx], road_edges[1].getZ()[idx], &left_dist_point);
+                if (road_edges.size() > 1 && road_edges[1].getX().size() > 0) {
+                    int idx = get_path_length_idx(road_edges[1], xSpdDist);
+                    _model->mapToScreen(road_edges[1].getX()[idx], road_edges[1].getY()[idx], road_edges[1].getZ()[idx], &left_dist_point);
+                }
             }
 
             float scale = 0.6;
@@ -2427,20 +2433,22 @@ public:
                   float x = xy[0].toFloat();
                   float y = xy[1].toFloat();
                   float d = xy[2].toFloat();
-                  int idx = get_path_length_idx(lane_lines[2], d);
-
-                  if (idx >= max_z) z_offset -= 0.05;
-                  nav_path_vertex_xy[nav_path_vertex_count] = QPointF(y, -x);
-                  _model->mapToScreen((x < 3.0) ? 5.0 : x, y, lane_lines[2].getZ()[idx] + z_offset, &nav_path_vertex[nav_path_vertex_count++]);
+                  if (lane_lines.size() > 2 && lane_lines[2].getZ().size() > 0) {
+                    int idx = get_path_length_idx(lane_lines[2], d);
+                    if (idx >= max_z) z_offset -= 0.05;
+                    nav_path_vertex_xy[nav_path_vertex_count] = QPointF(y, -x);
+                    _model->mapToScreen((x < 3.0) ? 5.0 : x, y, lane_lines[2].getZ()[idx] + z_offset, &nav_path_vertex[nav_path_vertex_count++]);
+                  }
                   if (nav_path_vertex_count >= 150) break;
                 }
               }
             }
             auto meta = sm["modelV2"].getModelV2().getMeta();
             QString desireLog = QString::fromStdString(meta.getDesireLog());
+            float vel_x_32 = (velocity.getX().size() > 32) ? velocity.getX()[32] : 0.0;
             sprintf(carrot_man_debug, "%s, m_kph= %d, %dkm/h TBT(%d): %dm, CAM(%d): %dkm/h, %dm, ATC(%s), T(%d)",
                 desireLog.toStdString().c_str(),
-                (int)(velocity.getX()[32] * 3.6),
+                (int)(vel_x_32 * 3.6),
                 carrot_man.getDesiredSpeed(),
                 carrot_man.getXTurnInfo(),
                 carrot_man.getXDistToTurn(),
