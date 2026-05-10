@@ -26,7 +26,8 @@ void ModelRenderer::draw(QPainter &painter, const QRect &surface_rect) {
   experimental_mode = sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
   experimental_mode |= s->scene.carrot_experimental_mode;
   longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
-  path_offset_z = sm["liveCalibration"].getLiveCalibration().getHeight()[0];
+  auto live_calib = sm["liveCalibration"].getLiveCalibration();
+  path_offset_z = live_calib.getHeight().size() > 0 ? live_calib.getHeight()[0] : 1.22;
 
   return;
   painter.save();
@@ -57,7 +58,8 @@ void ModelRenderer::update_leads(const cereal::RadarState::Reader &radar_state, 
   for (int i = 0; i < 2; ++i) {
     const auto &lead_data = (i == 0) ? radar_state.getLeadOne() : radar_state.getLeadTwo();
     if (lead_data.getStatus()) {
-      float z = line.getZ()[get_path_length_idx(line, lead_data.getDRel())];
+      int idx = get_path_length_idx(line, lead_data.getDRel());
+      float z = (line.getZ().size() > idx) ? line.getZ()[idx] : 0.0;
       mapToScreen(lead_data.getDRel(), -lead_data.getYRel(), z + path_offset_z, &lead_vertices[i]);
     }
   }

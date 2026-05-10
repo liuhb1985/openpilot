@@ -684,18 +684,26 @@ protected:
         trafficState = lp.getTrafficState();
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         auto line = model.getPosition();
+        if (line.getX().size() == 0 || line.getY().size() == 0 || line.getZ().size() == 0) return false;
+
         float max_distance = s->max_distance;
         int idx = get_path_length_idx(line, max_distance);
         float y = line.getY()[idx];
         float z = line.getZ()[idx];
 
-        auto leadsV3 = model.getLeadsV3()[0];
-        visionDist = leadsV3.getProb() > .5 ? leadsV3.getX()[0] - 1.52 : 0.0;
+        auto leadsV3_list = model.getLeadsV3();
+        if (leadsV3_list.size() > 0) {
+          auto leadsV3 = leadsV3_list[0];
+          visionDist = (leadsV3.getProb() > .5 && leadsV3.getX().size() > 0) ? leadsV3.getX()[0] - 1.52 : 0.0;
+        } else {
+          visionDist = 0.0;
+        }
 
         auto lead_one = sm["radarState"].getRadarState().getLeadOne();
         lead_status = lead_one.getStatus();
         if (lead_status) {
-            z = line.getZ()[get_path_length_idx(line, lead_one.getDRel())];
+            int l_idx = get_path_length_idx(line, lead_one.getDRel());
+            if (line.getZ().size() > l_idx) z = line.getZ()[l_idx];
             max_distance = lead_one.getDRel();
             y = -lead_one.getYRel();
             radarTrackId = lead_one.getRadarTrackId();
@@ -960,6 +968,8 @@ protected:
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         const auto model_lane_lines = model.getLaneLines();
         const auto model_lane_line_probs = model.getLaneLineProbs();
+        if (model_lane_lines.size() == 0 || model_lane_lines[0].getX().size() == 0) return false;
+
         int max_idx = get_path_length_idx(model_lane_lines[0], s->max_distance);
         left_lane_line = sm["carState"].getCarState().getLeftLaneLine();
         right_lane_line = sm["carState"].getCarState().getRightLaneLine();
@@ -974,23 +984,17 @@ protected:
         if(carrotRightBlind & 8) {
           right_solid = true;
         }else{
-          right_solid = false;
+          left_solid = false;
         }
 
         for (int i = 0; i < std::size(lane_line_vertices); i++) {
+            if (model_lane_lines.size() <= i || model_lane_line_probs.size() <= i) continue;
             lane_line_probs[i] = model_lane_line_probs[i];
             float line_width = 0.05;
-            //float line_width = 0.025;
-            //if (i == 1 && (left_lane_line >= 20 || left_solid)) line_width = 0.05;
-            //if (i == 2 && (right_lane_line >= 20 || right_solid)) line_width = 0.05;
             update_line_data(s, model_lane_lines[i], line_width, 0.0, 0.0, &lane_line_vertices[i], max_idx);
             if (i == 1) {
-              update_line_data(s, model_lane_lines[i], line_width, 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3); //-0.3为偏移0.3米
+              update_line_data(s, model_lane_lines[i], line_width, 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
             }
-            //update_line_data(s, model_lane_lines[i], line_width * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices[i], max_idx);
-            //if (i == 1) {
-            //  update_line_data(s, model_lane_lines[i], line_width * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
-            //}
         }
 
         // roadedges
@@ -998,6 +1002,7 @@ protected:
         const auto model_road_edge_stds = model.getRoadEdgeStds();
         int max_idx_road_edge = get_path_length_idx(model_lane_lines[0], 100);
         for (int i = 0; i < std::size(road_edge_vertices); i++) {
+            if (model_road_edges.size() <= i || model_road_edge_stds.size() <= i) continue;
             road_edge_stds[i] = model_road_edge_stds[i];
             update_line_data(s, model_road_edges[i], 0.025, 0.0, 0.0, &road_edge_vertices[i], max_idx_road_edge);
         }
@@ -2530,7 +2535,11 @@ public:
             float dRel = l.getDRel();
 
             // 当前点投影
-            z = lane_lines[2].getZ()[get_path_length_idx(lane_lines[2], l.getDRel())] - 0.61f;
+            z = 0.0f;
+            if (lane_lines.size() > 2 && lane_lines[2].getZ().size() > 0) {
+              z = lane_lines[2].getZ()[get_path_length_idx(lane_lines[2], l.getDRel())] - 0.61f;
+            }
+
             if (dRel > 2.5 && _model->mapToScreen(dRel, -l.getYRel(), z, &side)) {
               x = side.x();
               y = side.y();

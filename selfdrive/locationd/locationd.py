@@ -108,6 +108,8 @@ class LocationEstimator:
         return HandleLogResult.SENSOR_SOURCE_INVALID
 
       v = msg.acceleration.v
+      if len(v) < 3:
+        return HandleLogResult.INPUT_INVALID
       meas = np.array([-v[2], -v[1], -v[0]])
       if np.linalg.norm(meas) >= ACCEL_SANITY_CHECK:
         return HandleLogResult.INPUT_INVALID
@@ -131,6 +133,8 @@ class LocationEstimator:
         return HandleLogResult.SENSOR_SOURCE_INVALID
 
       v = msg.gyroUncalibrated.v
+      if len(v) < 3:
+        return HandleLogResult.INPUT_INVALID
       meas = np.array([-v[2], -v[1], -v[0]])
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
