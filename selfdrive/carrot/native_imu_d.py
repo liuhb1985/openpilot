@@ -31,9 +31,8 @@ class NativeIMUD:
     self.bias_stabled = False
     
     # 自适应滤波器集
-    # [修复] CAN 总线 yawRate 有严重的量化噪声，需要更强的滤波
-    # 时间常数从 0.05s 提升到 0.3s，平滑掉 CAN 量化跳变
-    self.yaw_filter = FirstOrderFilter(0.0, 0.3, self.dt)
+    # 时间常数从 0.3s 降低到 0.1s，减少闭环控制延迟
+    self.yaw_filter = FirstOrderFilter(0.0, 0.1, self.dt)
     self.accel_filter = FirstOrderFilter(0.0, 0.1, self.dt)
     self.yaw_accel_filter = FirstOrderFilter(0.0, 0.2, self.dt)
     

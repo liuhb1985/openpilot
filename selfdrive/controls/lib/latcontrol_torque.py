@@ -27,8 +27,8 @@ from openpilot.common.params import Params
 # move it at all, this is compensated for too.
 
 LOW_SPEED_X = [0, 10, 20, 30]
-LOW_SPEED_Y = [7, 5, 3, 1]              # 大幅降低低速增益，防止摆动 (移植自舒适版)
-LOW_SPEED_Y_NN = [6, 2, 1, 0]           # 同步降低 NN 补偿 (移植自舒适版)
+LOW_SPEED_Y = [12, 10, 7, 5]
+LOW_SPEED_Y_NN = [12, 3, 1, 0]
 
 LAT_PLAN_MIN_IDX = 5
 
@@ -101,13 +101,13 @@ class LatControlTorque(LatControl):
       # Note that LAT_PLAN_MIN_IDX is defined above and is used in order to prevent
       # using a "future" value that is actually planned to occur before the "current" desired
       # value, which is offset by the steerActuatorDelay.
-      self.friction_look_ahead_v = [1.4, 2.0] # 恢复原版预瞄时间
-      self.friction_look_ahead_bp = [9.0, 30.0] # 恢复原版速度区间
+      self.friction_look_ahead_v = [0.7, 1.2] # [优化] 缩短预瞄时间，缓解过早切弯
+      self.friction_look_ahead_bp = [5.0, 35.0] # [优化] 扩大速度区间
 
       # Scaling the lateral acceleration "friction response" could be helpful for some.
       # Increase for a stronger response, decrease for a weaker response.
-      self.lat_jerk_friction_factor = 0.4
-      self.lat_accel_friction_factor = 0.7
+      self.lat_jerk_friction_factor = 0.25
+      self.lat_accel_friction_factor = 0.5
 
       # precompute time differences between ModelConstants.T_IDXS
       self.t_diffs = np.diff(ModelConstants.T_IDXS)
@@ -233,9 +233,10 @@ class LatControlTorque(LatControl):
       # nnff_lite 与 nnff 一样也应使用 LOW_SPEED_Y_NN，因为它也做了 friction_compensation
       # [深度优化] 优化低速因子，防止极低速下因曲率噪声导致的方向盘抖动
       if self.use_nnff or self.use_nnff_lite:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN)**2
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.0
       else:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
+        # 非 NNFF 模式下，将补偿曲线调整为随车速严格单调递减，减少中速段过度转向
+        low_speed_factor = np.interp(CS.vEgo, [0, 5, 10, 20, 30], [12, 8, 5, 3, 1]) ** 1.0
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
@@ -360,9 +361,8 @@ class LatControlTorque(LatControl):
                                             gravity_adjusted=True)
 
       # [深度优化] 稳定性增强逻辑
-      # [移植优化] 移除可能引入延迟的误差滤波器
-      # if self.lat_error_filter_t > 0:
-      #   pid_log.error = self.error_filter.update(pid_log.error)
+      if self.lat_error_filter_t > 0:
+        pid_log.error = self.error_filter.update(pid_log.error)
       
       # 计算误差变化率以供 Kd 使用
       # [大师级优化] 对 Kd 使用的误差变化率进行低通滤波，防止微分项放大高频噪声
@@ -378,18 +378,24 @@ class LatControlTorque(LatControl):
       if self.use_nnff or self.use_nnff_lite:
         ff_abs = abs(ff)
         if ff_abs > 0.05:
-          kp_scale = np.interp(ff_abs, [0.05, 0.5], [1.0, 0.85])
+          kp_scale = np.interp(ff_abs, [0.05, 0.5], [1.0, 0.80])
 
       # [极致优化] 3. 转向速率增益抑制：在剧烈纠偏时降低增益，防止过冲
       if steering_rate > 100.0:
-        kp_scale *= np.interp(steering_rate, [100.0, 200.0], [1.0, 0.75])
+        kp_scale *= np.interp(steering_rate, [100.0, 200.0], [1.0, 0.7])
+
+      # [大师级优化] 4. 高负荷增益衰减：在急弯（高侧向G）时降低增益，增加稳定性
+      if abs(desired_lateral_accel) > 1.5:
+        kp_scale *= np.interp(abs(desired_lateral_accel), [1.5, 3.0], [1.0, 0.75])
 
       # [大师级优化] 4. 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
       if self.lat_kd_v > 0:
-        dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 5, 30, 40], [1.0, 0.8, 1.5, 2.0])
+        # [优化] 在极低速 (0-5m/s) 增加阻尼以抑制起步抖动，中速段维持，高速段大幅增强
+        dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 5, 30, 40], [1.0, 0.6, 1.5, 2.0])
         self.pid._k_d = [[0], [dynamic_kd]]
 
       output_torque = self.pid.update(pid_log.error,
+                                      error_rate=error_rate,
                                       feedforward=ff,
                                       speed=CS.vEgo,
                                       freeze_integrator=freeze_integrator,
