@@ -27,7 +27,7 @@ from openpilot.common.params import Params
 # move it at all, this is compensated for too.
 
 LOW_SPEED_X = [0, 10, 20, 30]
-LOW_SPEED_Y = [12, 10, 7, 5]
+LOW_SPEED_Y = [15, 13, 10, 5]
 LOW_SPEED_Y_NN = [12, 3, 1, 0]
 
 LAT_PLAN_MIN_IDX = 5
@@ -82,16 +82,10 @@ class LatControlTorque(LatControl):
     self.latAccelFactor_default = self.torque_params.latAccelFactor
     self.latAccelOffset_default = self.torque_params.latAccelOffset
     self.friction_default = self.torque_params.friction
-    self.kp_default = self.torque_params.kp
-    self.ki_default = self.torque_params.ki
-    self.kf_default = self.torque_params.kf
-    self.kd_default = 0.0 # Torque 模式默认 Kd 通常为 0
 
     # Twilsonco's Lateral Neural Network Feedforward
     self.use_nnff = CI.use_nnff
     self.use_nnff_lite = CI.use_nnff_lite
-    self.lat_accel_friction_factor = 0.0
-    self.lat_jerk_friction_factor = 0.0
 
     if self.use_nnff or self.use_nnff_lite:
       # Instantaneous lateral jerk changes very rapidly, making it not useful on its own,
@@ -101,13 +95,13 @@ class LatControlTorque(LatControl):
       # Note that LAT_PLAN_MIN_IDX is defined above and is used in order to prevent
       # using a "future" value that is actually planned to occur before the "current" desired
       # value, which is offset by the steerActuatorDelay.
-      self.friction_look_ahead_v = [0.7, 1.2] # [优化] 缩短预瞄时间，缓解过早切弯
-      self.friction_look_ahead_bp = [5.0, 35.0] # [优化] 扩大速度区间
+      self.friction_look_ahead_v = [1.4, 2.0] # how many seconds in the future to look ahead in [0, ~2.1] in 0.1 increments
+      self.friction_look_ahead_bp = [9.0, 30.0] # corresponding speeds in m/s in [0, ~40] in 1.0 increments
 
       # Scaling the lateral acceleration "friction response" could be helpful for some.
       # Increase for a stronger response, decrease for a weaker response.
-      self.lat_jerk_friction_factor = 0.25
-      self.lat_accel_friction_factor = 0.5
+      self.lat_jerk_friction_factor = 0.4
+      self.lat_accel_friction_factor = 0.7 # in [0, 3], in 0.05 increments. 3 is arbitrary safety limit
 
       # precompute time differences between ModelConstants.T_IDXS
       self.t_diffs = np.diff(ModelConstants.T_IDXS)
@@ -115,7 +109,6 @@ class LatControlTorque(LatControl):
 
     if self.use_nnff:
       self.pitch = FirstOrderFilter(0.0, 0.5, 0.01)
-      self._last_pitch = 0.0  # [修复] pitch 历史缓冲，防止 orientationNED 为空时突变
       # NN model takes current v_ego, lateral_accel, lat accel/jerk error, roll, and past/future/planned data
       # of lat accel and roll
       # Past value is computed using previous desired lat accel and observed roll
@@ -137,21 +130,6 @@ class LatControlTorque(LatControl):
       self.error_deque = deque(maxlen=history_check_frames[0])
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
 
-    # carrot stability optimization
-    self.error_filter = FirstOrderFilter(0.0, 0.0, 0.01) # [深度优化] 误差低通滤波器
-    self.desired_curvature_filter = FirstOrderFilter(0.0, 0.02, 0.01) # [深度优化] 目标曲率平滑滤波器，减少指令突变
-    self.error_rate_filter = FirstOrderFilter(0.0, 0.05, 0.01) # [大师级优化] 误差变化率滤波器，抑制 Kd 抖动
-    self.lat_kd_v = 0.0
-    self.lat_error_filter_t = 0.0
-    self.last_error = 0.0 # [深度优化] 用于计算误差变化率
-    self.offset_filter = FirstOrderFilter(0.0, 2.0, 0.01) # [极致优化] 转向偏移量平滑滤波器，时间常数2.0秒
-
-
-  def reset(self):
-    super().reset()
-    self.pid.reset()
-    self.last_error = 0.0
-    self.error_filter.x = 0.0
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
     if self.lateralTorqueCustom > 0:
@@ -162,37 +140,26 @@ class LatControlTorque(LatControl):
     self.torque_params.friction = friction
 
   def update(self, active, CS, VM, params, steer_limited_by_controls, desired_curvature, CC, curvature_limited, model_data=None):
-    desired_curvature = self.desired_curvature_filter.update(desired_curvature)
     self.frame += 1
-    if self.frame % 200 == 0:
-      self.lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
-      self.lat_kd_v = self.params.get_float("LateralTorqueKd")*0.01
-      self.lat_error_filter_t = self.params.get_float("LateralTorqueFilter")*0.001
-      # [优化] 如果用户未设置滤镜，默认给一个 30ms 的基础滤波以抑制震荡
-      if self.lat_error_filter_t <= 0:
-        self.lat_error_filter_t = 0.03
-      self.error_filter.update_alpha(self.lat_error_filter_t)
-
-      if self.lateralTorqueCustom > 0:
+    if self.frame % 10 == 0:
+      lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
+      if lateralTorqueCustom > 0:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
         self.torque_params.friction = self.params.get_float("LateralTorqueFriction")*0.001
         lateralTorqueKp = self.params.get_float("LateralTorqueKpV")*0.01
         lateralTorqueKi = self.params.get_float("LateralTorqueKiV")*0.01
         lateralTorqueKf = self.params.get_float("LateralTorqueKf")*0.01
+        lateralTorqueKd = self.params.get_float("LateralTorqueKd")*0.01
         self.pid._k_p = [[0], [lateralTorqueKp]]
         self.pid._k_i = [[0], [lateralTorqueKi]]
         self.pid.k_f = lateralTorqueKf
+        self.pid._k_d = [[0], [lateralTorqueKd]]
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-      else:
+      elif self.lateralTorqueCustom > 1:  # 1 -> 0, reset to default
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-        self.pid._k_p = [[0], [self.kp_default]]
-        self.pid._k_i = [[0], [self.ki_default]]
-        self.pid.k_f = self.kf_default
-
-      # 始终更新 Kd
-      self.pid._k_d = [[0], [self.lat_kd_v]]
+      self.lateralTorqueCustom = lateralTorqueCustom
 
     pid_log = log.ControlsState.LateralTorqueState.new_message()
     nn_log = None
@@ -201,13 +168,10 @@ class LatControlTorque(LatControl):
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
     else:
-      # [极致优化] 对偏移量进行深度平滑，防止 IMU 噪声直接传导至方向盘
-      angle_offset = self.offset_filter.update(params.angleOffsetDeg)
-      
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
-      angle_steers_des += angle_offset
+      angle_steers_des += params.angleOffsetDeg
 
-      actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - angle_offset), CS.vEgo, params.roll)
+      actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       actual_lateral_jerk = 0.0
       if self.use_steering_angle:
@@ -217,9 +181,8 @@ class LatControlTorque(LatControl):
           actual_curvature_rate = -VM.calc_curvature(math.radians(CS.steeringRateDeg), CS.vEgo, 0.0)
           actual_lateral_jerk = actual_curvature_rate * CS.vEgo ** 2
       else:
-        # [修复] angularVelocity[2] / CS.vEgo 低速时有除零风险，限制最小速度
-        v_safe = max(CS.vEgo, 0.1)
-        actual_curvature_llk = CC.angularVelocity[2] / v_safe
+        # Use CC.angularVelocity[2] for ported IMU data on PC
+        actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo
         actual_curvature = np.interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
         curvature_deadzone = 0.0
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
@@ -227,42 +190,15 @@ class LatControlTorque(LatControl):
       # desired rate is the desired rate of change in the setpoint, not the absolute desired curvature
       # desired_lateral_jerk = desired_curvature_rate * CS.vEgo ** 2
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
-      lateral_accel_deadzone = (curvature_deadzone * CS.vEgo ** 2) * np.interp(CS.vEgo, [10.0, 30.0], [1.0, 0.4])
+      lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
-      # [修复] NNFF 模式使用专用的低速因子表（更小的增益，避免干扰NN推理）
-      # nnff_lite 与 nnff 一样也应使用 LOW_SPEED_Y_NN，因为它也做了 friction_compensation
-      # [深度优化] 优化低速因子，防止极低速下因曲率噪声导致的方向盘抖动
-      if self.use_nnff or self.use_nnff_lite:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.0
-      else:
-        # 非 NNFF 模式下，将补偿曲线调整为随车速严格单调递减，减少中速段过度转向
-        low_speed_factor = np.interp(CS.vEgo, [0, 5, 10, 20, 30], [12, 8, 5, 3, 1]) ** 1.0
+      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
       lateral_jerk_setpoint = 0
       lateral_jerk_measurement = 0
       lookahead_lateral_jerk = 0
-      # lat_accel_ff: 仅在 use_nnff/use_nnff_lite 时使用，且 self.lat_accel_friction_factor
-      # 也只在这两种模式下初始化。默认值仅在使用时才赋，避免纯传统模式 AttributeError。
-      # lat_accel_ff: 仅在 use_nnff/use_nnff_lite 时生效，用于计算摩擦补偿
-      lat_accel_ff = self.lat_accel_friction_factor
-
-      # ── IMU 数据诊断打印（每100帧约1秒，所有控制模式均输出）──
-      if self.frame % 100 == 1:
-        ned = list(CC.orientationNED)   # [roll, pitch, yaw] in rad，来自 locationd/calibrationd
-        av  = list(CC.angularVelocity)  # [x, y, z] rad/s，车辆坐标系角速度
-        ned_str = f"[{ned[0]:.4f},{ned[1]:.4f},{ned[2]:.4f}]" if len(ned) >= 3 else f"{ned}(空!)"
-        av_str  = f"[{av[0]:.4f},{av[1]:.4f},{av[2]:.4f}]"   if len(av)  >= 3 else f"{av}(空!)"
-        mode = "NNFF" if self.use_nnff else ("LITE" if self.use_nnff_lite else "Classic")
-        model_good_now = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
-        print(
-          f"[LAT-IMU|{mode}|model={'OK' if model_good_now else 'NO'}] "
-          f"vEgo={CS.vEgo:.1f}m/s "
-          f"orientationNED={ned_str}(rad)[r,p,y] "
-          f"angularVel={av_str}(rad/s) "
-          f"params.roll={params.roll:.4f}"
-        )
 
       model_good = model_data is not None and len(model_data.orientation.x) >= CONTROL_N
       if model_good and (self.use_nnff or self.use_nnff_lite):
@@ -276,28 +212,17 @@ class LatControlTorque(LatControl):
         if self.use_steering_angle or lookahead_lateral_jerk == 0.0:
           lookahead_lateral_jerk = 0.0
           actual_lateral_jerk = 0.0
-          # [修复] lat_accel_friction_factor 不应永久改写；此赋值仅影响本帧的 friction_input 计算
-          # 原代码 self.lat_accel_friction_factor = 1.0 会永久修改实例属性，导致下一帧即使 jerk
-          # 非零也使用错误的 1.0。改为使用局部变量保持安全。
-          lat_accel_ff = 1.0
-        else:
-          lat_accel_ff = self.lat_accel_friction_factor
+          self.lat_accel_friction_factor = 1.0
         lateral_jerk_setpoint = self.lat_jerk_friction_factor * lookahead_lateral_jerk
         lateral_jerk_measurement = self.lat_jerk_friction_factor * actual_lateral_jerk
 
       if self.use_nnff and model_good:
         # update past data
+        pitch = 0
         roll = params.roll
         if len(CC.orientationNED) > 1:
-          # [修复] orientationNED 有效时更新 pitch，并缓存
           pitch = self.pitch.update(CC.orientationNED[1])
-          self._last_pitch = pitch
           roll = roll_pitch_adjust(roll, pitch)
-        else:
-          # [修复] orientationNED 为空时用上一帧缓存值，防止 pitch 突变为 0
-          pitch = self._last_pitch
-          roll = roll_pitch_adjust(roll, pitch)
-
         self.roll_deque.append(roll)
         self.lateral_accel_desired_deque.append(desired_lateral_accel)
 
@@ -321,17 +246,16 @@ class LatControlTorque(LatControl):
         torque_from_measurement = self.torque_from_nn(nnff_measurement_input)
 
         pid_log.error = float(torque_from_setpoint - torque_from_measurement)
-        error_blend_factor = np.interp(abs(desired_lateral_accel), [1.5, 3.0], [0.0, 0.8]) # [优化] 推迟混合点并限制最大权重，抑制抖动
+        error_blend_factor = np.interp(abs(desired_lateral_accel), [1.0, 2.0], [0.0, 1.0])
         if error_blend_factor > 0.0:  # blend in stronger error response when in high lat accel
           nnff_error_input = [CS.vEgo, setpoint - measurement, lateral_jerk_setpoint - lateral_jerk_measurement, 0.0]
           torque_from_error = self.torque_from_nn(nnff_error_input)
-          if np.sign(pid_log.error) == np.sign(torque_from_error) and abs(pid_log.error) < abs(torque_from_error):
+          if sign(pid_log.error) == sign(torque_from_error) and abs(pid_log.error) < abs(torque_from_error):
             pid_log.error = float(pid_log.error * (1.0 - error_blend_factor) + torque_from_error * error_blend_factor)
 
         # compute feedforward (same as nn setpoint output)
         error = setpoint - measurement
-        # [修复] 使用局部变量 lat_accel_ff，而非可能已被永久改写的 self.lat_accel_friction_factor
-        friction_input = lat_accel_ff * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
+        friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         nn_input = [CS.vEgo, desired_lateral_accel, friction_input, roll] \
                    + past_lateral_accels_desired + future_planned_lateral_accels \
                    + past_rolls + future_rolls
@@ -352,55 +276,18 @@ class LatControlTorque(LatControl):
         pid_log.error = float(torque_from_setpoint - torque_from_measurement)
         error = desired_lateral_accel - actual_lateral_accel
         if self.use_nnff_lite:
-          # [修复] 同样使用局部变量 lat_accel_ff
-          friction_input = lat_accel_ff * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
+          friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         else:
           friction_input = error
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
 
-      # [深度优化] 稳定性增强逻辑
-      if self.lat_error_filter_t > 0:
-        pid_log.error = self.error_filter.update(pid_log.error)
-      
-      # 计算误差变化率以供 Kd 使用
-      # [大师级优化] 对 Kd 使用的误差变化率进行低通滤波，防止微分项放大高频噪声
-      error_rate = self.error_rate_filter.update((pid_log.error - self.last_error) / 0.01)
-      self.last_error = pid_log.error
-
-      # [进阶优化] 1. 转向速率抗积分饱和：在高转向速率时冻结积分
-      steering_rate = abs(CS.steeringRateDeg)
-      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5 or steering_rate > 50.0 
-
-      # [进阶优化] 2. NNFF-PID 解耦：当前馈非常强时，适度降低 PID 灵敏度，防止反馈震荡
-      kp_scale = 1.0
-      if self.use_nnff or self.use_nnff_lite:
-        ff_abs = abs(ff)
-        if ff_abs > 0.05:
-          kp_scale = np.interp(ff_abs, [0.05, 0.5], [1.0, 0.80])
-
-      # [极致优化] 3. 转向速率增益抑制：在剧烈纠偏时降低增益，防止过冲
-      if steering_rate > 100.0:
-        kp_scale *= np.interp(steering_rate, [100.0, 200.0], [1.0, 0.7])
-
-      # [大师级优化] 4. 高负荷增益衰减：在急弯（高侧向G）时降低增益，增加稳定性
-      if abs(desired_lateral_accel) > 1.5:
-        kp_scale *= np.interp(abs(desired_lateral_accel), [1.5, 3.0], [1.0, 0.75])
-
-      # [大师级优化] 4. 动态 Kd 阻尼：随车速增加而增加阻尼，减少高速摆动
-      if self.lat_kd_v > 0:
-        # [优化] 在极低速 (0-5m/s) 增加阻尼以抑制起步抖动，中速段维持，高速段大幅增强
-        dynamic_kd = self.lat_kd_v * np.interp(CS.vEgo, [0, 5, 30, 40], [1.0, 0.6, 1.5, 2.0])
-        self.pid._k_d = [[0], [dynamic_kd]]
-
+      freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
       output_torque = self.pid.update(pid_log.error,
-                                      error_rate=error_rate,
                                       feedforward=ff,
                                       speed=CS.vEgo,
-                                      freeze_integrator=freeze_integrator,
-                                      k_p_scale=kp_scale,
-                                      k_i_scale=kp_scale)
+                                      freeze_integrator=freeze_integrator)
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)
