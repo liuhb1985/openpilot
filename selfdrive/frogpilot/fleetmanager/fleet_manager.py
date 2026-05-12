@@ -35,7 +35,6 @@ from ftplib import FTP
 
 from openpilot.common.params import Params
 from cereal import log, messaging
-from cereal import log, messaging
 import time
 from functools import wraps
 from openpilot.opendbc_repo.opendbc.car.interfaces import CarInterfaceBase

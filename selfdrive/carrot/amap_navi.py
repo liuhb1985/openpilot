@@ -870,7 +870,7 @@ class AmapNaviServ:
                 lb_dreltmp = lb_drel
               # 计算左前方和左后方速度
               self.shared_data.lf_vrel = self.leftFrontTarget.update(lf_dreltmp, dist_timems)
-              self.shared_data.lb_vrel = self.leftFrontTarget.update(lb_dreltmp, dist_timems)
+              self.shared_data.lb_vrel = self.leftBehindTarget.update(lb_dreltmp, dist_timems)
               # 动态时距盲区判断
               self.lf_object_detected = self.is_side_object_risky(lf_dreltmp, self.shared_data.lf_vrel, self.shared_data.v_ego_m,
                                                                   self.min_vrel_vego_time, self.min_drel_vego_time)
