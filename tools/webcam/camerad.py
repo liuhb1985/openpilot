@@ -9,8 +9,8 @@ from cereal import messaging
 from openpilot.tools.webcam.camera import CameraMJPG
 from openpilot.common.realtime import Ratekeeper
 
-ROAD_CAM = os.getenv("ROAD_CAM") or "0"
-WIDE_CAM = os.getenv("WIDE_CAM") or None
+ROAD_CAM = os.getenv("ROAD_CAM") or "2"
+WIDE_CAM = os.getenv("WIDE_CAM") or "0"
 USE_CAMPATH = os.getenv("USE_CAMPATH")
 
 # PC standard openpilot webcam settings
