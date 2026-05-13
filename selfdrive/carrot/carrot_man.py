@@ -35,6 +35,8 @@ except ImportError:
   SHAPELY_AVAILABLE = False
 
 NetworkType = log.DeviceState.NetworkType
+DATA_PATH = '/data' if not PC else os.path.expanduser('~/.comma/carrot_data')
+os.makedirs(DATA_PATH, exist_ok=True)
 
 ################ CarrotNavi
 ## 国家法令信息中心：道路设计标准
@@ -752,7 +754,7 @@ class CarrotMan:
 
   def make_tmux_data(self):
     try:
-      subprocess.run("rm /data/media/tmux.log; tmux capture-pane -pq -S-1000 > /data/media/tmux.log", shell=True, capture_output=True, text=False)
+      subprocess.run(f"rm {DATA_PATH}/media/tmux.log; tmux capture-pane -pq -S-1000 > {DATA_PATH}/media/tmux.log", shell=True, capture_output=True, text=False)
       from openpilot.common.basedir import BASEDIR
       subprocess.run(os.path.join(BASEDIR, "selfdrive/apilot.py"), shell=True, capture_output=True, text=False)
     except Exception as e:
@@ -791,7 +793,7 @@ class CarrotMan:
     ftp.cwd(directory)
 
     try:
-      with open("/data/media/tmux.log", "rb") as file:
+      with open(os.path.join(DATA_PATH, "media/tmux.log"), "rb") as file:
         ftp.storbinary(f'STOR {filename}', file)
     except Exception as e:
       print(f"FTP 发送错误...: {e}")
@@ -800,7 +802,7 @@ class CarrotMan:
       self.save_toggle_values()
       try:
         #with open("/data/backup_params.json", "rb") as file:
-        with open("/data/toggle_values.json", "rb") as file:
+        with open(os.path.join(DATA_PATH, "toggle_values.json"), "rb") as file:
           ftp.storbinary(f'STOR toggles-{current_time}.json', file)
       except Exception as e:
         print(f"FTP 参数发送错误...: {e}")
@@ -826,7 +828,7 @@ class CarrotMan:
       import openpilot.selfdrive.frogpilot.fleetmanager.helpers as fleet
 
       toggle_values = fleet.get_all_toggle_values()
-      file_path = os.path.join('/data', 'toggle_values.json')
+      file_path = os.path.join(DATA_PATH, 'toggle_values.json')
       with open(file_path, 'w') as file:
         json.dump(toggle_values, file, indent=2)
     except Exception as e:
