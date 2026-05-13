@@ -59,14 +59,18 @@ class Camera:
 
 class CameraMJPG:
     def __init__(self, cam_type_state, stream_type, camera_id, num_workers=None, max_queue_size=10, use_processes=False):
-        try:
-            camera_id = int(camera_id)
-        except ValueError:
-            pass
+        if str(camera_id).isdigit():
+            self.cap = cv2.VideoCapture(int(camera_id))
+        else:
+            self.cap = cv2.VideoCapture(camera_id)
 
-        self.cap = cv2.VideoCapture(camera_id)
         if not self.cap.isOpened():
             raise OSError(f"无法打开摄像头设备 {camera_id}")
+
+        # 获取并打印实际分辨率
+        actual_w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        actual_h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        print(f"Camera opened: {camera_id}, Resolution: {actual_w}x{actual_h}")
 
         self._configure_camera_format("MJPG")
         actual_format = self._get_current_format()
