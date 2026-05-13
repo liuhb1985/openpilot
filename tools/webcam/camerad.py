@@ -29,21 +29,21 @@ class Camerad:
     self.cameras = []
     for c in CAMERAS:
       cam_id = str(c.cam_id)
-      if cam_id.startswith("/") or cam_id.startswith("pci-"):
+      if (cam_id.startswith("/") or cam_id.startswith("pci-")) or USE_CAMPATH:
         cam_device = cam_id if cam_id.startswith("/") else f"/dev/v4l/by-path/{cam_id}"
-      elif USE_CAMPATH:
-        cam_device = f"/dev/v4l/by-path/{cam_id}"
+        if not os.path.exists(cam_device) or os.path.isdir(cam_device):
+          print(f"[WARN] Camera path {cam_device} not found or is a directory, falling back to default /dev/video{cam_id}")
+          cam_device = f"/dev/video{cam_id}"
       else:
         cam_device = f"/dev/video{cam_id}"
 
-      if os.path.isdir(cam_device):
-        print(f"skipping {c.msg_name} because {cam_device} is a directory")
-        continue
-
-      print(f"opening {c.msg_name} at {cam_device} [USE_CAMPATH={USE_CAMPATH}]")
-      cam = CameraMJPG(c.msg_name, c.stream_type, cam_device)
-      self.cameras.append(cam)
-      self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
+      print(f"opening {c.msg_name} at {cam_device}")
+      try:
+        cam = CameraMJPG(c.msg_name, c.stream_type, cam_device)
+        self.cameras.append(cam)
+        self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
+      except Exception as e:
+        print(f"Failed to open camera {cam_device}: {e}")
 
     self.vipc_server.start_listener()
 
