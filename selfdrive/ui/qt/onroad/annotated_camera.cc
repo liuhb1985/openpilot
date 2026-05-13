@@ -174,8 +174,8 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       float v_ego = car_state.getVEgo();
       float steer_angle = std::abs(car_state.getSteeringAngleDeg());
       
-      // 触发条件：仅在低速大弯 (>60deg) 时切换广角
-      bool wide_trigger = (v_ego < 11.1 && steer_angle > 60.0);
+      // 触发条件：仅在低速行驶 (0.2~11.1 m/s) 且大弯 (>60deg) 时切换广角
+      bool wide_trigger = (v_ego > 0.2 && v_ego < 11.1 && steer_angle > 60.0);
 
       static double last_wide_trigger_t = 0;
       double now = millis_since_boot();
