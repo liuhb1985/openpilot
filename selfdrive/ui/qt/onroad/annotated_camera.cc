@@ -167,7 +167,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       skip_frame_count = 5;
     }
 
-    // --- 深度优化：智能视角切换逻辑 (Smart Camera Switching) ---
+    /* --- 深度优化：智能视角切换逻辑 (Smart Camera Switching) ---
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam) {
       const auto &car_state = sm["carState"].getCarState();
@@ -191,9 +191,14 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
         wide_cam_requested = false;
       }
       
-      // 如果用户手动开启了实验模式，则强制跟随实验模式设定（可选）
-      // wide_cam_requested = wide_cam_requested || s->scene.carrot_experimental_mode;
+      static bool last_wide_requested = false;
+      if (wide_cam_requested != last_wide_requested) {
+        qDebug() << "Camera Switch | V:" << v_ego << " | Angle:" << steer_angle << " | Target:" << (wide_cam_requested ? "WIDE" : "ROAD");
+        last_wide_requested = wide_cam_requested;
+      }
     }
+    */
+    wide_cam_requested = false; // 强制保持长焦
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
     CameraWidget::setFrameId(sm["modelV2"].getModelV2().getFrameId());
