@@ -116,17 +116,28 @@ def create_clu11(packer, frame, clu11, button, CP):
   return packer.make_can_msg("CLU11", bus, values)
 
 
-def create_lfahda_mfc(packer, CC, blinking_signal, CP, v_ego=0.0):
+def create_lfahda_mfc(packer, CC, blinking_signal, CP, v_ego=0.0, stock_cruise_enabled=False):
   activeCarrot = CC.hudControl.activeCarrot
-  hda_active = 1 if CC.longActive and activeCarrot > 0 else 0
+  
+  # 如果开启了 openpilot 纵向，则按原有逻辑：activeCarrot > 0 且 CC.longActive 时激活 HDA
+  # 如果未开启 openpilot 纵向（使用原车 SCC），则 HDA 状态跟随原车巡航状态
+  if CP.openpilotLongitudinalControl:
+    hda_active = 1 if CC.longActive and activeCarrot > 0 else 0
+  else:
+    hda_active = 1 if stock_cruise_enabled else 0
+
   if activeCarrot == 3 and blinking_signal:
     hda_icon = 0
   else:
-    hda_icon = 2 if CC.longActive else 0
+    # 只要 HDA 激活，就显示 HDA 图标 (2)
+    hda_icon = 2 if hda_active else 0
 
-  # [Optimization] 为了防止 2019 款胜达报错 "无法开启智能导航系统"
+  # [Optimization] 为了防止胜达报错 "无法开启智能导航系统"
   # 强制将 HDA_USM 设为 2 (表示已安装但非活动)，这是老款车型最兼容的模式。
-  hda_usm = 2 if CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE,) else (2 if hda_active == 1 or v_ego > 10 / 3.6 else 0)
+  # 扩展到所有胜达车型 (2019-2023)
+  santa_fe_variants = (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022, 
+                       CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)
+  hda_usm = 2 if CP.carFingerprint in santa_fe_variants else (2 if hda_active == 1 or v_ego > 10 / 3.6 else 0)
 
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,

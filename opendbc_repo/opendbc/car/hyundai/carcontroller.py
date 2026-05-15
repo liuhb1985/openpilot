@@ -422,7 +422,7 @@ class CarController(CarControllerBase):
       if self.frame % 5 == 0 and (self.CP.flags & HyundaiFlags.SEND_LFA.value or
                                   self.CP.carFingerprint in (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022,
                                                                CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)):
-        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal, self.CP, CS.out.vEgo))
+        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC, self.blinking_signal, self.CP, CS.out.vEgo, CS.out.cruiseState.enabled))
 
       # 5 Hz ACC options
       if self.frame % 20 == 0 and self.CP.openpilotLongitudinalControl:
