@@ -6,7 +6,7 @@ import sys
 import time
 import traceback
 
-from cereal import log
+from cereal import car, log
 import cereal.messaging as messaging
 import openpilot.system.sentry as sentry
 from openpilot.common.params import Params, ParamKeyType
@@ -323,7 +323,7 @@ def manager_thread() -> None:
   print_timer = 0
 
   started_prev = False
-  gear_prev = log.CarState.GearShifter.unknown
+  gear_prev = car.CarState.GearShifter.unknown
   ever_driven = False
   driving_start_time = 0.0
   parking_start_time = 0.0
@@ -354,7 +354,7 @@ def manager_thread() -> None:
       now = time.monotonic()
 
       # 1. 行驶确认：在 D 或 R 档持续停留超过 1s，才标记为已驱动
-      if gear in (log.CarState.GearShifter.drive, log.CarState.GearShifter.reverse):
+      if gear in (car.CarState.GearShifter.drive, car.CarState.GearShifter.reverse):
         if driving_start_time == 0:
           driving_start_time = now
         elif now - driving_start_time >= 1.0:
@@ -364,7 +364,7 @@ def manager_thread() -> None:
         driving_start_time = 0
 
       # 2. 关机确认：曾驱动过 + 处于 N/P 档 + 手刹拉起 -> 持续 1s 则关机
-      is_parking_gear = gear in (log.CarState.GearShifter.neutral, log.CarState.GearShifter.park)
+      is_parking_gear = gear in (car.CarState.GearShifter.neutral, car.CarState.GearShifter.park)
       if ever_driven and is_parking_gear and parking_brake:
         if parking_start_time == 0:
           parking_start_time = now
