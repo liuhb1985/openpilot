@@ -184,18 +184,8 @@ mat4 CameraWidget::calcFrameMatrix() {
   // Scale the frame to fit the widget while maintaining the aspect ratio.
   float widget_aspect_ratio = (float)width() / height();
   float frame_aspect_ratio = (float)stream_width / stream_height;
-
-  float zx, zy;
-  if (frame_aspect_ratio < widget_aspect_ratio) {
-    // 摄像头比屏幕更"方"（如4:3 vs 16:9）→ 使用 cover 模式：填满高度，水平裁剪
-    // 这样消除 BSM/盲区摄像头两侧的大片黑边
-    zx = 1.0f;
-    zy = widget_aspect_ratio / frame_aspect_ratio;
-  } else {
-    // 摄像头比屏幕更宽 → 使用 fit 模式：填满宽度，上下留黑边（原逻辑）
-    zx = std::min(frame_aspect_ratio / widget_aspect_ratio, 1.0f);
-    zy = std::min(widget_aspect_ratio / frame_aspect_ratio, 1.0f);
-  }
+  float zx = std::min(frame_aspect_ratio / widget_aspect_ratio, 1.0f);
+  float zy = std::min(widget_aspect_ratio / frame_aspect_ratio, 1.0f);
 
   return mat4{{
     zx, 0.0, 0.0, 0.0,

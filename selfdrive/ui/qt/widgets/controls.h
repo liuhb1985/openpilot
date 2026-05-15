@@ -154,10 +154,6 @@ public:
     active_icon_pixmap = QPixmap(icon).scaledToWidth(80, Qt::SmoothTransformation);
   }
 
-signals:
-  void confirmed();
-
-public:
   void refresh() {
     bool state = params.getBool(key);
     if (state != toggle.on) {
