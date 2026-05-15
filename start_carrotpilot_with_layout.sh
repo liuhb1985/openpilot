@@ -94,8 +94,8 @@ wait_for_device() {
     fi
 }
 
-wait_for_device "/dev/video$ROAD_CAM_IDX" "Road Camera (Long-focus)"
-wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (Wide-angle)"
+wait_for_device "/dev/video$ROAD_CAM_IDX" "Road Camera (Wide-angle)"
+wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (Long-focus)"
 
 # 设置动态库路径，使相关进程能找到 libonnxruntime
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
@@ -106,7 +106,7 @@ export USE_VISION_IPC=1
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
 # 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
-SCALE=1 USE_USBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+PATH_VIDEOS=$(pwd)/videos SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 
 MANAGER_PID=$!
 
