@@ -1711,14 +1711,14 @@ int filter_unusable_cameras(std::vector<std::string> &devs,
         }
     }
 
-    if (devices.empty()) {
+    if (devs.empty()) {
         std::cerr << "[ERROR] No usable camera devices.\n";
         return 0;
     }
 
-    std::cout << "[INFO] " << devices.size() << " usable cameras detected." << std::endl;
+    std::cout << "[INFO] " << devs.size() << " usable cameras detected." << std::endl;
 
-    return devices.size();
+    return devs.size();
 }
 
 // === 新增：捕获 Ctrl+C / 系统关闭信号 ===

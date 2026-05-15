@@ -63,7 +63,7 @@ std::vector<std::unique_ptr<std::mutex>> queue_mutexes(MAX_CAM);
 std::vector<std::unique_ptr<std::condition_variable>> queue_conds(MAX_CAM);
 
 // 配置端口
-const int LOCAL_SEND_PORT = 4120;
+// const int LOCAL_SEND_PORT = 4120;
 const int LOCAL_RECV_PORT = 4210;
 const int REMOTE_PORT = 4211;
 
@@ -970,14 +970,14 @@ int filter_unusable_cameras(std::vector<std::string> &devs, std::vector<int> &si
         }
     }
 
-    if (devices.empty()) {
+    if (devs.empty()) {
         std::cerr << "[ERROR] No usable camera devices found.\n";
         return 0;
     }
 
-    std::cout << "[INFO] " << devices.size() << " usable cameras detected." << std::endl;
+    std::cout << "[INFO] " << devs.size() << " usable cameras detected." << std::endl;
 
-    return devices.size();
+    return devs.size();
 }
 
 // === 新增：捕获 Ctrl+C / 系统关闭信号 ===
