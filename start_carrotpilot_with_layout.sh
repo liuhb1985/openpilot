@@ -43,12 +43,12 @@ check_cameras_ready
 # -----------------------------------------------------------------------------
 # 1. 广角摄像头 (Wide-angle, 默认 index 0)
 # 使用通配符匹配，解决 usb-0 vs usbv2-0 或微小路径变动
-ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb*-0:1.1:1.0-video-index0 2>/dev/null | head -n 1)
+ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:67:00.4-usb*-0:1.3:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
     export ROAD_CAM=$ROAD_CAM_IDX
-    echo "[INFO] Identified Road Cam (Wide-angle) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
 else
     export ROAD_CAM=0
     export ROAD_CAM_IDX=0
@@ -57,12 +57,12 @@ fi
 
 # 2. 长焦摄像头 (Long-focus, 默认 index 2)
 # 深度优化：将长焦头设置为辅助视角，提供远距离感知识别能力
-WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:67:00.4-usb*-0:1.3:1.0-video-index0 2>/dev/null | head -n 1)
+WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb*-0:1.1:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
     export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
     export WIDE_CAM=$WIDE_CAM_IDX
-    echo "[INFO] Tele-Camera Enabled: Long-focus via $WIDE_PATH at index: $WIDE_CAM"
+    echo "[INFO] Tele-Camera Enabled: WIDE_PATH via $WIDE_PATH at index: $WIDE_CAM"
 else
     export WIDE_CAM=2
     export WIDE_CAM_IDX=2
@@ -106,7 +106,7 @@ export USE_VISION_IPC=1
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
 # 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
-PATH_VIDEOS=$(pwd)/videos SCALE=1 USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
+USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=1 system/manager/manager.py &
 
 MANAGER_PID=$!
 
