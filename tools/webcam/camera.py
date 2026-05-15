@@ -13,20 +13,20 @@ def bgr_to_nv12_bytes(bgr):
     h, w = bgr.shape[:2]
     # 1. Convert BGR to YUV I420 (Y plane followed by U and V planes)
     yuv_i420 = cv2.cvtColor(bgr, cv2.COLOR_BGR2YUV_I420)
-    
+
     # 2. Extract Y plane
     y_plane = yuv_i420[:h, :]
-    
+
     # 3. Extract U and V planes and interleave them for NV12
     # I420 layout: Y(h*w), U(h*w/4), V(h*w/4)
     u_plane = yuv_i420[h : h + h // 4, :].reshape(-1)
     v_plane = yuv_i420[h + h // 4 :, :].reshape(-1)
-    
+
     # Use numpy to interleave U and V efficiently
     uv_interleaved = np.empty(h * w // 2, dtype=np.uint8)
     uv_interleaved[0::2] = u_plane
     uv_interleaved[1::2] = v_plane
-    
+
     return y_plane.tobytes() + uv_interleaved.tobytes()
 
 class Camera:
