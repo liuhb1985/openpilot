@@ -991,8 +991,13 @@ void signal_handler(int signo) {
     }
 }
 
+#include <opencv2/core/ocl.hpp>
+
 // ---------------- main ----------------
 int main() {
+    // 强制关闭 OpenCL，防止 RDNA3 驱动忙等导致 GPU 占用率虚高 (99%)
+    cv::ocl::setUseOpenCL(false);
+
     // 注册信号处理函数
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
