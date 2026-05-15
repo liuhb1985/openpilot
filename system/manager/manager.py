@@ -98,7 +98,7 @@ def get_default_params():
     ("CruiseButtonTest2", "30"),  # 巡航按钮测试参数 2
     ("CruiseButtonTest3", "1"),  # 巡航按钮测试参数 3
     ("CruiseSpeedUnit", "10"),  # 巡航速度增量单位
-    ("CruiseSpeedUnitBasic", "5"),  # 巡航步进基础单位
+    ("CruiseSpeedUnitBasic", "1"),  # 巡航步进基础单位
     ("CruiseSpeed1", "30"),  # 巡航记忆速度 1
     ("CruiseSpeed2", "50"),  # 巡航记忆速度 2
     ("CruiseSpeed3", "80"),  # 巡航记忆速度 3
@@ -179,7 +179,7 @@ def get_default_params():
     ("RecordRoadCam", "0"),  # 循环记录前方路面视频
     ("HDPuse", "0"),  # 使用高精度感知增强 (HDP)
     ("CruiseOnDist", "400"),  # 距离检测开启巡航距离
-    ("AutoPandaUpdate", "1"),  # 默认开启 Panda 固件自动更新
+    ("AutoPandaUpdate", "0"),  # 默认开启 Panda 固件自动更新
     ("HotspotOnBoot", "0"),  # 开机自动开启 WiFi 热点
     ("SoftwareMenu", "1"),  # 开启软件菜单显示
     ("CustomSR", "145"),  # 自定义转向比 (14.5)
