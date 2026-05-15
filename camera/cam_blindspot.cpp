@@ -1729,6 +1729,7 @@ int filter_unusable_cameras(std::vector<std::string> &f_devices,
 
 // === 新增：捕获 Ctrl+C / 系统关闭信号 ===
 #include <csignal>
+#include <opencv2/core/ocl.hpp>
 void signal_handler(int signo) {
     if (signo == SIGINT || signo == SIGTERM) {
         std::cout << "\n[Signal] Caught termination signal, stopping gracefully..." << std::endl;
@@ -1738,6 +1739,9 @@ void signal_handler(int signo) {
 
 // ---------------- main ----------------
 int main() {
+    // 强制关闭 OpenCL，防止 RDNA3 驱动忙等导致 GPU 占用率虚高 (99%)
+    cv::ocl::setUseOpenCL(false);
+
     // 注册信号处理函数
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
