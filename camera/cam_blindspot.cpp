@@ -1637,9 +1637,9 @@ void udp_comm_thread(UDPComm &comm) {
 */
 
 // === 新增：检测摄像头可用性，并移除无效项 ===
-int filter_unusable_cameras(std::vector<std::string> &devices,
-                            std::vector<int> &camera_sign,
-                            std::vector<int> &car_detect) {
+int filter_unusable_cameras(std::vector<std::string> &devs,
+                            std::vector<int> &signs,
+                            std::vector<int> &detects) {
     auto probe_device = [&](const std::string &dev)->bool {
         // 1. v4l2 ioctl 查询（最快最可靠）
         int fd = open(dev.c_str(), O_RDWR | O_NONBLOCK);
@@ -1673,9 +1673,9 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
     while (true) {
         bool all_ok = true;
 
-        for (size_t i = 0; i < devices.size(); i++) {
-            bool ok = probe_device(devices[i]);
-            std::cout << "[CHECK] Camera " << devices[i]
+        for (size_t i = 0; i < devs.size(); i++) {
+            bool ok = probe_device(devs[i]);
+            std::cout << "[CHECK] Camera " << devs[i]
                       << " => " << (ok ? "OK" : "FAIL") << std::endl;
             if (!ok) all_ok = false;
         }
@@ -1698,16 +1698,14 @@ int filter_unusable_cameras(std::vector<std::string> &devices,
     // ---------------------------------------------------
     // 最终删除检测失败的摄像头
     // ---------------------------------------------------
-    int removed = 0;
-    for (size_t i = 0; i < devices.size();) {
-        if (!probe_device(devices[i])) {
+    for (size_t i = 0; i < devs.size();) {
+        if (!probe_device(devs[i])) {
             std::cerr << "[WARN] Camera not available after timeout: "
-                      << devices[i] << " — removing\n";
+                      << devs[i] << " — removing\n";
 
-            devices.erase(devices.begin() + i);
-            if (i < camera_sign.size()) camera_sign.erase(camera_sign.begin() + i);
-            if (i < car_detect.size()) car_detect.erase(car_detect.begin() + i);
-            removed++;
+            devs.erase(devs.begin() + i);
+            if (i < signs.size()) signs.erase(signs.begin() + i);
+            if (i < detects.size()) detects.erase(detects.begin() + i);
         } else {
             i++;
         }

@@ -937,7 +937,7 @@ void udp_comm_thread(UDPComm &comm) {
 }
 
 // === 新增：检测摄像头可用性，并移除无效项 ===
-int filter_unusable_cameras(std::vector<std::string> &devices, std::vector<int> &camera_sign, std::vector<int> &car_detect) {
+int filter_unusable_cameras(std::vector<std::string> &devs, std::vector<int> &signs, std::vector<int> &detects) {
     auto probe_device = [&](const std::string &dev)->bool {
         // 尝试用 OpenCV 打开
         cv::VideoCapture cap(dev);
@@ -959,14 +959,12 @@ int filter_unusable_cameras(std::vector<std::string> &devices, std::vector<int> 
         return false;
     };
 
-    int removed = 0;
-    for (size_t i = 0; i < devices.size(); ) {
-        if (!probe_device(devices[i])) {
-            std::cerr << "[WARN] Cannot open camera: " << devices[i] << " — removing from list\n";
-            devices.erase(devices.begin() + i);
-            if (i < camera_sign.size()) camera_sign.erase(camera_sign.begin() + i);
-            if (i < car_detect.size()) car_detect.erase(car_detect.begin() + i);
-            removed++;
+    for (size_t i = 0; i < devs.size(); ) {
+        if (!probe_device(devs[i])) {
+            std::cerr << "[WARN] Cannot open camera: " << devs[i] << " — removing from list\n";
+            devs.erase(devs.begin() + i);
+            if (i < signs.size()) signs.erase(signs.begin() + i);
+            if (i < detects.size()) detects.erase(detects.begin() + i);
         } else {
             ++i;
         }
