@@ -24,7 +24,7 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
 
   experimental_btn = new ExperimentalButton(this);
   main_layout->addWidget(experimental_btn, 0, Qt::AlignTop | Qt::AlignRight);
-  
+
   record_timer = std::make_shared<QTimer>();
 	QObject::connect(record_timer.get(), &QTimer::timeout, [=]() {
     if(recorder) {
@@ -35,7 +35,7 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
 
 	recorder = new ScreenRecoder(this);
 	main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight);
-  
+
 }
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
@@ -173,7 +173,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       const auto &car_state = sm["carState"].getCarState();
       float v_ego = car_state.getVEgo();
       float steer_angle = std::abs(car_state.getSteeringAngleDeg());
-      
+
       // 触发条件：仅在低速行驶 (0.2~11.1 m/s) 且大弯 (>60deg) 时切换广角
       bool wide_trigger = (v_ego > 0.2 && v_ego < 11.1 && steer_angle > 60.0);
 
@@ -190,7 +190,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       } else {
         wide_cam_requested = false;
       }
-      
+
       static bool last_wide_requested = false;
       if (wide_cam_requested != last_wide_requested) {
         qDebug() << "Camera Switch | V:" << v_ego << " | Angle:" << steer_angle << " | Target:" << (wide_cam_requested ? "WIDE" : "ROAD");
@@ -198,7 +198,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       }
     }
     */
-    wide_cam_requested = true; // 强制保持长焦 (恢复后长焦为 WIDE_CAM)
+    wide_cam_requested = false; // 强制保持长焦 (互换后长焦为 ROAD_CAM)
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
     CameraWidget::setFrameId(sm["modelV2"].getModelV2().getFrameId());
@@ -212,7 +212,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   model.draw(painter, rect());
   painter.beginNativePainting();
   try {
-      ui_draw(s, &model, width(), height());      
+      ui_draw(s, &model, width(), height());
   } catch (const std::exception &e) {
 	LOGE("ui_nvg_draw failed: %s", e.what());
     print_stack_trace();

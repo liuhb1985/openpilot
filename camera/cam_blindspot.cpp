@@ -244,7 +244,7 @@ DetectionResult detect_cars(cv::Mat& frame) {
     thread_local cv::Mat input_blob = cv::Mat::zeros(YOLO_PIX, YOLO_PIX, CV_8UC3);
     cv::Mat resized_image;
     cv::resize(frame, resized_image, cv::Size(new_w, new_h));
-    
+
     input_blob.setTo(cv::Scalar(114, 114, 114)); // YOLO constant padding color
     resized_image.copyTo(input_blob(cv::Rect(pad_x, pad_y, new_w, new_h)));
 
@@ -368,14 +368,14 @@ void capture_from_camera(const std::string& device, int cam_id) {
     // 如果设置了环境变量使用 VisionIPC，则不再直接打开 V4L2
     if (getenv("USE_VISION_IPC")) {
         std::cout << "[cam_blindspot] Using VisionIPC for Camera " << cam_id << std::endl;
-        VisionIpcClient client("camerad", VisionStreamType::VISION_STREAM_ROAD, false);
-        
+        VisionIpcClient client("camerad", VisionStreamType::VISION_STREAM_WIDE_ROAD, false);
+
         while (running) {
             if (!client.connect(false)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
             }
-            
+
             while (running) {
                 VisionBuf *buf = client.recv();
                 if (buf == nullptr) continue;
@@ -438,7 +438,7 @@ void inference_thread(int cam_id) {
             while (!frame_queues[cam_id].empty()) frame_queues[cam_id].pop();
         }
 
-        cv::Mat img = cv::Mat::zeros(480, 640, CV_8UC3); 
+        cv::Mat img = cv::Mat::zeros(480, 640, CV_8UC3);
         // 核心修复：强制将原始帧(1080P)拉伸并覆盖 640x480 区域，确保背景为黑色且无边框
         if (!data.frame.empty()) {
             cv::resize(data.frame, img, cv::Size(640, 480), 0, 0, cv::INTER_LINEAR);
@@ -1059,7 +1059,7 @@ void display_loop() {
 
                 for (int i = 0; i < (int)shared_images.size(); ++i) {
                     if (shared_images[i].empty() || shared_images[i].cols < 10 || shared_images[i].rows < 10) continue;
-                    
+
                     cv::Mat img = shared_images[i].clone(); // 克隆一份用于显示处理
                     if (img.channels() == 1) {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
@@ -1080,8 +1080,8 @@ void display_loop() {
                     // 为每个摄像头注册鼠标回调
                     static std::vector<std::array<int, 2>> cam_roi_ids;
                     if(cam_roi_ids.size() <= (size_t)i) cam_roi_ids.resize(i + 1);
-                    cam_roi_ids[i][0] = i; 
-                    cam_roi_ids[i][1] = (g_current_cam_id == i) ? g_current_roi_idx : 0; 
+                    cam_roi_ids[i][0] = i;
+                    cam_roi_ids[i][1] = (g_current_cam_id == i) ? g_current_roi_idx : 0;
                     cv::setMouseCallback(window_name, mouse_callback, cam_roi_ids[i].data());
                 }
             }
@@ -1093,7 +1093,7 @@ void display_loop() {
         if (key == last_key)
             key = -1;
         last_key = key;
-        
+
         if (key == 27) { // ESC
             dcout << "display_loop end" << std::endl;
             running = false;
