@@ -368,7 +368,7 @@ void capture_from_camera(const std::string& device, int cam_id) {
     // 如果设置了环境变量使用 VisionIPC，则不再直接打开 V4L2
     if (getenv("USE_VISION_IPC")) {
         std::cout << "[cam_blindspot] Using VisionIPC for Camera " << cam_id << std::endl;
-        VisionIpcClient client("camerad", VisionStreamType::VISION_STREAM_ROAD, false);
+        VisionIpcClient client("camerad", VisionStreamType::VISION_STREAM_WIDE_ROAD, false);
         
         while (running) {
             if (!client.connect(false)) {

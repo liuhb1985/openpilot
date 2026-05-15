@@ -198,7 +198,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       }
     }
     */
-    wide_cam_requested = true; // 强制保持长焦 (互换后长焦为 WIDE_CAM)
+    wide_cam_requested = false; // 强制保持长焦 (互换后长焦为 ROAD_CAM)
     painter.beginNativePainting();
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
     CameraWidget::setFrameId(sm["modelV2"].getModelV2().getFrameId());
