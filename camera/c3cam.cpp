@@ -937,7 +937,7 @@ void udp_comm_thread(UDPComm &comm) {
 }
 
 // === 新增：检测摄像头可用性，并移除无效项 ===
-int filter_unusable_cameras(std::vector<std::string> &devs, std::vector<int> &signs, std::vector<int> &detects) {
+int filter_unusable_cameras(std::vector<std::string> &f_devices, std::vector<int> &f_camera_sign, std::vector<int> &f_car_detect) {
     auto probe_device = [&](const std::string &dev)->bool {
         // 尝试用 OpenCV 打开
         cv::VideoCapture cap(dev);
@@ -959,25 +959,31 @@ int filter_unusable_cameras(std::vector<std::string> &devs, std::vector<int> &si
         return false;
     };
 
-    for (size_t i = 0; i < devs.size(); ) {
-        if (!probe_device(devs[i])) {
-            std::cerr << "[WARN] Cannot open camera: " << devs[i] << " — removing from list\n";
-            devs.erase(devs.begin() + i);
-            if (i < signs.size()) signs.erase(signs.begin() + i);
-            if (i < detects.size()) detects.erase(detects.begin() + i);
+    int removed_count = 0;
+    for (size_t i = 0; i < f_devices.size(); ) {
+        if (!probe_device(f_devices[i])) {
+            std::cerr << "[WARN] Cannot open camera: " << f_devices[i] << " — removing from list\n";
+            f_devices.erase(f_devices.begin() + i);
+            if (i < f_camera_sign.size()) f_camera_sign.erase(f_camera_sign.begin() + i);
+            if (i < f_car_detect.size()) f_car_detect.erase(f_car_detect.begin() + i);
+            removed_count++;
         } else {
             ++i;
         }
     }
 
-    if (devs.empty()) {
+    if (removed_count > 0) {
+        std::cout << "[INFO] Removed " << removed_count << " unusable cameras." << std::endl;
+    }
+
+    if (devices.empty()) {
         std::cerr << "[ERROR] No usable camera devices found.\n";
         return 0;
     }
 
-    std::cout << "[INFO] " << devs.size() << " usable cameras detected." << std::endl;
+    std::cout << "[INFO] " << devices.size() << " usable cameras detected." << std::endl;
 
-    return devs.size();
+    return devices.size();
 }
 
 // === 新增：捕获 Ctrl+C / 系统关闭信号 ===
@@ -989,13 +995,8 @@ void signal_handler(int signo) {
     }
 }
 
-#include <opencv2/core/ocl.hpp>
-
 // ---------------- main ----------------
 int main() {
-    // 强制关闭 OpenCL，防止 RDNA3 驱动忙等导致 GPU 占用率虚高 (99%)
-    cv::ocl::setUseOpenCL(false);
-
     // 注册信号处理函数
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
