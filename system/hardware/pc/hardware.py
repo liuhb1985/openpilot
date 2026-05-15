@@ -17,7 +17,7 @@ class Pc(HardwareBase):
   def get_device_type(self):
     return "pc"
 
-:
+  def reboot(self):
     subprocess.check_output(["sudo", "reboot"])
 
   def uninstall(self):
