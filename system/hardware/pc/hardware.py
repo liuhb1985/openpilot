@@ -17,13 +17,8 @@ class Pc(HardwareBase):
   def get_device_type(self):
     return "pc"
 
-  def reboot(self, reason=None):
-    for cmd in [["sudo", "reboot"], ["sudo", "systemctl", "reboot"], ["reboot"]]:
-      try:
-        subprocess.check_output(cmd, timeout=5)
-        return
-      except Exception:
-        continue
+:
+    subprocess.check_output(["sudo", "reboot"])
 
   def uninstall(self):
     print("uninstall")

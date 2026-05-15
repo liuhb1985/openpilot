@@ -3,6 +3,7 @@ import datetime
 import os
 import signal
 import sys
+import time
 import traceback
 
 from cereal import log
@@ -313,7 +314,7 @@ def manager_thread() -> None:
     ignore += ["micd", "soundd", "loggerd"]
     params.put("RecordAudio", "0")
 
-  sm = messaging.SubMaster(['deviceState', 'carParams'], poll='deviceState')
+  sm = messaging.SubMaster(['deviceState', 'carParams', 'carState'], poll='deviceState')
   pm = messaging.PubMaster(['managerState'])
 
   write_onroad_params(False, params)
@@ -322,6 +323,10 @@ def manager_thread() -> None:
   print_timer = 0
 
   started_prev = False
+  gear_prev = log.CarState.GearShifter.unknown
+  ever_driven = False
+  driving_start_time = 0.0
+  parking_start_time = 0.0
 
   while True:
     sm.update(1000)
@@ -340,6 +345,36 @@ def manager_thread() -> None:
     started_prev = started
 
     ensure_running(managed_processes.values(), started, params=params, CP=sm['carParams'], not_run=ignore)
+
+    # === 优化：带 1s 延时过滤的换挡+手刹自动关机逻辑 ===
+    if sm.updated['carState']:
+      car_state = sm['carState']
+      gear = car_state.gearShifter
+      parking_brake = car_state.parkingBrake
+      now = time.monotonic()
+
+      # 1. 行驶确认：在 D 或 R 档持续停留超过 1s，才标记为已驱动
+      if gear in (log.CarState.GearShifter.drive, log.CarState.GearShifter.reverse):
+        if driving_start_time == 0:
+          driving_start_time = now
+        elif now - driving_start_time >= 1.0:
+          ever_driven = True
+        parking_start_time = 0 # 驱动时重置停车计时
+      else:
+        driving_start_time = 0
+
+      # 2. 关机确认：曾驱动过 + 处于 N/P 档 + 手刹拉起 -> 持续 1s 则关机
+      is_parking_gear = gear in (log.CarState.GearShifter.neutral, log.CarState.GearShifter.park)
+      if ever_driven and is_parking_gear and parking_brake:
+        if parking_start_time == 0:
+          parking_start_time = now
+        elif now - parking_start_time >= 1.0:
+          cloudlog.warning(f"Auto-Shutdown: Confirmed parking state for 1s. Powering off...")
+          params.put_bool("DoShutdown", True)
+      else:
+        parking_start_time = 0
+
+      gear_prev = gear
 
     running = ' '.join("{}{}\u001b[0m".format("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
                        for p in managed_processes.values() if p.proc)
