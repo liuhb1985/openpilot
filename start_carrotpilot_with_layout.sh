@@ -43,7 +43,7 @@ check_cameras_ready
 # -----------------------------------------------------------------------------
 # 1. 广角摄像头 (Wide-angle, 默认 index 0)
 # 使用通配符匹配，解决 usb-0 vs usbv2-0 或微小路径变动
-ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:67:00.4-usb*-0:1.3:1.0-video-index0 2>/dev/null | head -n 1)
+ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb*-0:1.1:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
@@ -57,7 +57,7 @@ fi
 
 # 2. 长焦摄像头 (Long-focus, 默认 index 2)
 # 深度优化：将长焦头设置为辅助视角，提供远距离感知识别能力
-WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb*-0:1.1:1.0-video-index0 2>/dev/null | head -n 1)
+WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:67:00.4-usb*-0:1.3:1.0-video-index0 2>/dev/null | head -n 1)
 if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
     export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
