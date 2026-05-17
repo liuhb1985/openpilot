@@ -396,7 +396,7 @@ class SelfdriveD:
     if not SIMULATION or REPLAY:
       # Not show in first 1.5 km to allow for driving out of garage. This event shows after 5 minutes
       gps_ok = self.sm.recv_frame[self.gps_location_service] > 0 and (self.sm.frame - self.sm.recv_frame[self.gps_location_service]) * DT_CTRL < 2.0
-      if not gps_ok and self.sm['liveLocationKalman'].inputsOK and (self.distance_traveled > 1500):
+      if not gps_ok and (self.distance_traveled > 1500):
         if self.distance_traveled < 1600:
           pass#self.events.add(EventName.noGps)
       #if gps_ok:
