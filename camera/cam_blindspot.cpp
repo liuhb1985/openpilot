@@ -381,7 +381,7 @@ void capture_from_camera(const std::string& device, int cam_id) {
                 if (buf == nullptr) continue;
 
                 static int frame_cnt = 0;
-                if (frame_cnt++ % 100 == 0) {
+                if (frame_cnt++ % 200 == 0) {
                     std::cout << "[cam_blindspot] Received VisionIPC frame: " << buf->width << "x" << buf->height << " len=" << buf->len << std::endl;
                 }
 
@@ -1182,12 +1182,22 @@ void lane_check_thread() {
 
             if(lane_safe[0] != left_status){
                 lane_safe[0] = left_status;
-                std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
+                static auto last_print_left = std::chrono::steady_clock::now();
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_print_left).count() >= 1) {
+                    std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
+                    last_print_left = now;
+                }
             }
 
             if(lane_safe[1] != right_status){
                 lane_safe[1] = right_status;
-                std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
+                static auto last_print_right = std::chrono::steady_clock::now();
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_print_right).count() >= 1) {
+                    std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
+                    last_print_right = now;
+                }
             }
         }
 

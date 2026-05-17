@@ -28,6 +28,9 @@ class JY62Sensor:
     self.ACCEL_PKT = 0x51
     self.GYRO_PKT = 0x52
     self.ANGLE_PKT = 0x53
+    
+    self.last_accel_print_time = 0.0
+    self.last_gyro_print_time = 0.0
 
   def connect(self):
     """连接到JY62设备"""
@@ -149,7 +152,11 @@ class JY62Sensor:
 
         # 发布消息
         self.pm.send('accelerometer', dat)
-        print(f"JY62 Accel: {data['ax']:.4f}, {data['ay']:.4f}, {data['az']:.4f}")
+        
+        current_time = time.monotonic()
+        if current_time - self.last_accel_print_time >= 1.0:
+          print(f"JY62 Accel: {data['ax']:.4f}, {data['ay']:.4f}, {data['az']:.4f}")
+          self.last_accel_print_time = current_time
 
       elif msg_type == 'gyroscope':
         # 创建陀螺仪消息
@@ -167,7 +174,11 @@ class JY62Sensor:
 
         # 发布消息
         self.pm.send('gyroscope', dat)
-        print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
+        
+        current_time = time.monotonic()
+        if current_time - self.last_gyro_print_time >= 1.0:
+          print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
+          self.last_gyro_print_time = current_time
 
       # 移除已处理的数据包
       buffer = buffer[11:]

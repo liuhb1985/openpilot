@@ -264,24 +264,29 @@ bool safety_tx_hook(CANPacket_t *to_send) {
 
   int addr = GET_ADDR(to_send);
   if ((!allowed || !safety_allowed) && (addr!=_prev_error_addr)) {
-      int bus = GET_BUS(to_send);
-      int length = GET_LEN(to_send);
-      print("not allowed:");
-      if (!allowed) print("nowallowed,");
-      if (!safety_allowed) print("safety_allowed,");
-      print("addr = ");
-      putui((uint32_t)addr);
-      print(" bus=");
-      putui((uint32_t)bus);
-      print(" len=");
-      putui((uint32_t)length);
-      print(" ctrl=");
-      putui((uint32_t)controls_allowed);
-      print(" main=");
-      putui((uint32_t)acc_main_on);
-      print(" rely=");
-      putui((uint32_t)relay_malfunction);
-      print("\n");
+      static uint32_t last_print_ts = 0;
+      uint32_t now = microsecond_timer_get();
+      if (now - last_print_ts > 1000000U || _prev_error_addr == -1) {
+        int bus = GET_BUS(to_send);
+        int length = GET_LEN(to_send);
+        print("not allowed:");
+        if (!allowed) print("nowallowed,");
+        if (!safety_allowed) print("safety_allowed,");
+        print("addr = ");
+        putui((uint32_t)addr);
+        print(" bus=");
+        putui((uint32_t)bus);
+        print(" len=");
+        putui((uint32_t)length);
+        print(" ctrl=");
+        putui((uint32_t)controls_allowed);
+        print(" main=");
+        putui((uint32_t)acc_main_on);
+        print(" rely=");
+        putui((uint32_t)relay_malfunction);
+        print("\n");
+        last_print_ts = now;
+      }
       _prev_error_addr = addr;
   }
 

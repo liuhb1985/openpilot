@@ -73,7 +73,7 @@ class NativeIMUD:
     elif cs.vEgo > 10.0 and abs(cs.steeringAngleDeg) < 5.0:
       # [修复] 降低动态校准学习率，防止 bias 追随噪声跳动
       self.yaw_bias = 0.999 * self.yaw_bias + 0.001 * cs.yawRate
-      if self.frame % 100 == 0:
+      if self.frame % 1000 == 0:
         print(f"[IMU_CALIB] Adjusting Bias: {self.yaw_bias:.5f}, RawYaw: {cs.yawRate:.5f}")
 
   def learn_steer_ratio(self, v_ego, steer_angle_rad, clean_yaw):
