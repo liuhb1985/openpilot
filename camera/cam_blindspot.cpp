@@ -438,10 +438,10 @@ void inference_thread(int cam_id) {
             while (!frame_queues[cam_id].empty()) frame_queues[cam_id].pop();
         }
 
-        cv::Mat img = cv::Mat::zeros(480, 640, CV_8UC3);
-        // 核心修复：强制将原始帧(1080P)拉伸并覆盖 640x480 区域，确保背景为黑色且无边框
+        cv::Mat img = cv::Mat::zeros(360, 640, CV_8UC3);
+        // 核心修复：保持 16:9 比例，避免图像拉伸变形
         if (!data.frame.empty()) {
-            cv::resize(data.frame, img, cv::Size(640, 480), 0, 0, cv::INTER_LINEAR);
+            cv::resize(data.frame, img, cv::Size(640, 360), 0, 0, cv::INTER_LINEAR);
         }
 
         // 空帧防护
@@ -970,9 +970,9 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
-                // 强制回归到 2.2 版本的 640x480 显示标准，确保 ROI 对齐
+                // 恢复 16:9 显示标准 (640x360)，消除图像拉伸变形
                 int width = 640;
-                int height = 480;
+                int height = 360;
                 int type = shared_images[valid_index].channels() == 1 ? CV_8UC3 : shared_images[valid_index].type();
 
                 // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
