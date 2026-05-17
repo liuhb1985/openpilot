@@ -413,25 +413,32 @@ void execAndReboot(const std::string& cmd) {
 
 void DevicePanel::calibration() {
   if (!uiState()->engaged()) {
-    QStringList calibOptions;
-    calibOptions << tr("AllCalibParams")
-                 << tr("CalibrationParams")
-                 << tr("LiveDelay")
-                 << tr("LiveTorqueParameters")
-                 << tr("LiveParameters")
-                 << tr("LiveParametersV2");
-    QString selectedParam = MultiOptionDialog::getSelection(
-      tr("Select calibration parameter to reset"),
+    QMap<QString, QString> paramMap = {
+      {tr("全部校准参数 (AllCalibParams)"), "AllCalibParams"},
+      {tr("摄像头校准参数 (CalibrationParams)"), "CalibrationParams"},
+      {tr("转向延迟参数 (LiveDelay)"), "LiveDelay"},
+      {tr("转向扭矩参数 (LiveTorqueParameters)"), "LiveTorqueParameters"},
+      {tr("横向预估参数 (LiveParameters)"), "LiveParameters"},
+      {tr("横向预估参数V2 (LiveParametersV2)"), "LiveParametersV2"}
+    };
+
+    QStringList calibOptions = paramMap.keys();
+
+    QString selectedDisplay = MultiOptionDialog::getSelection(
+      tr("选择要重置的校准参数 (Select parameter to reset)"),
       calibOptions,
       "",
       this
     );
 
-if (selectedParam.isEmpty()) return;
-    QString confirmMsg = tr("Are you sure you want to reset %1?").arg(selectedParam);
-    if (!ConfirmationDialog::confirm(confirmMsg, tr("ReCalibration"), this)) return;
+    if (selectedDisplay.isEmpty()) return;
+    
+    QString selectedParam = paramMap[selectedDisplay];
+    QString confirmMsg = tr("确定要重置 %1 吗？").arg(selectedDisplay);
+    
+    if (!ConfirmationDialog::confirm(confirmMsg, tr("重新校准"), this)) return;
     if (uiState()->engaged()) {
-      ConfirmationDialog::alert(tr("Reboot & Disengage to Calibration"), this);
+      ConfirmationDialog::alert(tr("请先退出巡航状态以进行校准"), this);
       return;
     }
     std::thread worker([selectedParam]() {
@@ -450,7 +457,7 @@ if (selectedParam.isEmpty()) return;
     });
     worker.detach();
   } else {
-    ConfirmationDialog::alert(tr("Reboot & Disengage to Calibration"), this);
+    ConfirmationDialog::alert(tr("请先退出巡航状态以进行校准"), this);
   }
 }
 
