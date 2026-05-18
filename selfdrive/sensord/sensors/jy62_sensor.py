@@ -17,7 +17,9 @@ from openpilot.common.realtime import DT_DMON
 # 物理挂载方向配置 (MOUNT_ORIENTATION)
 # ==========================================
 # 'FLAT' : 模块平放 (Z轴朝天，X轴朝前)。默认的原始姿态。
-# 'VERTICAL' : 模块竖放 (Z轴朝向驾驶员，Y轴朝天，X轴朝右)。与 LSM6DS3 及 Comma 官方设备完全一致的姿态。
+# 'VERTICAL' : 模块竖放 (Z轴朝向驾驶员，Y轴朝天，X轴朝右)。与 LSM6DS3 官方设备一致的姿态。
+# 'SIDE_X_UP' : 模块侧放 (Y轴朝向车身左侧，X轴朝天，Z轴朝向驾驶员)。
+# 'SIDE_X_DOWN' : 模块侧放 (Y轴朝向车身左侧，X轴朝地，Z轴朝向车头前方)。
 MOUNT_ORIENTATION = 'FLAT'
 
 class JY62Sensor:
@@ -86,10 +88,15 @@ class JY62Sensor:
 
       # 根据物理摆放方向进行坐标系映射
       if MOUNT_ORIENTATION == 'VERTICAL':
-        # 竖放：Z轴朝后，Y轴朝上，X轴朝右 (完全对齐 LSM6DS3)
         mapped_v = [ay, -ax, az]
+      elif MOUNT_ORIENTATION == 'SIDE_X_UP':
+        # 侧放：X朝天，Z朝后，Y朝左
+        mapped_v = [ax, ay, az]
+      elif MOUNT_ORIENTATION == 'SIDE_X_DOWN':
+        # 侧放：X朝地，Z朝前，Y朝左
+        mapped_v = [-ax, ay, -az]
       else:
-        # 平放：Z轴朝天，X轴朝前 (传统姿态)
+        # 平放 (默认)：Z朝天，X朝前，Y朝左
         mapped_v = [az, ay, -ax]
 
       return 'accelerometer', {
@@ -109,6 +116,10 @@ class JY62Sensor:
 
       if MOUNT_ORIENTATION == 'VERTICAL':
         mapped_v = [wy, -wx, wz]
+      elif MOUNT_ORIENTATION == 'SIDE_X_UP':
+        mapped_v = [wx, wy, wz]
+      elif MOUNT_ORIENTATION == 'SIDE_X_DOWN':
+        mapped_v = [-wx, wy, -wz]
       else:
         mapped_v = [wz, wy, -wx]
 
