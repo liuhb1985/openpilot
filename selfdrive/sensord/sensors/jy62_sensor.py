@@ -13,6 +13,13 @@ import cereal.messaging as messaging
 from cereal import log
 from openpilot.common.realtime import DT_DMON
 
+# ==========================================
+# 物理挂载方向配置 (MOUNT_ORIENTATION)
+# ==========================================
+# 'FLAT' : 模块平放 (Z轴朝天，X轴朝前)。默认的原始姿态。
+# 'VERTICAL' : 模块竖放 (Z轴朝向驾驶员，Y轴朝天，X轴朝右)。与 LSM6DS3 及 Comma 官方设备完全一致的姿态。
+MOUNT_ORIENTATION = 'FLAT'
+
 class JY62Sensor:
   def __init__(self, device_path='/dev/ttyUSB0', baud_rate=115200):
     self.device_path = device_path
@@ -77,9 +84,18 @@ class JY62Sensor:
       ay = (ay_raw / 32768.0) * 16.0 * 9.8
       az = (az_raw / 32768.0) * 16.0 * 9.8
 
+      # 根据物理摆放方向进行坐标系映射
+      if MOUNT_ORIENTATION == 'VERTICAL':
+        # 竖放：Z轴朝后，Y轴朝上，X轴朝右 (完全对齐 LSM6DS3)
+        mapped_v = [ay, -ax, az]
+      else:
+        # 平放：Z轴朝天，X轴朝前 (传统姿态)
+        mapped_v = [az, ay, -ax]
+
       return 'accelerometer', {
         'timestamp': timestamp,
-        'ax': ax, 'ay': ay, 'az': az
+        'ax': ax, 'ay': ay, 'az': az,
+        'v': mapped_v
       }
 
     elif packet_type == self.GYRO_PKT:
@@ -91,9 +107,15 @@ class JY62Sensor:
       wy = (wy_raw / 32768.0) * 2000.0 * math.pi / 180.0
       wz = (wz_raw / 32768.0) * 2000.0 * math.pi / 180.0
 
+      if MOUNT_ORIENTATION == 'VERTICAL':
+        mapped_v = [wy, -wx, wz]
+      else:
+        mapped_v = [wz, wy, -wx]
+
       return 'gyroscope', {
         'timestamp': timestamp,
-        'wx': wx, 'wy': wy, 'wz': wz
+        'wx': wx, 'wy': wy, 'wz': wz,
+        'v': mapped_v
       }
 
     return None, {}
@@ -157,7 +179,7 @@ class JY62Sensor:
           'sensor': 1, # SENSOR_ACCELEROMETER
           'type': 1,   # SENSOR_TYPE_ACCELEROMETER
           'acceleration': {
-            'v': [parsed_data['az'], parsed_data['ay'], -parsed_data['ax']],
+            'v': parsed_data['v'],
             'status': 0
           }
         }
@@ -176,7 +198,7 @@ class JY62Sensor:
           'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
           'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
           'gyroUncalibrated': {
-            'v': [parsed_data['wz'], parsed_data['wy'], -parsed_data['wx']],
+            'v': parsed_data['v'],
             'status': 0
           }
         }
