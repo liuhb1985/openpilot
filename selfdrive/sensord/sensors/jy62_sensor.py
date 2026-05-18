@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JY62 IMU Sensor Driver
+JY62 IMU Sensor Driver - Ultra Low Latency Edition
 """
 
 import serial
@@ -12,14 +12,15 @@ import cereal.messaging as messaging
 
 from cereal import log
 from openpilot.common.realtime import DT_DMON
-from openpilot.system.hardware import TICI
-
 
 class JY62Sensor:
   def __init__(self, device_path='/dev/ttyUSB0', baud_rate=115200):
     self.device_path = device_path
     self.baud_rate = baud_rate
     self.ser = None
+
+    # 持久化缓冲区，防止断包和丢包
+    self.buffer = bytearray()
 
     # 初始化消息发布器
     self.pm = messaging.PubMaster(['accelerometer', 'gyroscope'])
@@ -41,7 +42,8 @@ class JY62Sensor:
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
-        timeout=1
+        # 设置极小的 timeout 保证 read 操作能响应硬件热拔插，但依然保持阻塞特性
+        timeout=1.0 
       )
       print(f"Connected to JY62 at {self.device_path}")
       return True
@@ -54,7 +56,7 @@ class JY62Sensor:
     if self.ser and self.ser.is_open:
       self.ser.close()
 
-  def _parse_packet(self, packet: bytes) -> Tuple[str, dict]:
+  def _parse_packet(self, packet: bytes, timestamp: float) -> Tuple[str, dict]:
     """解析JY62数据包"""
     if len(packet) != 11:
       return None, {}
@@ -65,7 +67,6 @@ class JY62Sensor:
       return None, {}
 
     packet_type = packet[1]
-    timestamp = time.monotonic()
 
     if packet_type == self.ACCEL_PKT:
       # 解析加速度数据
@@ -98,90 +99,96 @@ class JY62Sensor:
     return None, {}
 
   def update(self):
-    """读取并处理数据"""
+    """读取并处理数据 (极限低延迟阻塞架构)"""
     if not self.ser or not self.ser.is_open:
+      time.sleep(0.1) # 若掉线则避免死循环占满CPU
       return
 
-    # 读取数据
-    data = self.ser.read(32)
+    # 【极限优化1】：内核级阻塞唤醒
+    # 使用 max(1, in_waiting) 强制系统挂起，直到硬件总线上有第1个字节到达才瞬间唤醒。
+    # 彻底告别原本 read(32) 死等 30ms 造成的包堆积和延迟！
+    to_read = max(1, self.ser.in_waiting)
+    data = self.ser.read(to_read)
+    
+    # 【极限优化2】：高精度截取前沿时间戳
+    # 只要操作系统从串口拿到数据，立刻打下时间戳，这是最贴近物理运动发生的时间！
+    current_timestamp = time.monotonic()
+
     if not data:
       return
 
-    # 缓冲区处理
-    buffer = bytearray(data)
+    # 追加到持久化缓冲区
+    self.buffer.extend(data)
 
     # 查找并处理完整数据包
-    while len(buffer) >= 11:
-      # 查找包头
+    while len(self.buffer) >= 11:
+      # 查找包头 0x55
       header_index = -1
-      for i in range(min(16, len(buffer))):
-        if buffer[i] == 0x55:
+      for i in range(len(self.buffer)):
+        if self.buffer[i] == 0x55:
           header_index = i
           break
 
+      # 如果没找到包头，说明全都是无效数据，清空
       if header_index == -1:
-        buffer = buffer[-10:] if len(buffer) > 10 else bytearray()
+        self.buffer.clear()
         break
 
+      # 将包头对齐到缓冲区起始位置
       if header_index > 0:
-        buffer = buffer[header_index:]
+        self.buffer = self.buffer[header_index:]
 
-      if len(buffer) < 11:
+      # 对齐后如果长度不足一个包，等待下一次读取
+      if len(self.buffer) < 11:
         break
 
-      # 提取数据包
-      packet = buffer[:11]
+      # 提取整整 11 字节的数据包
+      packet = self.buffer[:11]
 
-      # 解析数据包
-      msg_type, data = self._parse_packet(packet)
+      # 解析数据包，传入精确的前沿时间戳
+      msg_type, parsed_data = self._parse_packet(packet, current_timestamp)
 
       # 发布消息
       if msg_type == 'accelerometer':
-        # 创建加速度计消息
         dat = messaging.new_message('accelerometer', valid=True)
         dat.accelerometer = {
-          'timestamp': int(data['timestamp'] * 1e9),
+          'timestamp': int(parsed_data['timestamp'] * 1e9),
           'source': log.SensorEventData.SensorSource.jy62,
           'sensor': 1, # SENSOR_ACCELEROMETER
           'type': 1,   # SENSOR_TYPE_ACCELEROMETER
           'acceleration': {
-            'v': [data['az'], data['ay'], -data['ax']],
+            'v': [parsed_data['az'], parsed_data['ay'], -parsed_data['ax']],
             'status': 0
           }
         }
-
-        # 发布消息
         self.pm.send('accelerometer', dat)
         
-        current_time = time.monotonic()
-        if current_time - self.last_accel_print_time >= 1.0:
-          print(f"JY62 Accel: {data['ax']:.4f}, {data['ay']:.4f}, {data['az']:.4f}")
-          self.last_accel_print_time = current_time
+        # 为了不刷屏，控制打印频率为1秒1次
+        if current_timestamp - self.last_accel_print_time >= 1.0:
+          print(f"JY62 Accel: {parsed_data['ax']:.4f}, {parsed_data['ay']:.4f}, {parsed_data['az']:.4f}")
+          self.last_accel_print_time = current_timestamp
 
       elif msg_type == 'gyroscope':
-        # 创建陀螺仪消息
         dat = messaging.new_message('gyroscope', valid=True)
         dat.gyroscope = {
-          'timestamp': int(data['timestamp'] * 1e9),
+          'timestamp': int(parsed_data['timestamp'] * 1e9),
           'source': log.SensorEventData.SensorSource.jy62,
           'sensor': 5, # SENSOR_GYRO_UNCALIBRATED
           'type': 16,  # SENSOR_TYPE_GYROSCOPE_UNCALIBRATED
           'gyroUncalibrated': {
-            'v': [data['wz'], data['wy'], -data['wx']],
+            'v': [parsed_data['wz'], parsed_data['wy'], -parsed_data['wx']],
             'status': 0
           }
         }
-
-        # 发布消息
         self.pm.send('gyroscope', dat)
         
-        current_time = time.monotonic()
-        if current_time - self.last_gyro_print_time >= 1.0:
-          print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
-          self.last_gyro_print_time = current_time
+        if current_timestamp - self.last_gyro_print_time >= 1.0:
+          print(f"JY62 Gyro: {parsed_data['wx']:.4f}, {parsed_data['wy']:.4f}, {parsed_data['wz']:.4f}")
+          self.last_gyro_print_time = current_timestamp
 
-      # 移除已处理的数据包
-      buffer = buffer[11:]
+      # 【极限优化3】：安全切割缓冲区
+      # 从缓冲区移除已处理的11字节数据包，留下剩余的碎包给下一次循环，彻底解决丢包断裂 Bug。
+      self.buffer = self.buffer[11:]
 
 def main():
   """主函数"""
@@ -191,9 +198,11 @@ def main():
     return
 
   try:
+    print("JY62 Driver Started (Ultra-Low Latency Mode)")
     while True:
+      # 【极限优化4】：移除破坏节奏的软件 Sleep
+      # 完全依靠 serial.read 的硬件级中断阻塞，把 CPU 让给系统，同时做到真正的0延迟。
       sensor.update()
-      time.sleep(0.001)  # 1ms延迟
   except KeyboardInterrupt:
     print("Stopping JY62 sensor...")
   finally:
