@@ -186,8 +186,14 @@ class JY62Sensor:
           print(f"JY62 Gyro: {parsed_data['wx']:.4f}, {parsed_data['wy']:.4f}, {parsed_data['wz']:.4f}")
           self.last_gyro_print_time = current_timestamp
 
+      else:
+        # 如果校验和失败或包类型未知，可能碰巧遇到了数据流中的伪 0x55
+        # 我们只向后滑动 1 个字节，重新寻找真正的包头，避免错杀有效数据
+        self.buffer = self.buffer[1:]
+        continue
+
       # 【极限优化3】：安全切割缓冲区
-      # 从缓冲区移除已处理的11字节数据包，留下剩余的碎包给下一次循环，彻底解决丢包断裂 Bug。
+      # 从缓冲区移除已处理的11字节有效数据包，留下剩余的碎包给下一次循环，彻底解决丢包断裂 Bug。
       self.buffer = self.buffer[11:]
 
 def main():
