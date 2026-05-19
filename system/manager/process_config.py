@@ -119,9 +119,9 @@ procs = [
   # 传感器驱动系列：IMU、加速度计、陀螺仪
   PythonProcess("sensord", "system.sensord.sensord", always_run, enabled=(PC and JY62==3), watchdog_max_dt=3),
   # JY62 专用传感器驱动 (串口)
-  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", only_onroad, enabled=(PC and JY62==1)),
+  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", always_run, enabled=(PC and JY62==1)),
   # CarrotPilot 原生 IMU 处理逻辑
-  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=(PC and JY62==0)),
+  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", always_run, enabled=(PC and JY62==0)),
   
   # 位置估算核心 (卡尔曼滤波)，发布 livePose
   PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad, enabled=(JY62!=2)),
