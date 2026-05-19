@@ -134,21 +134,24 @@ CAMERA_1_Y=600
 CAMERA_2_X=0
 CAMERA_2_Y=600
 
-# 等待UI窗口出现并移动到预设位置 (支持模糊匹配)
+# 等待UI窗口出现并移动到预设位置 (过滤掉开发环境，防止误伤 VS Code)
 echo "Waiting for UI window..."
 for i in {1..100}; do
-    # 尝试匹配 "ui", "MainWindow", 或包含 "openpilot" 的窗口
-    UI_WIN=$(wmctrl -l | grep -Ei "ui|MainWindow|openpilot" | head -n 1 | cut -d' ' -f1)
+    # 1. 使用更精准的过滤：优先匹配 MainWindow 和 openpilot，并排除掉 VS Code (code)、Chrome 等开发窗口
+    UI_WIN=$(wmctrl -l | grep -Ei "openpilot|MainWindow" | grep -vEi "code|chrome|firefox|terminal" | head -n 1 | cut -d' ' -f1)
     if [ ! -z "$UI_WIN" ]; then
         echo "✓ Found UI window ($UI_WIN), forcing layout..."
-        # 1. 暴力移除所有全屏和最大化状态
+        # 2. 暴力移除所有全屏 and 最大化状态
         wmctrl -i -r "$UI_WIN" -b remove,fullscreen,maximized_horz,maximized_vert
-        # 2. 移除窗口装饰（边框），实现无缝拼接
+        # 3. 移除窗口装饰（边框），实现无缝拼接
         wmctrl -i -r "$UI_WIN" -b remove,decorations
-        # 3. 强制定位到上半屏幕 (0,0,1920,600)
+        # 4. 强制定位到上半屏幕 (0,0,1920,600)
         wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-        # 4. 强制置于底层，防止遮挡盲区
+        # 5. 强制置于底层，防止遮挡盲区
         wmctrl -i -r "$UI_WIN" -b add,below
+        
+        # 6. 【核心防抢占优化】：在后台开启 1.5 秒后的延迟二次强制调整，防止 Qt 启动生命周期结束后重置尺寸
+        (sleep 1.5 && wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT) &
         break
     fi
     sleep 0.2
