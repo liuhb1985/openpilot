@@ -184,7 +184,8 @@ for i in {1..50}; do
     if wmctrl -l | grep -q "All Cameras"; then
         echo "✓ Moving All Cameras to ($CAMERA_0_X, $CAMERA_0_Y)"
         wmctrl -r "All Cameras" -e 0,$CAMERA_0_X,$CAMERA_0_Y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
-        wmctrl -r "All Cameras" -b add,above
+        # 移除了 add,above，防止窗口锁定置顶导致无法切换
+        wmctrl -r "All Cameras" -b remove,above
         break
     fi
     sleep 0.2
@@ -196,13 +197,14 @@ if wmctrl -l | grep -q "ui"; then
     wmctrl -a "ui"
 fi
 
-# 确保所有摄像头窗口（包括单窗口和多窗口模式）始终置顶
+# 确保所有摄像头窗口（包括单窗口和多窗口模式）正常层级，只在启动时激活一次，不锁定置顶
 for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2"; do
     if wmctrl -l | grep -q "$win"; then
         # 破解 UI 全屏，强制让位，并将其置于底层
         wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
         wmctrl -r "ui" -b add,below
-        wmctrl -r "$win" -b add,above
+        # 移除了 add,above，改为 remove,above，防止摄像头窗口锁定在系统最顶层
+        wmctrl -r "$win" -b remove,above
         wmctrl -a "$win"
     fi
 done
