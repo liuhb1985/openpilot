@@ -41,30 +41,50 @@ check_cameras_ready
 # -----------------------------------------------------------------------------
 # 摄像头持久化路径配置 (解决 errno 25 / 绿屏问题)
 # -----------------------------------------------------------------------------
-# 1. 长焦摄像头 (Long-focus, PCI: 67:00.4)
-ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:67:00.4-usb*-0:1.3:1.0-video-index0 2>/dev/null | head -n 1)
+# 1. 长焦摄像头 (Long-focus: RYS RGB Camera)
+# 升级为终极的 by-id 物理绑定（永久解决插拔 USB 端口变动问题）
+ROAD_PATH=$(ls /dev/v4l/by-id/*RYS_RGB*video-index0 2>/dev/null | head -n 1)
 if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
     ROAD_DEV=$(readlink -f "$ROAD_PATH")
     export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
     export ROAD_CAM=$ROAD_CAM_IDX
-    echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+    echo "[INFO] Identified Road Cam (Long-focus) via ID $ROAD_PATH at index: $ROAD_CAM_IDX"
 else
-    export ROAD_CAM=0
-    export ROAD_CAM_IDX=0
-    echo "[WARN] Road Cam path not found, falling back to default index 0"
+    # 备用方案：采用你提供的新 by-path 路径 (PCI: 65:00.3, USB port 1.4)
+    ROAD_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb-0:1.4:1.0-video-index0 2>/dev/null | head -n 1)
+    if [ -n "$ROAD_PATH" ] && [ -L "$ROAD_PATH" ]; then
+        ROAD_DEV=$(readlink -f "$ROAD_PATH")
+        export ROAD_CAM_IDX=${ROAD_DEV#/dev/video}
+        export ROAD_CAM=$ROAD_CAM_IDX
+        echo "[INFO] Identified Road Cam (Long-focus) via path $ROAD_PATH at index: $ROAD_CAM_IDX"
+    else
+        export ROAD_CAM=0
+        export ROAD_CAM_IDX=0
+        echo "[WARN] Road Cam path not found, falling back to default index 0"
+    fi
 fi
 
-# 2. 广角摄像头 (Wide-angle, PCI: 65:00.3)
-WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb*-0:1.1:1.0-video-index0 2>/dev/null | head -n 1)
+# 2. 广角摄像头 (Wide-angle: LRCP 500W)
+# 升级为终极的 by-id 物理绑定（永久解决插拔 USB 端口变动问题）
+WIDE_PATH=$(ls /dev/v4l/by-id/*LRCP_500W*video-index0 2>/dev/null | head -n 1)
 if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
     WIDE_DEV=$(readlink -f "$WIDE_PATH")
     export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
     export WIDE_CAM=$WIDE_CAM_IDX
-    echo "[INFO] Tele-Camera Enabled: WIDE_PATH via $WIDE_PATH at index: $WIDE_CAM"
+    echo "[INFO] Tele-Camera Enabled: WIDE_PATH via ID $WIDE_PATH at index: $WIDE_CAM"
 else
-    export WIDE_CAM=2
-    export WIDE_CAM_IDX=2
-    echo "[WARN] Wide Cam path not found, falling back to default index 2"
+    # 备用方案：采用你提供的新 by-path 路径 (PCI: 65:00.3, USB port 1.2.3)
+    WIDE_PATH=$(ls /dev/v4l/by-path/*pci-0000:65:00.3-usb-0:1.2.3:1.0-video-index0 2>/dev/null | head -n 1)
+    if [ -n "$WIDE_PATH" ] && [ -L "$WIDE_PATH" ]; then
+        WIDE_DEV=$(readlink -f "$WIDE_PATH")
+        export WIDE_CAM_IDX=${WIDE_DEV#/dev/video}
+        export WIDE_CAM=$WIDE_CAM_IDX
+        echo "[INFO] Tele-Camera Enabled: WIDE_PATH via path $WIDE_PATH at index: $WIDE_CAM"
+    else
+        export WIDE_CAM=2
+        export WIDE_CAM_IDX=2
+        echo "[WARN] Wide Cam path not found, falling back to default index 2"
+    fi
 fi
 
 # 启动前硬件预检查
