@@ -167,8 +167,8 @@ for i in {1..100}; do
         wmctrl -i -r "$UI_WIN" -b remove,decorations
         # 4. 强制定位到上半屏幕 (0,0,1920,600)
         wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-        # 5. 强制置于底层，防止遮挡盲区
-        wmctrl -i -r "$UI_WIN" -b add,below
+        # 5. 移除任何强行置顶/置底的状态，恢复自然窗口层级
+        wmctrl -i -r "$UI_WIN" -b remove,below,above
         
         # 6. 【核心防抢占优化】：在后台开启 1.5 秒后的延迟二次强制调整，防止 Qt 启动生命周期结束后重置尺寸
         (sleep 1.5 && wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT) &
@@ -220,11 +220,11 @@ fi
 # 确保所有摄像头窗口（包括单窗口和多窗口模式）正常层级，只在启动时激活一次，不锁定置顶
 for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2"; do
     if wmctrl -l | grep -q "$win"; then
-        # 破解 UI 全屏，强制让位，并将其置于底层
+        # 破解 UI 全屏，恢复自然窗口层级
         wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
-        wmctrl -r "ui" -b add,below
-        # 移除了 add,above，改为 remove,above，防止摄像头窗口锁定在系统最顶层
-        wmctrl -r "$win" -b remove,above
+        wmctrl -r "ui" -b remove,below,above
+        # 移除任何强行置顶/置底的状态，确保所有摄像头窗口正常层级切换
+        wmctrl -r "$win" -b remove,below,above
         wmctrl -a "$win"
     fi
 done
