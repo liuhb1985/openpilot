@@ -382,9 +382,11 @@ def main(demo=False):
     run_count = run_count + 1
 
     frame_drop_ratio = frames_dropped / (1 + frames_dropped)
-    prepare_only = vipc_dropped_frames > 0
-    if prepare_only:
-      cloudlog.error(f"skipping model eval. Dropped {vipc_dropped_frames} frames")
+    # PC双摄环境下，两路独立USB摄像头没有硬件同步，对齐逻辑丢弃/排空历史帧时会触发vip_dropped_frames > 0的假丢帧判定。
+    # 故放宽判定阈值至 > 5，允许轻微对齐跳帧继续执行模型推理，彻底消除skipping model eval引起的UI帧率低及卡顿问题。
+    prepare_only = vipc_dropped_frames > 5
+    if vipc_dropped_frames > 0:
+      cloudlog.info(f"vipc dropped {vipc_dropped_frames} frames (sync alignment), prepare_only={prepare_only}")
 
     bufs = {name: buf_extra if 'big' in name else buf_main for name in model.vision_input_names}
     transforms = {name: model_transform_extra if 'big' in name else model_transform_main for name in model.vision_input_names}
