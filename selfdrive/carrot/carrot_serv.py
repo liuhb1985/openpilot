@@ -196,13 +196,12 @@ class CarrotServ:
 
     self.carrotIndex = 0
     self.carrotCmdIndex = 0
+    self.carrotCmdIndex_last = 0
     self.carrotCmd = ""
     self.carrotArg = ""
-    self.carrotCmdIndex = 0
     self.local_carrotCmd = ""
     self.local_carrotArg = ""
     self.local_carrotCmdIndex = 0
-    self.carrotIndex = 0
 
     self.traffic_light_q = collections.deque(maxlen=int(2.0/0.1))  # 2 secnods
     self.traffic_light_count = -1

@@ -33,7 +33,6 @@ wait_for_device() {
     return 1
 }
 
-cd /home/$LOGNAME/openpilot &&
 source .venv/bin/activate &&
 #USE_WEBCAM=1 ROAD_CAM=0 WIDE_CAM=2 NO_DM=0 JY62=1 system/manager/manager.py  #使用locationd_jy62
 #USE_USBCAM=1 ROAD_CAM=0 NO_DM=0 JY62=1 system/manager/manager.py  #使用locationd_jy62
@@ -90,7 +89,7 @@ robust_place() {
             if [ -z "$wid" ]; then
                 wid=$(xdotool search --name "$key" 2>/dev/null | tail -n1)
             fi
-            # 兼容性备选搜索：搜索 openpilot 
+            # 兼容性备选搜索：搜索 openpilot
             if [ -z "$wid" ]; then
                 wid=$(xdotool search --name "openpilot" 2>/dev/null | tail -n1)
             fi
