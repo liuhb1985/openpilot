@@ -342,22 +342,24 @@ protected:
     int     show_plot_mode = 0;
     int     show_plot_mode_prev = -1;
     void	drawPlotting(const UIState* s, int index, int start, float x, float y[], int size, NVGcolor* color, float stroke = 0.0) {
-        nvgBeginPath(s->vg);
+        if (size <= 0) return;
+
         plotRatio = (plotMax - plotMin) < 1.0 ? plotHeight : plotHeight / (plotMax - plotMin);
         float dx = plotDx;
         char str[128];
 
+        // 1. Draw the path first (no text rendering inside the path definition)
+        nvgBeginPath(s->vg);
         for (int i = 0; i < size; i++) {
             float data = y[(start - i + PLOT_MAX) % PLOT_MAX];
             float plot_y = plotY + plotHeight - (data - plotMin) * plotRatio;
             if (i == 0) {
                 nvgMoveTo(s->vg, x + (size - i) * dx, plot_y);
-                sprintf(str, "%.2f", data);
-                ui_draw_text(s, x + (size - i) * dx + 50, plot_y + ((index > 0) ? 40 : 0), str, 40, *color, BOLD);
             }
-            else nvgLineTo(s->vg, x + (size - i) * dx, plot_y);
+            else {
+                nvgLineTo(s->vg, x + (size - i) * dx, plot_y);
+            }
         }
-        //nvgClosePath(s->vg);
 
         if (stroke > 0.0) {
             nvgStrokeColor(s->vg, *color);
@@ -365,96 +367,157 @@ protected:
             nvgStroke(s->vg);
         }
 
+        // 2. Draw the text label after the path is completed and rendered (prevents OpenGL/NanoVG state corruption)
+        float first_data = y[start];
+        float first_plot_y = plotY + plotHeight - (first_data - plotMin) * plotRatio;
+        sprintf(str, "%.2f", first_data);
+        ui_draw_text(s, x + size * dx + 50, first_plot_y + ((index > 0) ? 40 : 0), str, 40, *color, BOLD);
     }
     Params  params;
     std::deque<float> minDeque[3];  // 维持最小值的双端队列
     std::deque<float> maxDeque[3];  // 维持最大值的双端队列
     void	makePlotData(const UIState* s, float data[], char* title) {
-
         SubMaster& sm = *(s->sm);
-        auto    car_state = sm["carState"].getCarState();
-        auto    lp = sm["longitudinalPlan"].getLongitudinalPlan();
-        auto    car_control = sm["carControl"].getCarControl();
-        auto    controls_state = sm["controlsState"].getControlsState();
-        auto    torque_state = controls_state.getLateralControlState().getTorqueState();
-
-        auto live_pose = sm["livePose"].getLivePose();
-        float   a_ego = car_state.getAEgo();
-        float   v_ego = car_state.getVEgo();
-
-        float   accel = lp.getAccels()[0];
-        float   speeds_0 = lp.getSpeeds()[0];
-
-        float   accel_out = car_control.getActuators().getAccel();
-
-        const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
-        const auto position = model.getPosition();
-        const auto velocity = model.getVelocity();
-
-        auto lead_radar = sm["radarState"].getRadarState().getLeadOne();
-        auto live_params = sm["liveParameters"].getLiveParameters();
+        
+        // Initialize default return values
+        data[0] = data[1] = data[2] = 0.0f;
 
         // 0: yellow, 1: green, 2: orange
         switch (show_plot_mode) {
         case 0:
-        case 1:
+        case 1: {
+            float a_ego = sm.alive("carState") ? sm["carState"].getCarState().getAEgo() : 0.0f;
+            float accel = 0.0f;
+            if (sm.alive("longitudinalPlan")) {
+                auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+                if (lp.getAccels().size() > 0) accel = lp.getAccels()[0];
+            }
+            float accel_out = sm.alive("carControl") ? sm["carControl"].getCarControl().getActuators().getAccel() : 0.0f;
             data[0] = a_ego;
             data[1] = accel;
             data[2] = accel_out;
             sprintf(title, "1.加速度 (黄:a_ego, 绿:a_target, 橙:a_out)");
             break;
-        case 2:
+        }
+        case 2: {
+            float speeds_0 = 0.0f;
+            if (sm.alive("longitudinalPlan")) {
+                auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+                if (lp.getSpeeds().size() > 0) speeds_0 = lp.getSpeeds()[0];
+            }
+            float v_ego = sm.alive("carState") ? sm["carState"].getCarState().getVEgo() : 0.0f;
+            float a_ego = sm.alive("carState") ? sm["carState"].getCarState().getAEgo() : 0.0f;
             data[0] = speeds_0;
             data[1] = v_ego;
             data[2] = a_ego;
             sprintf(title, "2.速度/加速度 (黄:speed_0, 绿:v_ego, 橙:a_ego)");
             break;
-        case 3:
-            if (position.getX().size() > 32 && velocity.getX().size() > 32) {
-                data[0] = position.getX()[32];
-                data[1] = velocity.getX()[32];
-                data[2] = velocity.getX()[0];
+        }
+        case 3: {
+            if (sm.alive("modelV2")) {
+                const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
+                const auto position = model.getPosition();
+                const auto velocity = model.getVelocity();
+                if (position.getX().size() > 32 && velocity.getX().size() > 32) {
+                    data[0] = position.getX()[32];
+                    data[1] = velocity.getX()[32];
+                    data[2] = velocity.getX()[0];
+                }
             }
             sprintf(title, "3.模型 (黄:pos_32, 绿:vel_32, 橙:vel_0)");
             break;
-        case 4:
+        }
+        case 4: {
+            float accel = 0.0f;
+            if (sm.alive("longitudinalPlan")) {
+                auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+                if (lp.getAccels().size() > 0) accel = lp.getAccels()[0];
+            }
+            float a_lead = 0.0f;
+            float v_rel = 0.0f;
+            if (sm.alive("radarState")) {
+                auto lead_radar = sm["radarState"].getRadarState().getLeadOne();
+                a_lead = lead_radar.getALeadK();
+                v_rel = lead_radar.getVRel();
+            }
             data[0] = accel;
-            data[1] = lead_radar.getALeadK();
-            data[2] = lead_radar.getVRel();
+            data[1] = a_lead;
+            data[2] = v_rel;
             sprintf(title, "4.前车 (黄:accel, 绿:a_lead, 橙:v_rel)");
             break;
-        case 5:
+        }
+        case 5: {
+            float a_ego = sm.alive("carState") ? sm["carState"].getCarState().getAEgo() : 0.0f;
+            float a_lead = 0.0f;
+            float j_lead = 0.0f;
+            if (sm.alive("radarState")) {
+                auto lead_radar = sm["radarState"].getRadarState().getLeadOne();
+                a_lead = lead_radar.getALead();
+                j_lead = lead_radar.getJLead();
+            }
             data[0] = a_ego;
-            data[1] = lead_radar.getALead();
-            data[2] = lead_radar.getJLead();
+            data[1] = a_lead;
+            data[2] = j_lead;
             sprintf(title, "5.前车 (黄:a_ego, 绿:a_lead, 橙:j_lead)");
             break;
-        case 6:
-            data[0] = torque_state.getActualLateralAccel() * 10.0;
-            data[1] = torque_state.getDesiredLateralAccel() * 10.0;
-            data[2] = torque_state.getOutput() * 10.0;
+        }
+        case 6: {
+            if (sm.alive("controlsState")) {
+                auto controls_state = sm["controlsState"].getControlsState();
+                auto lateral_state = controls_state.getLateralControlState();
+                if (lateral_state.which() == cereal::ControlsState::LateralControlState::TORQUE_STATE) {
+                    auto torque_state = lateral_state.getTorqueState();
+                    data[0] = torque_state.getActualLateralAccel() * 10.0f;
+                    data[1] = torque_state.getDesiredLateralAccel() * 10.0f;
+                    data[2] = torque_state.getOutput() * 10.0f;
+                }
+            }
             sprintf(title, "6.横向控制 (黄:实际加速度, 绿:目标加速度, 橙:输出扭矩)");
             break;
-        case 7:
-            data[0] = car_state.getSteeringAngleDeg();
-            data[1] = car_control.getActuators().getSteeringAngleDeg();
-            data[2] = live_params.getAngleOffsetDeg() * 10.0;
+        }
+        case 7: {
+            float steer_actual = 0.0f;
+            float steer_target = 0.0f;
+            float angle_offset = 0.0f;
+            if (sm.alive("carState")) steer_actual = sm["carState"].getCarState().getSteeringAngleDeg();
+            if (sm.alive("carControl")) steer_target = sm["carControl"].getCarControl().getActuators().getSteeringAngleDeg();
+            if (sm.alive("liveParameters")) angle_offset = sm["liveParameters"].getLiveParameters().getAngleOffsetDeg();
+            data[0] = steer_actual;
+            data[1] = steer_target;
+            data[2] = angle_offset * 10.0f;
             sprintf(title, "7.转向角 (Y:Actual, G:Target, R:Offset*10)");
             break;
-        case 8:
-            data[0] = car_control.getActuators().getCurvature()*10000;
-            data[1] = car_control.getActuators().getCurvature()*10000;
-            data[2] = car_control.getActuators().getCurvature()*10000;
+        }
+        case 8: {
+            float curvature = 0.0f;
+            if (sm.alive("carControl")) curvature = sm["carControl"].getCarControl().getActuators().getCurvature();
+            data[0] = curvature * 10000.0f;
+            data[1] = curvature * 10000.0f;
+            data[2] = curvature * 10000.0f;
             sprintf(title, "8.曲率 (x10000)");
             break;
-        case 9:
-            data[0] = car_state.getSteeringAngleDeg();
-            data[1] = live_pose.getAngularVelocityDevice().getZ() * 57.29 * 5.0;
-            data[2] = torque_state.getActualLateralAccel() * 10.0;
+        }
+        case 9: {
+            float steer_actual = 0.0f;
+            float yaw_rate_device = 0.0f;
+            float actual_lat_accel = 0.0f;
+            if (sm.alive("carState")) steer_actual = sm["carState"].getCarState().getSteeringAngleDeg();
+            if (sm.alive("livePose")) yaw_rate_device = sm["livePose"].getLivePose().getAngularVelocityDevice().getZ();
+            if (sm.alive("controlsState")) {
+                auto controls_state = sm["controlsState"].getControlsState();
+                auto lateral_state = controls_state.getLateralControlState();
+                if (lateral_state.which() == cereal::ControlsState::LateralControlState::TORQUE_STATE) {
+                    actual_lat_accel = lateral_state.getTorqueState().getActualLateralAccel();
+                }
+            }
+            data[0] = steer_actual;
+            data[1] = yaw_rate_device * 57.29f * 5.0f;
+            data[2] = actual_lat_accel * 10.0f;
             sprintf(title, "9.IMU校验 (Y:Angle, G:YawRate*5, R:LatAccel*10)");
             break;
+        }
         default:
-            data[0] = data[1] = data[2] = 0;
+            data[0] = data[1] = data[2] = 0.0f;
             sprintf(title, "无数据");
             break;
         }
@@ -556,6 +619,34 @@ public:
             drawPlotting(s, i, plotIndex, plotX, plotQueue[i], plotSize, &color[i], 3.0f);
         }
         ui_draw_text(s, plotX + 400, plotY - 20, title, 25, COLOR_WHITE, BOLD);
+
+        // Safely draw IMU debug info for show_plot_mode == 7 using NanoVG
+        if (show_plot_mode == 7) {
+            float x_pos = 60.0f;
+            float y_pos = 300.0f;
+            char temp_str[128];
+            if (sm.alive("gyroscope")) {
+                auto v = sm["gyroscope"].getGyroscope().getGyroUncalibrated().getV();
+                if (v.size() > 0) {
+                    float yaw_rate = -v[0];
+                    sprintf(temp_str, "YawRate: %.3f rad/s", yaw_rate);
+                    ui_draw_text(s, x_pos, y_pos, temp_str, 35, COLOR_WHITE, BOLD);
+                    y_pos += 50.0f;
+                }
+            }
+            if (sm.alive("accelerometer")) {
+                auto v = sm["accelerometer"].getAccelerometer().getAcceleration().getV();
+                if (v.size() >= 2) {
+                    float a_ego_acc = v[0];
+                    float lat_accel = v[1];
+                    sprintf(temp_str, "aEgo: %.3f m/s2", a_ego_acc);
+                    ui_draw_text(s, x_pos, y_pos, temp_str, 35, COLOR_WHITE, BOLD);
+                    y_pos += 50.0f;
+                    sprintf(temp_str, "LatAccel: %.3f m/s2", lat_accel);
+                    ui_draw_text(s, x_pos, y_pos, temp_str, 35, COLOR_WHITE, BOLD);
+                }
+            }
+        }
     }
 };
 
