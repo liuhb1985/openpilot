@@ -1039,13 +1039,19 @@ void display_loop() {
                 if (has_any_frame && combined.cols > 0 && combined.rows > 0) {
                     // 核心修复：强制窗口容器收缩到与图像一致，解决“图像距离窗口2侧有白边”的问题
                     static bool window_init = false;
+                    static int last_cols = 0;
+                    static int last_rows = 0;
                     if (!window_init) {
                         cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
                         // 将窗口移动到屏幕左下角 (0, 600)，避免遮挡中央和上方视野
                         cv::moveWindow("All Cameras", 0, 600);
                         window_init = true;
                     }
-                    cv::resizeWindow("All Cameras", combined.cols, combined.rows);
+                    if (combined.cols != last_cols || combined.rows != last_rows) {
+                        cv::resizeWindow("All Cameras", combined.cols, combined.rows);
+                        last_cols = combined.cols;
+                        last_rows = combined.rows;
+                    }
                     cv::imshow("All Cameras", combined);
 
                     // 为单窗口模式注册鼠标回调

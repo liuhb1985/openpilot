@@ -230,17 +230,24 @@ class CarController(CarControllerBase):
     v_ego_kph = CS.out.vEgoRaw * CV.MS_TO_KPH
     error_mag = abs(apply_angle - self.apply_angle_last)
     
-    # 1. 基础 alpha：随速度动态调整。低速更稳，高速不过敏。
-    # 0km/h -> 0.1, 100km/h -> 0.35
-    base_alpha = np.interp(v_ego_kph, [0, 100], [0.1, 0.35])
+    # 1. 基础 alpha：随速度动态调整。低速时使用更小的 alpha 以增加阻尼
+    # 0km/h -> 0.03, 30km/h -> 0.15, 100km/h -> 0.35
+    base_alpha = np.interp(v_ego_kph, [0, 30, 100], [0.03, 0.15, 0.35])
     
     # 2. 误差补偿：当误差较大（如进入急弯）时，平滑增加响应速度，避免转向不足
-    # 误差在 0.2度以内保持 base_alpha，超过 1.5度时完全跟随 (alpha=1.0)
-    alpha = np.interp(error_mag, [0.2, 1.5], [base_alpha, 1.0])
+    # 低速时，我们将完全跟随的阈值拉得更高，使中低度调整更加平滑阻尼
+    # 0km/h -> 3.0度, 100km/h -> 1.5度
+    error_high_threshold = np.interp(v_ego_kph, [0, 100], [3.0, 1.5])
+    error_low_threshold = np.interp(v_ego_kph, [0, 100], [0.3, 0.2])
     
-    # 3. 低速死区抑制：针对低速蠕行时的方向盘抖动/摆幅
-    if v_ego_kph < 20 and error_mag < 0.1:
-      alpha = 0.05
+    alpha = np.interp(error_mag, [error_low_threshold, error_high_threshold], [base_alpha, 1.0])
+    
+    # 3. 低速死区/微调抑制：当车速低于 30km/h 且调整幅度较小时，极力降低调整频次和幅度
+    if v_ego_kph < 30:
+      if error_mag < 0.3:
+        alpha = 0.02
+      elif error_mag < 0.6:
+        alpha = 0.05
 
     apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 

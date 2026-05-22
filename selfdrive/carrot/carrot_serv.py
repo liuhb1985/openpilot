@@ -1055,18 +1055,14 @@ class CarrotServ:
       speed_n_sources.append((model_turn_speed, "model"))
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
+    original_source = source
 
     if CS is not None:
-      if source != self.source_last:
-        self.gas_override_speed = 0
-        self.gas_pressed_state = CS.gasPressed
-      if CS.vEgo < 0.1 or desired_speed > 150 or source in ["cam", "section", "police"] or CS.brakePressed or road_speed_limit_changed:
-        self.gas_override_speed = 0
-      elif CS.gasPressed and not self.gas_pressed_state:
+      if CS.gasPressed:
         self.gas_override_speed = max(v_ego_kph, self.gas_override_speed)
-      else:
-        self.gas_pressed_state = False
-      self.source_last = source
+
+      if CS.vEgo < 0.1 or desired_speed > 150 or original_source in ["cam", "section", "police"] or CS.brakePressed or road_speed_limit_changed:
+        self.gas_override_speed = 0
 
       if desired_speed < self.gas_override_speed:
         source = "gas"

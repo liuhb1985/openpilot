@@ -672,6 +672,7 @@ class VCruiseCarrot:
   def _update_cruise_state(self, CS, CC, v_cruise_kph):
     if not CC.enabled:
       self._pause_auto_speed_up = False
+      self.carrot_cruise_active = False
       if self._brake_pressed_count == -1 and self._soft_hold_active > 0:
         self._soft_hold_active = 2
         self._cruise_control(1, -1, "Cruise on (soft hold)")
@@ -707,17 +708,28 @@ class VCruiseCarrot:
         v_cruise_kph = self.v_ego_kph_set
         self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (gas pressed)")
     elif self._brake_pressed_count == -1 and self._soft_hold_active == 0:
-      if self.v_ego_kph_set > self.autoGasTokSpeed:
-        v_cruise_kph = self.v_ego_kph_set
-        self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (speed)")
-      elif abs(CS.steeringAngleDeg) < 20:
-        if self.xState in [3, 5]:
-          if self.xState == 3:  # 减速中
-            v_cruise_kph = self.v_ego_kph_set
-          self._cruise_control(1, 0, "Cruise on (traffic sign)")
-        elif 0 < self.d_rel < 20:
-          # 当前方有车靠近时，保持现有速度
-          self._cruise_control(1, -1 if self.v_ego_kph_set < 1 else 0, "Cruise on (lead car)")
+      if self._v_cruise_kph_at_brake > 0:
+        # 松刹车恢复纵向：不以当前车速设定目标，而是以道路限速或手动设定速度的最大值设定最低速度
+        road_limit = self.nRoadLimitSpeed
+        if road_limit > 0:
+          v_cruise_kph = max(self._v_cruise_kph_at_brake, road_limit, self._cruise_speed_min)
+        else:
+          v_cruise_kph = max(self._v_cruise_kph_at_brake, self._cruise_speed_min)
+
+        self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (brake released)")
+        self._v_cruise_kph_at_brake = 0
+      else:
+        # 保持无状态时的原有行为
+        if self.v_ego_kph_set > self.autoGasTokSpeed:
+          v_cruise_kph = self.v_ego_kph_set
+          self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (speed)")
+        elif abs(CS.steeringAngleDeg) < 20:
+          if self.xState in [3, 5]:
+            if self.xState == 3:  # 减速中
+              v_cruise_kph = self.v_ego_kph_set
+            self._cruise_control(1, 0, "Cruise on (traffic sign)")
+          elif 0 < self.d_rel < 20:
+            self._cruise_control(1, -1 if self.v_ego_kph_set < 1 else 0, "Cruise on (lead car)")
 
     elif self._brake_pressed_count < 0 and self._gas_pressed_count < 0:
       if not CC.enabled:
@@ -759,12 +771,15 @@ class VCruiseCarrot:
         self._cruise_control(-1, -1, "Cruise off (gasPressed)")
     elif self._brake_pressed_count == 1:
       self._pause_auto_speed_up = True
+      # 踩刹车去掉纵向
+      self._cruise_control(-1, -1, "Cruise off (brake pressed)")
 
     return self._auto_speed_up(v_cruise_kph)
 
   def _prepare_brake_gas(self, CS, CC):
     if CS.gasPressed:
       self._paddle_decel_active = False
+      self.carrot_cruise_active = False
       self._gas_pressed_count = max(1, self._gas_pressed_count + 1)
       self._gas_pressed_count_last = self._gas_pressed_count
       self._gas_pressed_value = max(CS.gas, self._gas_pressed_value) if self._gas_pressed_count > 1 else CS.gas
@@ -780,6 +795,7 @@ class VCruiseCarrot:
     if CS.brakePressed:
       self._cruise_ready = False
       self._paddle_decel_active = False
+      self.carrot_cruise_active = False
       self._brake_pressed_count = max(1, self._brake_pressed_count + 1)
       if self._brake_pressed_count == 1 and self.enabled_last:
         self._v_cruise_kph_at_brake = self.v_cruise_kph

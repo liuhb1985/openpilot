@@ -184,7 +184,7 @@ class LongitudinalPlanner:
     x, v, a, j, throttle_prob = self.parse_model(sm['modelV2'])
     # 在低速时不修剪，因为 throttle_prob 不考虑蠕行
     if self.params.get_int("CommaLongAcc") > 0:
-      self.allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED
+      self.allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED or sm['carState'].gasPressed
     else:
       self.allow_throttle = True
 

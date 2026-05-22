@@ -138,11 +138,11 @@ MANAGER_PID=$!
 # -----------------------------------------------------------------------------
 # 窗口布局参数定义 (适配 2048x1536 高清屏幕 - 黄金分割对称分布)
 # -----------------------------------------------------------------------------
-# 1. 主界面窗口 (占据上半屏幕 2048x768)
+# 1. 主界面窗口 (恢复原来默认尺寸 2048x1080)
 UI_WINDOW_X=0
 UI_WINDOW_Y=0
 UI_WINDOW_WIDTH=2048
-UI_WINDOW_HEIGHT=768
+UI_WINDOW_HEIGHT=1080
 
 # 2. 盲区画面窗口 (占据左下半屏幕 1024x768)
 CAMERA_WINDOW_WIDTH=1024
@@ -161,80 +161,82 @@ LOG_WINDOW_WIDTH=1024
 LOG_WINDOW_HEIGHT=768
 
 # -----------------------------------------------------------------------------
-# 终极自适应窗口布局分配器 (支持大小写不敏感与并发异步捕获)
+# 终极自适应窗口布局分配守护进程 (高频高可靠持续对齐拼接，打败延迟启动与抢占)
 # -----------------------------------------------------------------------------
-
-move_resize_window() {
-    local pattern=$1
-    local x=$2
-    local y=$3
-    local w=$4
-    local h=$5
-    local name=$6
-    local win_id=""
+maintain_layout() {
+    echo "Starting layout guardian daemon..."
+    local elapsed=0
+    local term_win_id=""
     
-    echo "Waiting for window: $name..."
-    for i in {1..600}; do
-        # 匹配标题且排除开发工具与无关终端
-        win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$win_id" ]; then
-            echo "✓ Found window $name ($win_id), forcing layout ($x, $y, $w, $h)..."
-            # 暴力长宽全屏/最大化重置
-            wmctrl -i -r "$win_id" -b remove,fullscreen,maximized_horz,maximized_vert
-            # 移除窗口边框修饰，实现像素级无缝拼接
-            wmctrl -i -r "$win_id" -b remove,decorations
-            
-            # X11 异步缓冲让步：确保窗口管理器已完成状态重置
-            sleep 0.3
-            
-            # 强力几何尺寸定位
-            wmctrl -i -r "$win_id" -e 0,$x,$y,$w,$h
-            # 移除强置顶状态，恢复优雅堆叠
-            wmctrl -i -r "$win_id" -b remove,below,above
-            
-            # 【核心防抢占优化】：延迟 1.5 秒二次修正，打败 Qt/OpenCV 启动结束时的强制拉伸
-            (sleep 1.5 && wmctrl -i -r "$win_id" -e 0,$x,$y,$w,$h) &
-            return 0
+    # 1. 尝试寻找当前运行该脚本终端的 Window ID
+    if [ ! -z "$WINDOWID" ]; then
+        term_win_id="$WINDOWID"
+    else
+        # 沿着当前进程树向上搜索，直到找到归属于当前进程族终端窗口的 ID
+        local pid=$$
+        while [ "$pid" -gt 1 ]; do
+            term_win_id=$(wmctrl -lp 2>/dev/null | grep " $pid " | head -n 1 | cut -d' ' -f1)
+            if [ ! -z "$term_win_id" ]; then
+                break
+            fi
+            pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+            [ -z "$pid" ] && break
+        done
+    fi
+
+    if [ ! -z "$term_win_id" ]; then
+        echo "✓ Term Window found via process tree tracing: $term_win_id"
+    else
+        echo "⚠ Term Window not found via process tree tracing. Falling back to title matching..."
+    fi
+
+    # 持续维护 30 秒布局，以 0.5 秒为间隔
+    while [ $elapsed -lt 60 ]; do
+        # 1. 布局 UI 窗口
+        local ui_win=$(wmctrl -l | grep -Ei "openpilot|MainWindow|\bui\b|^ui$" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
+        if [ ! -z "$ui_win" ]; then
+            wmctrl -i -r "$ui_win" -b remove,fullscreen,maximized_horz,maximized_vert
+            wmctrl -i -r "$ui_win" -b remove,decorations
+            wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
         fi
-        sleep 0.2
+
+        # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式)
+        local cam_win=$(wmctrl -l | grep -Ei "All Cameras|camera|cameras|Camera 0" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
+        if [ ! -z "$cam_win" ]; then
+            wmctrl -i -r "$cam_win" -b remove,fullscreen,maximized_horz,maximized_vert
+            wmctrl -i -r "$cam_win" -b remove,decorations
+            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$CAMERA_0_Y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
+        fi
+
+        # 3. 布局终端日志窗口
+        local active_term_id="$term_win_id"
+        if [ -z "$active_term_id" ]; then
+            # 备选模糊标题匹配
+            active_term_id=$(wmctrl -l | grep -Ei "log window|terminal|bash" | head -n 1 | cut -d' ' -f1)
+        fi
+        if [ ! -z "$active_term_id" ]; then
+            wmctrl -i -r "$active_term_id" -b remove,fullscreen,maximized_horz,maximized_vert
+            wmctrl -i -r "$active_term_id" -b remove,decorations
+            wmctrl -i -r "$active_term_id" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
+        fi
+
+        sleep 0.5
+        elapsed=$((elapsed + 1))
     done
-    echo "⚠ Warning: Window $name ($pattern) not found after 120s"
-    echo "=== [DEBUG DIAGNOSTIC] Current X11 Window List ==="
-    wmctrl -l
-    echo "=================================================="
-    return 1
+    
+    # 释放堆叠顺序，确保完美交互
+    sleep 1.0
+    for win in "$ui_win" "$cam_win" "$active_term_id"; do
+        if [ ! -z "$win" ]; then
+            wmctrl -i -r "$win" -b remove,below,above
+            wmctrl -i -a "$win"
+        fi
+    done
+    echo "Layout guardian daemon finished."
 }
 
-# 并发异步捕获各个窗口，防止启动先后顺序造成阻塞
-move_resize_window "openpilot|MainWindow|\bui\b|^ui$" $UI_WINDOW_X $UI_WINDOW_Y $UI_WINDOW_WIDTH $UI_WINDOW_HEIGHT "ui" &
-move_resize_window "camera|cameras|Camera 0|Camera 1|Camera 2" $CAMERA_0_X $CAMERA_0_Y $CAMERA_WINDOW_WIDTH $CAMERA_WINDOW_HEIGHT "all cameras" &
-
-# 终极终端窗口定位：优先使用 $WINDOWID 环境变量进行高可靠物理绑定
-if [ ! -z "$WINDOWID" ]; then
-    (
-        echo "✓ Found running terminal window via \$WINDOWID ($WINDOWID), positioning to log window layout..."
-        wmctrl -i -r "$WINDOWID" -b remove,fullscreen,maximized_horz,maximized_vert
-        wmctrl -i -r "$WINDOWID" -b remove,decorations
-        sleep 0.3
-        wmctrl -i -r "$WINDOWID" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
-        (sleep 1.5 && wmctrl -i -r "$WINDOWID" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT) &
-    ) &
-else
-    # 备用方案：按标题搜索
-    move_resize_window "log window|terminal|bash" $LOG_WINDOW_X $LOG_WINDOW_Y $LOG_WINDOW_WIDTH $LOG_WINDOW_HEIGHT "log window" &
-fi
-
-# 延迟等待系统全部就位，调整各层级
-(
-    sleep 4.0
-    for pattern in "openpilot|MainWindow|\bui\b|^ui$" "camera|cameras" "log window|terminal|bash"; do
-        win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$win_id" ]; then
-            wmctrl -i -r "$win_id" -b remove,below,above
-            wmctrl -i -a "$win_id"
-        fi
-    done
-) &
+# 后台异步启动守护进程
+maintain_layout &
 
 # 等待所有后台进程结束
 wait
