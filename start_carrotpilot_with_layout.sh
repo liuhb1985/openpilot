@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 设置终端窗口标题为 "Log Window" 以便 wmctrl 精准定位
+echo -ne "\033]0;Log Window\007"
+
 # 设置 USB 权限
 sudo chmod -R 777 /dev/bus/usb/*
 sudo chmod 666 /dev/i2c-*
@@ -133,26 +136,29 @@ MANAGER_PID=$!
 # SCALE=1 USE_WEBCAM=1 USE_CAMPATH=1 python3 system/manager/manager.py &
 
 # -----------------------------------------------------------------------------
-# 窗口布局参数定义 (适配 1080P 屏幕)
+# 窗口布局参数定义 (适配 2048x1536 高清屏幕 - 黄金分割对称分布)
 # -----------------------------------------------------------------------------
+# 1. 主界面窗口 (占据上半屏幕 2048x768)
 UI_WINDOW_X=0
 UI_WINDOW_Y=0
-UI_WINDOW_WIDTH=1920
-UI_WINDOW_HEIGHT=600
+UI_WINDOW_WIDTH=2048
+UI_WINDOW_HEIGHT=768
 
-# 盲区窗口尺寸 (恢复 16:9 标准比例 640x360，避免拉伸挤压)
-CAMERA_WINDOW_WIDTH=640
-CAMERA_WINDOW_HEIGHT=360
-
-# 盲区窗口位置 (左下角锚点)
+# 2. 盲区画面窗口 (占据左下半屏幕 1024x768)
+CAMERA_WINDOW_WIDTH=1024
+CAMERA_WINDOW_HEIGHT=768
 CAMERA_0_X=0
-CAMERA_0_Y=600
-
+CAMERA_0_Y=768
 CAMERA_1_X=0
-CAMERA_1_Y=600
-
+CAMERA_1_Y=768
 CAMERA_2_X=0
-CAMERA_2_Y=600
+CAMERA_2_Y=768
+
+# 3. 日志命令窗口 (占据右下半屏幕 1024x768)
+LOG_WINDOW_X=1024
+LOG_WINDOW_Y=768
+LOG_WINDOW_WIDTH=1024
+LOG_WINDOW_HEIGHT=768
 
 # 等待UI窗口出现并移动到预设位置 (过滤掉开发环境，防止误伤 VS Code)
 echo "Waiting for UI window..."
@@ -211,19 +217,31 @@ for i in {1..50}; do
     sleep 0.2
 done
 
+# 定位日志命令窗口 (Log Window)
+for i in {1..50}; do
+    if wmctrl -l | grep -q "Log Window"; then
+        echo "✓ Moving Log Window to ($LOG_WINDOW_X, $LOG_WINDOW_Y)"
+        # 暴力从全屏/最大化状态恢复，以便自定义尺寸
+        wmctrl -r "Log Window" -b remove,fullscreen,maximized_horz,maximized_vert
+        wmctrl -r "Log Window" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
+        break
+    fi
+    sleep 0.2
+done
+
 # 最后将UI窗口保持在最前面，然后将摄像头窗口置于最前
 sleep 2
 if wmctrl -l | grep -q "ui"; then
     wmctrl -a "ui"
 fi
 
-# 确保所有摄像头窗口（包括单窗口和多窗口模式）正常层级，只在启动时激活一次，不锁定置顶
-for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2"; do
+# 确保所有相关窗口处于正确的层级，不锁定置顶，确保顺畅切换
+for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2" "Log Window"; do
     if wmctrl -l | grep -q "$win"; then
         # 破解 UI 全屏，恢复自然窗口层级
         wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
         wmctrl -r "ui" -b remove,below,above
-        # 移除任何强行置顶/置底的状态，确保所有摄像头窗口正常层级切换
+        # 移除任何强行置顶/置底的状态
         wmctrl -r "$win" -b remove,below,above
         wmctrl -a "$win"
     fi
