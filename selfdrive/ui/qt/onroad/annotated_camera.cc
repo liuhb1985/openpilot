@@ -221,33 +221,6 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   }
   painter.endNativePainting();
 
-  // --- 新增：在主界面绘制 IMU 调试信息 (仅当 ShowPlotMode == 7 时显示) ---
-  if (s->scene.show_plot_mode == 7) {
-    const int x = 60;
-    int y = 300; // 起始高度
-    painter.setFont(InterFont(35, QFont::Bold));
-    painter.setPen(Qt::white); // 改为白色
-
-    if (sm.alive("gyroscope")) {
-      auto v = sm["gyroscope"].getGyroscope().getGyroUncalibrated().getV();
-      if (v.size() > 0) {
-        float yaw_rate = -v[0];
-        painter.drawText(x, y, QString("YawRate: %1 rad/s").arg(yaw_rate, 0, 'f', 3));
-        y += 50;
-      }
-    }
-    if (sm.alive("accelerometer")) {
-      auto v = sm["accelerometer"].getAccelerometer().getAcceleration().getV();
-      if (v.size() >= 2) {
-        float a_ego_acc = v[0];
-        float lat_accel = v[1];
-        painter.drawText(x, y, QString("aEgo: %1 m/s2").arg(a_ego_acc, 0, 'f', 3));
-        y += 50;
-        painter.drawText(x, y, QString("LatAccel: %1 m/s2").arg(lat_accel, 0, 'f', 3));
-      }
-    }
-  }
-
   //dmon.draw(painter, rect());
   //hud.updateState(*s);
   //hud.draw(painter, rect());
