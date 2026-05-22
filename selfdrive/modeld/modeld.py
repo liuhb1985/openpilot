@@ -178,6 +178,42 @@ class InputQueues:
           out[k] = self.q[k][:, idxs]
       return out
 
+def auto_compile_model(onnx_path, pkl_path):
+  import subprocess
+  import os
+  import sys
+  
+  cloudlog.warning(f"Auto-compiling {onnx_path} to {pkl_path}...")
+  
+  # Ensure the directory of pkl_path exists
+  os.makedirs(Path(pkl_path).parent, exist_ok=True)
+  
+  # Prepare environment variables
+  env = os.environ.copy()
+  env["GPU"] = "1"
+  env["IMAGE"] = "0"
+  env["BEAM"] = "0"
+  env["JIT"] = "2"
+  
+  tinygrad_repo_path = Path(__file__).parents[2] / "tinygrad_repo"
+  env["PYTHONPATH"] = f"{env.get('PYTHONPATH', '')}:{tinygrad_repo_path.absolute()}"
+  
+  compiler_script = tinygrad_repo_path / "examples" / "openpilot" / "compile3.py"
+  
+  cmd = [sys.executable, str(compiler_script), str(onnx_path), str(pkl_path)]
+  
+  try:
+    # Run compiler synchronously with a timeout
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True, timeout=300)
+    cloudlog.warning(f"Successfully compiled {onnx_path} to {pkl_path}: {result.stdout}")
+    return True
+  except Exception as err:
+    cloudlog.error(f"Failed to auto-compile {onnx_path}: {err}")
+    if hasattr(err, 'stderr') and err.stderr:
+      cloudlog.error(f"Compiler stderr: {err.stderr}")
+    return False
+
+
 class ModelState:
   frames: dict[str, DrivingModelFrame]
   inputs: dict[str, np.ndarray]
@@ -223,17 +259,48 @@ class ModelState:
         self.policy_run = pickle.load(f)
     except Exception as e:
       cloudlog.warning(f"Failed to load model from {VISION_PKL_PATH.parent}, likely compiled for a different device: {e}")
-      cloudlog.warning("Falling back to default model...")
+      cloudlog.warning("Attempting to auto-recompile the models for this device...")
       
       base_path = Path(__file__).parent / 'models'
+      vision_onnx = base_path / 'driving_vision.onnx'
+      policy_onnx = base_path / 'driving_policy.onnx'
+      
+      success_vision = auto_compile_model(vision_onnx, VISION_PKL_PATH)
+      success_policy = auto_compile_model(policy_onnx, POLICY_PKL_PATH)
+      
+      if success_vision and success_policy:
+        try:
+          with open(VISION_PKL_PATH, "rb") as f:
+            self.vision_run = pickle.load(f)
+          with open(POLICY_PKL_PATH, "rb") as f:
+            self.policy_run = pickle.load(f)
+          cloudlog.warning("Successfully loaded newly compiled models!")
+          return
+        except Exception as e2:
+          cloudlog.error(f"Failed to load newly compiled models: {e2}")
+      
+      # Fallback to default
+      cloudlog.warning("Falling back to default model...")
       vision_path = base_path / 'default' / 'driving_vision_tinygrad.pkl'
       policy_path = base_path / 'default' / 'driving_policy_tinygrad.pkl'
       
-      with open(vision_path, "rb") as f:
-        self.vision_run = pickle.load(f)
-
-      with open(policy_path, "rb") as f:
-        self.policy_run = pickle.load(f)
+      try:
+        with open(vision_path, "rb") as f:
+          self.vision_run = pickle.load(f)
+        with open(policy_path, "rb") as f:
+          self.policy_run = pickle.load(f)
+      except Exception as e_def:
+        cloudlog.warning(f"Failed to load default model, compiling default model for this device...")
+        success_vision_def = auto_compile_model(vision_onnx, vision_path)
+        success_policy_def = auto_compile_model(policy_onnx, policy_path)
+        if success_vision_def and success_policy_def:
+          with open(vision_path, "rb") as f:
+            self.vision_run = pickle.load(f)
+          with open(policy_path, "rb") as f:
+            self.policy_run = pickle.load(f)
+          cloudlog.warning("Successfully loaded newly compiled default models!")
+        else:
+          raise e_def
       
       # Clear parametric model name to prevent future loops
       from openpilot.common.params import Params
