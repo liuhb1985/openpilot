@@ -174,7 +174,7 @@ move_resize_window() {
     local win_id=""
     
     echo "Waiting for window: $name..."
-    for i in {1..100}; do
+    for i in {1..600}; do
         # 匹配标题且排除开发工具与无关终端
         win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
         if [ ! -z "$win_id" ]; then
@@ -183,6 +183,10 @@ move_resize_window() {
             wmctrl -i -r "$win_id" -b remove,fullscreen,maximized_horz,maximized_vert
             # 移除窗口边框修饰，实现像素级无缝拼接
             wmctrl -i -r "$win_id" -b remove,decorations
+            
+            # X11 异步缓冲让步：确保窗口管理器已完成状态重置
+            sleep 0.3
+            
             # 强力几何尺寸定位
             wmctrl -i -r "$win_id" -e 0,$x,$y,$w,$h
             # 移除强置顶状态，恢复优雅堆叠
@@ -194,19 +198,36 @@ move_resize_window() {
         fi
         sleep 0.2
     done
-    echo "⚠ Warning: Window $name ($pattern) not found after 20s"
+    echo "⚠ Warning: Window $name ($pattern) not found after 120s"
+    echo "=== [DEBUG DIAGNOSTIC] Current X11 Window List ==="
+    wmctrl -l
+    echo "=================================================="
     return 1
 }
 
 # 并发异步捕获各个窗口，防止启动先后顺序造成阻塞
 move_resize_window "openpilot|MainWindow|\bui\b|^ui$" $UI_WINDOW_X $UI_WINDOW_Y $UI_WINDOW_WIDTH $UI_WINDOW_HEIGHT "ui" &
-move_resize_window "all cameras|Camera 0|Camera 1|Camera 2" $CAMERA_0_X $CAMERA_0_Y $CAMERA_WINDOW_WIDTH $CAMERA_WINDOW_HEIGHT "all cameras" &
-move_resize_window "log window" $LOG_WINDOW_X $LOG_WINDOW_Y $LOG_WINDOW_WIDTH $LOG_WINDOW_HEIGHT "log window" &
+move_resize_window "camera|cameras|Camera 0|Camera 1|Camera 2" $CAMERA_0_X $CAMERA_0_Y $CAMERA_WINDOW_WIDTH $CAMERA_WINDOW_HEIGHT "all cameras" &
+
+# 终极终端窗口定位：优先使用 $WINDOWID 环境变量进行高可靠物理绑定
+if [ ! -z "$WINDOWID" ]; then
+    (
+        echo "✓ Found running terminal window via \$WINDOWID ($WINDOWID), positioning to log window layout..."
+        wmctrl -i -r "$WINDOWID" -b remove,fullscreen,maximized_horz,maximized_vert
+        wmctrl -i -r "$WINDOWID" -b remove,decorations
+        sleep 0.3
+        wmctrl -i -r "$WINDOWID" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
+        (sleep 1.5 && wmctrl -i -r "$WINDOWID" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT) &
+    ) &
+else
+    # 备用方案：按标题搜索
+    move_resize_window "log window|terminal|bash" $LOG_WINDOW_X $LOG_WINDOW_Y $LOG_WINDOW_WIDTH $LOG_WINDOW_HEIGHT "log window" &
+fi
 
 # 延迟等待系统全部就位，调整各层级
 (
     sleep 4.0
-    for pattern in "openpilot|MainWindow|\bui\b|^ui$" "all cameras|Camera 0|Camera 1|Camera 2" "log window"; do
+    for pattern in "openpilot|MainWindow|\bui\b|^ui$" "camera|cameras" "log window|terminal|bash"; do
         win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
         if [ ! -z "$win_id" ]; then
             wmctrl -i -r "$win_id" -b remove,below,above
