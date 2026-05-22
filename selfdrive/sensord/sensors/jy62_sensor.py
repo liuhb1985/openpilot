@@ -20,6 +20,7 @@ class JY62Sensor:
     self.device_path = device_path
     self.baud_rate = baud_rate
     self.ser = None
+    self.last_gyro_print_time = 0.0
 
     # 初始化消息发布器
     self.pm = messaging.PubMaster(['accelerometer', 'gyroscope'])
@@ -167,7 +168,9 @@ class JY62Sensor:
 
         # 发布消息
         self.pm.send('gyroscope', dat)
-        print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
+        if data['timestamp'] - self.last_gyro_print_time >= 5.0:
+          print(f"JY62 Gyro: {data['wx']:.4f}, {data['wy']:.4f}, {data['wz']:.4f}")
+          self.last_gyro_print_time = data['timestamp']
 
       # 移除已处理的数据包
       buffer = buffer[11:]
