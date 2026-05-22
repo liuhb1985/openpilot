@@ -99,7 +99,38 @@ def ensure_version(desc, lib_field, panda_field, fn):
 ensure_can_packet_version = partial(ensure_version, "CAN", "CAN_PACKET_VERSION", "can_version")
 ensure_can_health_packet_version = partial(ensure_version, "CAN health", "CAN_HEALTH_PACKET_VERSION", "can_health_version")
 ensure_health_packet_version = partial(ensure_version, "health", "HEALTH_PACKET_VERSION", "health_version")
+def get_usb_serial_sysfs(device):
+  try:
+    bus = device.getBusNumber()
+    addr = device.getDeviceAddress()
+    # Search in /sys/bus/usb/devices/
+    for name in os.listdir("/sys/bus/usb/devices/"):
+      path = os.path.join("/sys/bus/usb/devices/", name)
+      try:
+        with open(os.path.join(path, "busnum"), "r") as f:
+          b = int(f.read().strip())
+        with open(os.path.join(path, "devnum"), "r") as f:
+          a = int(f.read().strip())
+        if b == bus and a == addr:
+          serial_path = os.path.join(path, "serial")
+          if os.path.exists(serial_path):
+            with open(serial_path, "r") as f:
+              return f.read().strip()
+      except Exception:
+        continue
+  except Exception:
+    pass
+  return None
 
+def get_device_serial(device):
+  try:
+    return device.getSerialNumber()
+  except Exception as e:
+    if sys.platform not in ("win32", "cygwin", "msys", "darwin"):
+      serial = get_usb_serial_sysfs(device)
+      if serial is not None:
+        return serial
+    raise e
 
 
 class Panda:
@@ -312,7 +343,7 @@ class Panda:
       for device in context.getDeviceList(skip_on_error=True):
         if device.getVendorID() in cls.USB_VIDS and device.getProductID() in cls.USB_PIDS:
           try:
-            this_serial = device.getSerialNumber()
+            this_serial = get_device_serial(device)
           except Exception:
             # Allow to ignore errors on reconnect. USB hubs need some time to initialize after panda reset
             if not no_error:
@@ -368,7 +399,7 @@ class Panda:
         for device in context.getDeviceList(skip_on_error=True):
           if device.getVendorID() in cls.USB_VIDS and device.getProductID() in cls.USB_PIDS:
             try:
-              serial = device.getSerialNumber()
+              serial = get_device_serial(device)
               if len(serial) == 24:
                 ret.append(serial)
               else:

@@ -159,6 +159,10 @@ void initialize_yolo() {
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
         session_options.SetIntraOpNumThreads(1);
         const char* model_path = "yolov5s.onnx";
+        std::ifstream f("yolov5s.onnx");
+        if (!f.good()) {
+            model_path = "camera/yolov5s.onnx";
+        }
         session = new Ort::Session(env, model_path, session_options);
         dcout << "YOLO model loaded successfully!" << std::endl;
     } catch (const Ort::Exception& e) {
@@ -1764,7 +1768,12 @@ int main() {
         return 1;
     }
 
-    if (!load_camera_config("cam_blindspot.json")) {
+    std::string cfg_path = "cam_blindspot.json";
+    std::ifstream cfg_f(cfg_path);
+    if (!cfg_f.good()) {
+        cfg_path = "camera/cam_blindspot.json";
+    }
+    if (!load_camera_config(cfg_path)) {
         return -1;
     }
 
@@ -1811,7 +1820,12 @@ int main() {
         camera_rois[i].sub_rois.push_back(right_roi);
     }
 
-    load_rois("rois.txt");
+    std::string rois_path = "rois.txt";
+    std::ifstream rois_f(rois_path);
+    if (!rois_f.good()) {
+        rois_path = "camera/rois.txt";
+    }
+    load_rois(rois_path);
 
     // ================== 初始化行车记录仪 ==================
     if (dashcam_config.enabled) {

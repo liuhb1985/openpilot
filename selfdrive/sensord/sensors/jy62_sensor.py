@@ -196,8 +196,8 @@ class JY62Sensor:
         }
         self.pm.send('accelerometer', dat)
         
-        # 为了不刷屏，控制打印频率为1秒1次
-        if current_timestamp - self.last_accel_print_time >= 1.0:
+        # 为了不刷屏，控制打印频率为10秒1次
+        if current_timestamp - self.last_accel_print_time >= 10.0:
           print(f"JY62 Accel: {parsed_data['ax']:.4f}, {parsed_data['ay']:.4f}, {parsed_data['az']:.4f}")
           self.last_accel_print_time = current_timestamp
 
@@ -215,7 +215,7 @@ class JY62Sensor:
         }
         self.pm.send('gyroscope', dat)
         
-        if current_timestamp - self.last_gyro_print_time >= 1.0:
+        if current_timestamp - self.last_gyro_print_time >= 10.0:
           print(f"JY62 Gyro: {parsed_data['wx']:.4f}, {parsed_data['wy']:.4f}, {parsed_data['wz']:.4f}")
           self.last_gyro_print_time = current_timestamp
 
