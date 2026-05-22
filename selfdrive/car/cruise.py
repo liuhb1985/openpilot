@@ -714,15 +714,8 @@ class VCruiseCarrot:
         self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (gas pressed)")
     elif self._brake_pressed_count == -1 and self._soft_hold_active == 0:
       if self._v_cruise_kph_at_brake > 0:
-        # 松刹车恢复纵向：不以当前车速设定目标，而是以道路限速或手动设定速度的最大值设定最低速度
-        road_limit = self.nRoadLimitSpeed
-        if road_limit > 0:
-          v_cruise_kph = max(self._v_cruise_kph_at_brake, road_limit, self._cruise_speed_min)
-        else:
-          v_cruise_kph = max(self._v_cruise_kph_at_brake, self._cruise_speed_min)
-
-        self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (brake released)")
-        self._v_cruise_kph_at_brake = 0
+        # 松刹车时有刹车前时速，不要立即自动恢复，等待踩油门 1s 确认
+        pass
       else:
         # 保持无状态时的原有行为
         if self.v_ego_kph_set > self.autoGasTokSpeed:
@@ -763,6 +756,16 @@ class VCruiseCarrot:
           self._paddle_decel_active = False
           v_cruise_kph = self.v_ego_kph_set
 
+
+    # 踩油门持续 1.0 秒（100 帧）且有刹车前存储的时速，自动恢复纵向到原设定时速与限速之最大值
+    if self._gas_pressed_count >= 100 and self._v_cruise_kph_at_brake > 0:
+      road_limit = self.nRoadLimitSpeed
+      if road_limit > 0:
+        v_cruise_kph = max(self._v_cruise_kph_at_brake, road_limit, self._cruise_speed_min)
+      else:
+        v_cruise_kph = max(self._v_cruise_kph_at_brake, self._cruise_speed_min)
+      self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (gas 1s resume)")
+      self._v_cruise_kph_at_brake = 0
 
     if self._gas_pressed_count > self._gas_tok_timer:
       if CS.aEgo < -0.5:

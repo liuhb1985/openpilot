@@ -127,7 +127,7 @@ export USE_VISION_IPC=1
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
 # 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
-USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=1 USE_CAMPATH=0 system/manager/manager.py &
+USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 JY62=0 USE_CAMPATH=0 system/manager/manager.py &
 
 MANAGER_PID=$!
 
@@ -167,7 +167,7 @@ maintain_layout() {
     echo "Starting layout guardian daemon..."
     local elapsed=0
     local term_win_id=""
-    
+
     # 1. 尝试寻找当前运行该脚本终端的 Window ID
     if [ ! -z "$WINDOWID" ]; then
         term_win_id="$WINDOWID"
@@ -223,7 +223,7 @@ maintain_layout() {
         sleep 0.5
         elapsed=$((elapsed + 1))
     done
-    
+
     # 释放堆叠顺序，确保完美交互
     sleep 1.0
     for win in "$ui_win" "$cam_win" "$active_term_id"; do
