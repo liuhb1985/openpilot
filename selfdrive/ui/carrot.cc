@@ -622,7 +622,7 @@ public:
 
         // Safely draw IMU debug info for show_plot_mode == 7 using NanoVG
         if (show_plot_mode == 7) {
-            float x_pos = 60.0f;
+            float x_pos = 350.0f;
             float y_pos = 300.0f;
             char temp_str[128];
             if (sm.alive("gyroscope")) {
