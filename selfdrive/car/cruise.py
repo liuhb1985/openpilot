@@ -384,6 +384,11 @@ class VCruiseCarrot:
     if self.button_cnt > 0:
       self.button_cnt += 1
 
+    # 安全超时防抖逻辑：防止任何特殊情况下按钮释放事件丢失，最大计数限制为 300 帧 (3秒)
+    if self.button_cnt > 300:
+      self.button_cnt = 0
+      self.long_pressed = False
+
     for b in buttonEvents:
       bt = b.type
 
@@ -403,17 +408,17 @@ class VCruiseCarrot:
         self.button_prev = bt
         self.button_long_time = 40 if bt in [ButtonType.accelCruise, ButtonType.decelCruise] else 70
 
-      elif not b.pressed and self.button_cnt > 0 and bt == self.button_prev:
-        if bt == ButtonType.cancel:
-          button_type = bt
+      elif not b.pressed and self.button_cnt > 0:
+        if self.button_prev == ButtonType.cancel:
+          button_type = self.button_prev
         elif not self.long_pressed:
-          if bt == ButtonType.accelCruise:
+          if self.button_prev == ButtonType.accelCruise:
             unit = SPEED_UP_UNIT if is_metric else SPEED_UP_UNIT * CV.MPH_TO_KPH
             button_kph = math.ceil((button_kph + 0.01) / unit) * unit
-          elif bt == ButtonType.decelCruise:
+          elif self.button_prev == ButtonType.decelCruise:
             unit = SPEED_DOWN_UNIT if is_metric else SPEED_DOWN_UNIT * CV.MPH_TO_KPH
             button_kph = math.floor((button_kph - 0.01) / unit) * unit
-          button_type = bt
+          button_type = self.button_prev
         self.long_pressed = False
         self.button_cnt = 0
 
