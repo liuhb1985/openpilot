@@ -160,92 +160,60 @@ LOG_WINDOW_Y=768
 LOG_WINDOW_WIDTH=1024
 LOG_WINDOW_HEIGHT=768
 
-# 等待UI窗口出现并移动到预设位置 (过滤掉开发环境，防止误伤 VS Code)
-echo "Waiting for UI window..."
-for i in {1..100}; do
-    # 1. 使用更精准的过滤：优先匹配 MainWindow 和 openpilot，并排除掉 VS Code (code)、Chrome 等开发窗口
-    UI_WIN=$(wmctrl -l | grep -Ei "openpilot|MainWindow" | grep -vEi "code|chrome|firefox|terminal" | head -n 1 | cut -d' ' -f1)
-    if [ ! -z "$UI_WIN" ]; then
-        echo "✓ Found UI window ($UI_WIN), forcing layout..."
-        # 2. 暴力移除所有全屏 and 最大化状态
-        wmctrl -i -r "$UI_WIN" -b remove,fullscreen,maximized_horz,maximized_vert
-        # 3. 移除窗口装饰（边框），实现无缝拼接
-        wmctrl -i -r "$UI_WIN" -b remove,decorations
-        # 4. 强制定位到上半屏幕 (0,0,1920,600)
-        wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-        # 5. 移除任何强行置顶/置底的状态，恢复自然窗口层级
-        wmctrl -i -r "$UI_WIN" -b remove,below,above
-        
-        # 6. 【核心防抢占优化】：在后台开启 1.5 秒后的延迟二次强制调整，防止 Qt 启动生命周期结束后重置尺寸
-        (sleep 1.5 && wmctrl -i -r "$UI_WIN" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT) &
-        break
-    fi
-    sleep 0.2
-done
+# -----------------------------------------------------------------------------
+# 终极自适应窗口布局分配器 (支持大小写不敏感与并发异步捕获)
+# -----------------------------------------------------------------------------
 
-# 定义窗口排列函数
-position_camera_window() {
-    local cam_num=$1
-    local target_x=$2
-    local target_y=$3
-
-    # 等待窗口出现 (高频轮询)
-    for i in {1..50}; do
-        if wmctrl -l | grep -q "Camera $cam_num"; then
-            echo "✓ Moving Camera $cam_num to ($target_x, $target_y)"
-            wmctrl -r "Camera $cam_num" -e 0,$target_x,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
-            break
+move_resize_window() {
+    local pattern=$1
+    local x=$2
+    local y=$3
+    local w=$4
+    local h=$5
+    local name=$6
+    local win_id=""
+    
+    echo "Waiting for window: $name..."
+    for i in {1..100}; do
+        # 匹配标题且排除开发工具与无关终端
+        win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
+        if [ ! -z "$win_id" ]; then
+            echo "✓ Found window $name ($win_id), forcing layout ($x, $y, $w, $h)..."
+            # 暴力长宽全屏/最大化重置
+            wmctrl -i -r "$win_id" -b remove,fullscreen,maximized_horz,maximized_vert
+            # 移除窗口边框修饰，实现像素级无缝拼接
+            wmctrl -i -r "$win_id" -b remove,decorations
+            # 强力几何尺寸定位
+            wmctrl -i -r "$win_id" -e 0,$x,$y,$w,$h
+            # 移除强置顶状态，恢复优雅堆叠
+            wmctrl -i -r "$win_id" -b remove,below,above
+            
+            # 【核心防抢占优化】：延迟 1.5 秒二次修正，打败 Qt/OpenCV 启动结束时的强制拉伸
+            (sleep 1.5 && wmctrl -i -r "$win_id" -e 0,$x,$y,$w,$h) &
+            return 0
         fi
         sleep 0.2
     done
+    echo "⚠ Warning: Window $name ($pattern) not found after 20s"
+    return 1
 }
 
-# 定位各个摄像头窗口到预设位置
-position_camera_window 1 $CAMERA_1_X $CAMERA_1_Y
-position_camera_window 2 $CAMERA_2_X $CAMERA_2_Y
-position_camera_window 0 $CAMERA_0_X $CAMERA_0_Y
+# 并发异步捕获各个窗口，防止启动先后顺序造成阻塞
+move_resize_window "openpilot|MainWindow|\bui\b|^ui$" $UI_WINDOW_X $UI_WINDOW_Y $UI_WINDOW_WIDTH $UI_WINDOW_HEIGHT "ui" &
+move_resize_window "all cameras|Camera 0|Camera 1|Camera 2" $CAMERA_0_X $CAMERA_0_Y $CAMERA_WINDOW_WIDTH $CAMERA_WINDOW_HEIGHT "all cameras" &
+move_resize_window "log window" $LOG_WINDOW_X $LOG_WINDOW_Y $LOG_WINDOW_WIDTH $LOG_WINDOW_HEIGHT "log window" &
 
-# 定位单窗口模式下的“All Cameras”
-for i in {1..50}; do
-    if wmctrl -l | grep -q "All Cameras"; then
-        echo "✓ Moving All Cameras to ($CAMERA_0_X, $CAMERA_0_Y)"
-        wmctrl -r "All Cameras" -e 0,$CAMERA_0_X,$CAMERA_0_Y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
-        # 移除了 add,above，防止窗口锁定置顶导致无法切换
-        wmctrl -r "All Cameras" -b remove,above
-        break
-    fi
-    sleep 0.2
-done
-
-# 定位日志命令窗口 (Log Window)
-for i in {1..50}; do
-    if wmctrl -l | grep -q "Log Window"; then
-        echo "✓ Moving Log Window to ($LOG_WINDOW_X, $LOG_WINDOW_Y)"
-        # 暴力从全屏/最大化状态恢复，以便自定义尺寸
-        wmctrl -r "Log Window" -b remove,fullscreen,maximized_horz,maximized_vert
-        wmctrl -r "Log Window" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
-        break
-    fi
-    sleep 0.2
-done
-
-# 最后将UI窗口保持在最前面，然后将摄像头窗口置于最前
-sleep 2
-if wmctrl -l | grep -q "ui"; then
-    wmctrl -a "ui"
-fi
-
-# 确保所有相关窗口处于正确的层级，不锁定置顶，确保顺畅切换
-for win in "All Cameras" "Camera 0" "Camera 1" "Camera 2" "Log Window"; do
-    if wmctrl -l | grep -q "$win"; then
-        # 破解 UI 全屏，恢复自然窗口层级
-        wmctrl -r "ui" -b remove,fullscreen,maximized_horz,maximized_vert
-        wmctrl -r "ui" -b remove,below,above
-        # 移除任何强行置顶/置底的状态
-        wmctrl -r "$win" -b remove,below,above
-        wmctrl -a "$win"
-    fi
-done
+# 延迟等待系统全部就位，调整各层级
+(
+    sleep 4.0
+    for pattern in "openpilot|MainWindow|\bui\b|^ui$" "all cameras|Camera 0|Camera 1|Camera 2" "log window"; do
+        win_id=$(wmctrl -l | grep -Ei "$pattern" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
+        if [ ! -z "$win_id" ]; then
+            wmctrl -i -r "$win_id" -b remove,below,above
+            wmctrl -i -a "$win_id"
+        fi
+    done
+) &
 
 # 等待所有后台进程结束
 wait
