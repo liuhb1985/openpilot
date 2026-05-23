@@ -1169,7 +1169,7 @@
       "edescr": "0:None,1:display,2:+relative pos, 3:stopped obstacle",
       "min": 0,
       "max": 3,
-      "default": 0,
+      "default": 2,
       "unit": 1
     },
     {
@@ -1780,7 +1780,7 @@
       "edescr": "0:not use, 1:accel, 2:decel, 3:all",
       "min": 0,
       "max": 3,
-      "default": 0,
+      "default": 3,
       "unit": 1
     },
     {
