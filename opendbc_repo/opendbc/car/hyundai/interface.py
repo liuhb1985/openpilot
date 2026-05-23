@@ -323,7 +323,12 @@ def enable_radar_tracks(CP, logcan, sendcan, v_ego=0.0):
            query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE])
            result = query.get_data(0.5)  # Wait longer for flash memory write
            print("result=", result)
-           ret = True
+           if rdr_fw_address in result:
+             ret = True
+             print("Radar tracks enabled successfully in flash!")
+           else:
+             print("Write failed or negative response. Hardware does not support raw tracks.")
+             ret = False
 
         # 5. Send ECU Hard Reset (0x11 0x01) to reboot the radar module gracefully
         # This forces the radar to reload the new tracks config and crucially restarts SCC11 broadcast 
