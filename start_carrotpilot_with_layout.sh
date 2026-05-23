@@ -144,21 +144,21 @@ UI_WINDOW_Y=0
 UI_WINDOW_WIDTH=2048
 UI_WINDOW_HEIGHT=1080
 
-# 2. 盲区画面窗口 (占据左下半屏幕 1024x768)
+# 2. 盲区画面窗口 (占据左下半屏幕 1024x456)
 CAMERA_WINDOW_WIDTH=1024
-CAMERA_WINDOW_HEIGHT=768
+CAMERA_WINDOW_HEIGHT=456
 CAMERA_0_X=0
-CAMERA_0_Y=768
+CAMERA_0_Y=1080
 CAMERA_1_X=0
-CAMERA_1_Y=768
+CAMERA_1_Y=1080
 CAMERA_2_X=0
-CAMERA_2_Y=768
+CAMERA_2_Y=1080
 
-# 3. 日志命令窗口 (占据右下半屏幕 1024x768)
+# 3. 日志命令窗口 (占据右下半屏幕 1024x456)
 LOG_WINDOW_X=1024
-LOG_WINDOW_Y=768
+LOG_WINDOW_Y=1080
 LOG_WINDOW_WIDTH=1024
-LOG_WINDOW_HEIGHT=768
+LOG_WINDOW_HEIGHT=456
 
 # -----------------------------------------------------------------------------
 # 终极自适应窗口布局分配守护进程 (高频高可靠持续对齐拼接，打败延迟启动与抢占)
@@ -190,22 +190,28 @@ maintain_layout() {
         echo "⚠ Term Window not found via process tree tracing. Falling back to title matching..."
     fi
 
+    local aligned_ui=""
+    local aligned_cam=""
+    local aligned_term=""
+
     # 持续维护 30 秒布局，以 0.5 秒为间隔
     while [ $elapsed -lt 60 ]; do
         # 1. 布局 UI 窗口
         local ui_win=$(wmctrl -l | grep -Ei "openpilot|MainWindow|\bui\b|^ui$" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$ui_win" ]; then
+        if [ ! -z "$ui_win" ] && [ "$ui_win" != "$aligned_ui" ]; then
             wmctrl -i -r "$ui_win" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$ui_win" -b remove,decorations
             wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
+            aligned_ui="$ui_win"
         fi
 
         # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式)
         local cam_win=$(wmctrl -l | grep -Ei "All Cameras|camera|cameras|Camera 0" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$cam_win" ]; then
+        if [ ! -z "$cam_win" ] && [ "$cam_win" != "$aligned_cam" ]; then
             wmctrl -i -r "$cam_win" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$cam_win" -b remove,decorations
             wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$CAMERA_0_Y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
+            aligned_cam="$cam_win"
         fi
 
         # 3. 布局终端日志窗口
@@ -214,10 +220,17 @@ maintain_layout() {
             # 备选模糊标题匹配
             active_term_id=$(wmctrl -l | grep -Ei "log window|terminal|bash" | head -n 1 | cut -d' ' -f1)
         fi
-        if [ ! -z "$active_term_id" ]; then
+        if [ ! -z "$active_term_id" ] && [ "$active_term_id" != "$aligned_term" ]; then
             wmctrl -i -r "$active_term_id" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$active_term_id" -b remove,decorations
             wmctrl -i -r "$active_term_id" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
+            aligned_term="$active_term_id"
+        fi
+
+        # 如果三个窗口均已对齐，则提前优雅退出守护进程
+        if [ ! -z "$aligned_ui" ] && [ ! -z "$aligned_cam" ] && [ ! -z "$aligned_term" ]; then
+            echo "✓ All windows successfully aligned. Layout daemon exiting early."
+            break
         fi
 
         sleep 0.5

@@ -1043,7 +1043,8 @@ void display_loop() {
                     static int last_rows = 0;
                     if (!window_init) {
                         cv::namedWindow("All Cameras", cv::WINDOW_NORMAL);
-                        // 将窗口移动到屏幕左下角 (0, 600)，避免遮挡中央和上方视野
+                        cv::setWindowProperty("All Cameras", cv::WND_PROP_ASPECT_RATIO, cv::WINDOW_KEEPRATIO);
+                        // 将窗口移动到屏幕左下角 (0, 600)，避免遮挡中央 and 上方视野
                         cv::moveWindow("All Cameras", 0, 600);
                         window_init = true;
                     }
