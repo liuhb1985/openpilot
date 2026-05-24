@@ -79,65 +79,57 @@ class NativeIMUD:
         if len(calib) == 3:
           self.device_from_calib = rot_from_euler(calib)
       
-      # 减去静态 Bias，且【绝不使用低通滤波】，避免引入任何相位延迟！
+      # 1. Direct bias-subtracted IMU data from CAN
       clean_yaw = cs.yawRate - (self.yaw_bias if self.yaw_bias else 0.0)
       clean_lat = cs.latAccel - (self.lat_bias if self.lat_bias else 0.0)
       
-      # 当缺乏有效侧向加速度且有速度时，仅做极基础的物理推导补充
       if abs(cs.latAccel) < 0.001 and v_ego > 1.0:
         clean_lat = v_ego * clean_yaw
-        
-      # 【核心黑科技】：注入极微小的高频白噪声
-      # JY62 等物理传感器带有本底噪声，而原车 CAN 信号是平滑过滤过的。
-      # 卡尔曼滤波 (locationd) 如果遇到绝对 of 0.0 方差，矩阵求逆容易退化发散导致震荡。
-      noise_wx = random.gauss(0.0, 0.002)
-      noise_wy = random.gauss(0.0, 0.002)
-      noise_wz = random.gauss(0.0, 0.001)
+
+      # 2. Simple high-frequency white noise to prevent EKF covariance singularities
+      noise_wx = random.gauss(0.0, 0.001)
+      noise_wy = random.gauss(0.0, 0.001)
+      noise_wz = random.gauss(0.0, 0.0005)
       
-      noise_ax = random.gauss(0.0, 0.05)
-      noise_ay = random.gauss(0.0, 0.05)
-      noise_az = random.gauss(0.0, 0.05)
-      
-      # 限幅
+      noise_ax = random.gauss(0.0, 0.03)
+      noise_ay = random.gauss(0.0, 0.03)
+      noise_az = random.gauss(0.0, 0.03)
+
+      # 3. Scale and clamp physical quantities
       yaw_final = np.clip(clean_yaw + noise_wz, -2.0, 2.0)
+      roll_final = noise_wx
+      pitch_final = noise_wy
       
       now_ns = time.monotonic_ns()
       
-      # =========================================================================
-      # 【超清准逆旋转标定对齐算法】
-      # 解决 locationd 内置 EKF 将原车 IMU 当作手机 IMU 并用 rpyCalib 进行旋转变换造成的坐标扭曲！
-      # =========================================================================
-      
-      # 1. 陀螺仪逆旋转：
-      # 车身坐标系下的测量向量为 meas_car = [-noise_wx, -noise_wy, -yaw_final]
-      # 映射到设备坐标系为 meas_device = R_device_from_calib * meas_car
-      meas_car_gyro = np.array([-float(noise_wx), -float(noise_wy), -float(yaw_final)])
+      # 4. Gyroscope Inverse Rotation
+      # meas_car = [-roll_final, -pitch_final, -yaw_final]
+      meas_car_gyro = np.array([-float(roll_final), -float(pitch_final), -float(yaw_final)])
       meas_device_gyro = self.device_from_calib @ meas_car_gyro
       v_gyro = [-float(meas_device_gyro[2]), -float(meas_device_gyro[1]), -float(meas_device_gyro[0])]
-
-      # 2. 加速度计逆旋转：
-      # 车身坐标系下的测量向量为 meas_car = [cs.aEgo + noise_ax, -clean_lat - noise_ay, -G - noise_az]
+ 
+      # 5. Accelerometer Inverse Rotation
+      # meas_car = [cs.aEgo + noise_ax, -clean_lat - noise_ay, -G - noise_az]
       meas_car_accel = np.array([float(cs.aEgo + noise_ax), -float(clean_lat + noise_ay), -float(G + noise_az)])
       meas_device_accel = self.device_from_calib @ meas_car_accel
       v_accel = [-float(meas_device_accel[2]), -float(meas_device_accel[1]), -float(meas_device_accel[0])]
-
-      # 陀螺仪: 映射后满足 locationd 变换 meas = [-v[2], -v[1], -v[0]] -> meas[2] = -v[0] = -yaw_final
+ 
+      # 6. Publish high-frequency messages conforming to LSM6DS3 standards
       gyro_msg = messaging.new_message('gyroscope', valid=True)
       gyro_msg.gyroscope = {'timestamp': now_ns, 'type': 16, 'sensor': 5, 
                            'gyroUncalibrated': {'v': v_gyro, 'status': 1}}
       self.pm.send('gyroscope', gyro_msg)
-
-      # 加速度计: 映射后满足 meas[0] = lon, meas[1] = -lat, meas[2] = gravity
+ 
       accel_msg = messaging.new_message('accelerometer', valid=True)
       accel_msg.accelerometer = {'timestamp': now_ns, 'type': 1, 'sensor': 1, 
                                'acceleration': {'v': v_accel, 'status': 1}}
       self.pm.send('accelerometer', accel_msg)
-
+ 
       if self.frame % 1000 == 0:
         status = "Calibrating" if not self.bias_stabled else "Running"
         b_val = self.yaw_bias if self.yaw_bias is not None else 0.0
         print(f"[{status}] v={v_ego:.1f}, Bias={b_val:.5f}")
-
+ 
       self.frame += 1
       self.rk.keep_time()
 
