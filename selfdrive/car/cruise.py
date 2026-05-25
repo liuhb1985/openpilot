@@ -788,40 +788,43 @@ class VCruiseCarrot:
     # 【运动学前瞻性舒适跟车与应急避险减速控制算法（KPFE）】
     # =========================================================================
     if self.d_rel > 0 and CC.enabled:
-      # 1. 前车绝对时速 (m/s)
-      v_lead = max(0.0, CS.vEgo + self.v_rel)
-      
-      # 2. 动态跟车安全缓冲距离 (基于前车速度的 1.4s 反应时间 + 6.0m 基础站立距离)
-      d_buffer = max(6.0, v_lead * 1.4 + 4.0)
-      
-      # 3. 舒适减速度定义 (正常跟车时前瞻减速度设为 1.0 m/s^2，非常平缓)
-      a_comfortable = 1.0
-      
-      # 4. 基于运动学恒定减速轨迹计算安全极限速度
-      if self.d_rel >= d_buffer:
-        # 在安全缓冲之外，计算以 a_comfortable 舒适减速到前车速度的物理限速
-        safe_d = self.d_rel - d_buffer
-        v_limit_ms = math.sqrt(v_lead ** 2 + 2.0 * a_comfortable * safe_d)
-      else:
-        # 【应急防加塞/防急刹机制】：已低于安全缓冲距离
-        # 此时限制车速直接低于前车速度，按偏差比例拉低限制，产生明确的刹车制动力以拉开距离
-        dist_error = d_buffer - self.d_rel
-        # 每短于缓冲 1 米，速度限制就比前车慢 0.5 m/s (~1.8 km/h)
-        v_limit_ms = max(0.0, v_lead - 0.5 * dist_error)
-      
-      # 5. 正在接近前车 (v_rel < 0) 时的平滑惯性微调：让减速动作更加前置
-      if self.v_rel < 0.0:
-        # 根据接近率 (v_rel) 施加阻尼，接近越快，车速提前压得越低
-        v_limit_ms += self.v_rel * 0.4
-      
-      # 6. 将限制速度转换为 km/h，并设定 20 km/h 最低安全阈值，防止在行进中被限速为零
-      v_visual_limit = max(20.0, v_limit_ms * CV.MS_TO_KPH)
-      
-      # 7. 应用限制
-      if v_visual_limit < v_cruise_kph:
-        v_cruise_kph = v_visual_limit
-        if self.frame % 50 == 0:
-          print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
+      v_ego_kph = CS.vEgo * CV.MS_TO_KPH
+      # 只在前方车辆速度比自车速度慢 20km/h 以上时，才触发前瞻限速调整
+      if self.v_lead_kph > 0 and (v_ego_kph - self.v_lead_kph) > 20.0:
+        # 1. 前车绝对时速 (m/s)
+        v_lead = max(0.0, CS.vEgo + self.v_rel)
+        
+        # 2. 动态跟车安全缓冲距离 (基于前车速度的 1.4s 反应时间 + 6.0m 基础站立距离)
+        d_buffer = max(6.0, v_lead * 1.4 + 4.0)
+        
+        # 3. 舒适减速度定义 (正常跟车时前瞻减速度设为 1.0 m/s^2，非常平缓)
+        a_comfortable = 1.0
+        
+        # 4. 基于运动学恒定减速轨迹计算安全极限速度
+        if self.d_rel >= d_buffer:
+          # 在安全缓冲之外，计算以 a_comfortable 舒适减速到前车速度的物理限速
+          safe_d = self.d_rel - d_buffer
+          v_limit_ms = math.sqrt(v_lead ** 2 + 2.0 * a_comfortable * safe_d)
+        else:
+          # 【应急防加塞/防急刹机制】：已低于安全缓冲距离
+          # 此时限制车速直接低于前车速度，按偏差比例拉低限制，产生明确的刹车制动力以拉开距离
+          dist_error = d_buffer - self.d_rel
+          # 每短于缓冲 1 米，速度限制就比前车慢 0.5 m/s (~1.8 km/h)
+          v_limit_ms = max(0.0, v_lead - 0.5 * dist_error)
+        
+        # 5. 正在接近前车 (v_rel < 0) 时的平滑惯性微调：让减速动作更加前置
+        if self.v_rel < 0.0:
+          # 根据接近率 (v_rel) 施加阻尼，接近越快，车速提前压得越低
+          v_limit_ms += self.v_rel * 0.4
+        
+        # 6. 将限制速度转换为 km/h，并设定 20 km/h 最低安全阈值，防止在行进中被限速为零
+        v_visual_limit = max(20.0, v_limit_ms * CV.MS_TO_KPH)
+        
+        # 7. 应用限制
+        if v_visual_limit < v_cruise_kph:
+          v_cruise_kph = v_visual_limit
+          if self.frame % 50 == 0:
+            print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
 
     return v_cruise_kph
 
