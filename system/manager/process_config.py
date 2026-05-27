@@ -11,7 +11,7 @@ FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 USBCAM = os.getenv("USE_USBCAM") is not None
-JY62 = int(os.getenv("JY62","0"))
+JY62 = int(os.getenv("JY62","2"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
