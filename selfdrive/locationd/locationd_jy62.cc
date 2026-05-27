@@ -1292,16 +1292,16 @@ void Localizer::jy62_reader_thread() {
         switch (packet_type) {
           case 0x51: // 加速度数据
             this->publish_accelerometer(accel_x, accel_y, accel_z);
-            if(show_accel){
-              show_accel = false;
-              //printf("Accel: x %.3f, y %.3f, z %.3f\n", accel_x, accel_y, accel_z);
+            if (read_count % 200 == 0) {
+              printf("[IMU_DIAG] Accel: X=%6.3f, Y=%6.3f, Z=%6.3f m/s²\n", accel_x, accel_y, accel_z);
+              fflush(stdout);
             }
             break;
           case 0x52: // 角速度数据
             this->publish_gyroscope(gyro_x, gyro_y, gyro_z);
-            if(show_gyro){
-              show_gyro = false;
-              //printf("Gyro: x %.3f, y %.3f, z %.3f\n", gyro_x, gyro_y, gyro_z);
+            if (read_count % 200 == 0) {
+              printf("[IMU_DIAG] Gyro : X=%6.3f, Y=%6.3f, Z=%6.3f rad/s\n", gyro_x, gyro_y, gyro_z);
+              fflush(stdout);
             }
             break;
           case 0x53: // 角度数据

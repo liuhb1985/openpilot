@@ -229,5 +229,11 @@ bool LSM6DS3_Gyro::get_event(MessageBuilder &msg, uint64_t ts) {
   svec.setV(xyz);
   svec.setStatus(true);
 
+  static int print_count = 0;
+  if (++print_count % 100 == 0) {
+    printf("[ISM6DS3_GYRO] X=%6.3f, Y=%6.3f, Z=%6.3f rad/s\n", y, -x, z);
+    fflush(stdout);
+  }
+
   return true;
 }
