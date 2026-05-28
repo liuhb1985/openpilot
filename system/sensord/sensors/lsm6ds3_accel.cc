@@ -248,8 +248,7 @@ bool LSM6DS3_Accel::get_event(MessageBuilder &msg, uint64_t ts) {
 
   static int print_count = 0;
   if (++print_count % 100 == 0) {
-    printf("[ISM6DS3_ACCEL] X=%6.3f, Y=%6.3f, Z=%6.3f m/s²\n", y, -x, z);
-    fflush(stdout);
+    LOGW("[ISM6DS3_ACCEL] X=%6.3f, Y=%6.3f, Z=%6.3f m/s²", y, -x, z);
   }
 
   return true;

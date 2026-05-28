@@ -1287,15 +1287,13 @@ void Localizer::jy62_reader_thread() {
           case 0x51: // 加速度数据
             this->publish_accelerometer(accel_x, accel_y, accel_z);
             if (read_count % 200 == 0) {
-              printf("[IMU_DIAG] Accel: X=%6.3f, Y=%6.3f, Z=%6.3f m/s²\n", accel_x, accel_y, accel_z);
-              fflush(stdout);
+              LOGW("[IMU_DIAG] Accel: X=%6.3f, Y=%6.3f, Z=%6.3f m/s²", accel_x, accel_y, accel_z);
             }
             break;
           case 0x52: // 角速度数据
             this->publish_gyroscope(gyro_x, gyro_y, gyro_z);
             if (read_count % 200 == 0) {
-              printf("[IMU_DIAG] Gyro : X=%6.3f, Y=%6.3f, Z=%6.3f rad/s\n", gyro_x, gyro_y, gyro_z);
-              fflush(stdout);
+              LOGW("[IMU_DIAG] Gyro : X=%6.3f, Y=%6.3f, Z=%6.3f rad/s", gyro_x, gyro_y, gyro_z);
             }
             break;
           case 0x53: // 角度数据
