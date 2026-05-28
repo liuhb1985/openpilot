@@ -368,6 +368,8 @@ class Panda:
               bcd = bytearray([this_bcd >> 8, ])
 
             break
+    except usb1.USBErrorAccess:
+      pass
     except Exception:
       logger.exception("USB connect error")
 
