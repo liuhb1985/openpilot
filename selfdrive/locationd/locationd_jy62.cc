@@ -1272,16 +1272,10 @@ void Localizer::jy62_reader_thread() {
   double gyro_x = 0, gyro_y = 0, gyro_z = 0;
 
   int read_count = 0;
-  bool show_accel = false;
-  bool show_gyro = false;
 
   while (this->jy62_running_) {
     std::vector<uint8_t> packet = this->read_jy62_packet();
     if (!packet.empty()) {
-      if(0 == (read_count%20)){
-        show_accel = true;
-        show_gyro = true;
-      }
       read_count++;
       LOGD("Received packet #%d, type: 0x%02x, size: %zu", read_count, packet[1], packet.size());
 
