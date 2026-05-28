@@ -313,13 +313,15 @@ def detect_imu_i2c_bus() -> int:
         for addr in LSM6DS3_I2C_ADDRS:
           try:
             chip_id = i2c.read_byte_data(addr, LSM6DS3_WHO_AM_I_REG)
-          except OSError:
+          except OSError as e:
+            cloudlog.warning(f"Failed to read LSM6DS3 on bus {bus} at addr 0x{addr:02X}: {e}")
             continue
 
           if chip_id in LSM6DS3_WHO_AM_I_IDS:
             cloudlog.info(f"Detected LSM6DS3 on /dev/i2c-{bus}, addr=0x{addr:02X}, chip=0x{chip_id:02X}")
             return bus
-    except OSError:
+    except OSError as e:
+      cloudlog.warning(f"Failed to open I2C bus {bus}: {e}")
       continue
 
   cloudlog.warning(f"Unable to auto-detect LSM6DS3, falling back to /dev/i2c-{DEFAULT_I2C_BUS_IMU}")
