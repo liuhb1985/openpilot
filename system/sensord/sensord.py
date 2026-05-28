@@ -262,10 +262,10 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
             # 每秒打印一次数据
             current_t = time.time()
             if current_t - last_log_t >= 1.0:
-                # if last_acc_v:
-                #     print(f"[sensord] ACC: [{last_acc_v[0]:7.2f}, {last_acc_v[1]:7.2f}, {last_acc_v[2]:7.2f}] m/s²", flush=True)
-                # if last_gyro_v:
-                #     print(f"[sensord] GYRO: [{last_gyro_v[0]:7.3f}, {last_gyro_v[1]:7.3f}, {last_gyro_v[2]:7.3f}] rad/s", flush=True)
+                if last_acc_v:
+                    cloudlog.warning(f"[CH347_ACCEL] X={last_acc_v[0]:6.3f}, Y={last_acc_v[1]:6.3f}, Z={last_acc_v[2]:6.3f} m/s²")
+                if last_gyro_v:
+                    cloudlog.warning(f"[CH347_GYRO] X={last_gyro_v[0]:6.3f}, Y={last_gyro_v[1]:6.3f}, Z={last_gyro_v[2]:6.3f} rad/s")
                 last_log_t = current_t
             if temp_ticks >= 10:
                 temp_ticks = 0
