@@ -133,7 +133,7 @@ procs = [
   # 备用音频播放服务
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
   # 基于 JY62 的专用位置估算进程
-  NativeProcess("locationd_jy62", "selfdrive/locationd", ["./locationd_jy62", "--type=jy62", "--device=/dev/ttyUSB0", "--baud=115200"], only_onroad, enabled=(JY62==2)),
+  NativeProcess("locationd_jy62", "selfdrive/locationd", ["./locationd_jy62", "--type=jy62", "--device=/dev/ttyUSB0", "--baud=115200"], always_run, enabled=(JY62==2)),
   
   # Panda 固件更新管理 (内部逻辑，通常设为 False)
   NativeProcess("_pandad", "selfdrive/pandad", ["./pandad"], always_run, enabled=False),
