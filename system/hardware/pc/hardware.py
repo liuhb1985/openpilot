@@ -18,7 +18,7 @@ class Pc(HardwareBase):
     return "pc"
 
   def reboot(self):
-    os.system("(sleep 2 && (systemctl reboot -i || sudo /sbin/reboot)) &")
+    subprocess.Popen("sleep 2 && (systemctl reboot -i || sudo /sbin/reboot)", shell=True, start_new_session=True)
 
   def uninstall(self):
     print("uninstall")
@@ -88,7 +88,7 @@ class Pc(HardwareBase):
     return 0
 
   def shutdown(self):
-    os.system("(sleep 2 && (systemctl poweroff -i || sudo /sbin/poweroff)) &")
+    subprocess.Popen("sleep 2 && (systemctl poweroff -i || sudo /sbin/poweroff)", shell=True, start_new_session=True)
 
   def get_thermal_config(self):
     cpu_zones = []
