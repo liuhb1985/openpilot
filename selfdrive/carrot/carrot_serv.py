@@ -1050,7 +1050,8 @@ class CarrotServ:
     elif self.turnSpeedControlMode in [3, 4]:
       speed_n_sources.append((route_speed, "route"))
 
-    model_turn_speed = max(sm['modelV2'].meta.modelTurnSpeed, self.autoCurveSpeedLowerLimit)
+    # 弯道主动减速策略：对视觉模型的预测弯道速度打 85 折，抑制 AI 盲目自信，迫使提前减速
+    model_turn_speed = max(sm['modelV2'].meta.modelTurnSpeed * 0.85, self.autoCurveSpeedLowerLimit)
     if model_turn_speed < 200:
       speed_n_sources.append((model_turn_speed, "model"))
 

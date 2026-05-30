@@ -72,15 +72,20 @@ def limit_accel_in_turns(v_ego, curvature, a_target, a_lat_max):
   a_y_abs = abs(a_y)
   a_lat_max_abs = abs(a_lat_max)
 
+  a_min_allowed = a_target[0]
   # 假设 a_total^2 = a_x^2 + a_y^2 <= a_lat_max^2
   # 计算剩余的 a_x 裕量
   if a_y_abs >= a_lat_max_abs:
     a_x_allowed = 0.0
+    # 弯道主动刹车策略：如果离心力超标，强制产生负加速度（带刹车入弯）
+    # 超出越多，刹车力度越大，最多给 -1.5m/s^2 的减速度
+    over_g = a_y_abs - a_lat_max_abs
+    a_min_allowed = min(a_target[0], max(-1.5, -0.5 * over_g))
   else:
     a_x_allowed = math.sqrt(a_lat_max_abs**2 - a_y_abs**2)
 
-  # 仅减小 a_target = [min, max] 中的 max 值
-  return [a_target[0], min(a_target[1], a_x_allowed)]
+  # 同时减小最大加速度，并在超限时强制减小最小加速度触发主动刹车
+  return [min(a_target[0], a_min_allowed), min(a_target[1], a_x_allowed)]
 
 class LongitudinalPlanner:
   def __init__(self, CP, init_v=0.0, init_a=0.0, dt=DT_MDL):
@@ -164,7 +169,8 @@ class LongitudinalPlanner:
       accel_limits = [A_CRUISE_MIN, carrot.get_carrot_accel(v_ego)]
       steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
       #accel_limits_turns = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_limits, self.CP)
-      a_lat_max = 3.8 # 从 3.2 提升至 3.8，减少非必要的弯道重刹，体感更丝滑
+      # 弯道主动减速策略：恢复为更保守的 3.0 m/s^2 阈值，确保在日常高速/国道弯道能及时触发减速限制
+      a_lat_max = 3.0 
       accel_limits_turns = limit_accel_in_turns(v_ego, sm['controlsState'].desiredCurvature, accel_limits, a_lat_max)
     else:
       accel_limits = [ACCEL_MIN, ACCEL_MAX]

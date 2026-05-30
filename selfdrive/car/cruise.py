@@ -834,14 +834,31 @@ class VCruiseCarrot:
           if self.frame % 50 == 0:
             print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
 
-      # 8. 当前车自动加速后，纵向设置跟随前车加速，最大跟随设定值为 100km/h，除非手动设置大于 100km/h
+      # 8. 距离补偿 EMA 滤波算法：智能平滑跟随前车加速
       elif self.v_lead_kph > 0:
         target_max = max(100.0, self._v_cruise_manual_max)
-        if self.v_lead_kph + 2.0 > v_cruise_kph and v_cruise_kph < target_max:
-          # 平滑跟随前车加速
-          v_cruise_kph = min(self.v_lead_kph + 2.0, target_max)
+        
+        # 1. 动态距离补偿
+        # 设定前车 1.5 秒时距为安全距离，加上 5 米的基础车距
+        v_lead_ms = self.v_lead_kph / 3.6
+        d_safe = v_lead_ms * 1.5 + 5.0
+        
+        # 如果我们离前车比安全距离远，允许目标速度快得多去追赶（Kp=0.2 即每远1米，快0.2km/h）
+        speed_gain = max(2.0, (self.d_rel - d_safe) * 0.2) 
+        
+        # 2. 计算原始追赶目标
+        raw_target = min(self.v_lead_kph + speed_gain, target_max)
+        
+        # 3. EMA 低通滤波应用
+        if raw_target > v_cruise_kph and v_cruise_kph < target_max:
+          # alpha 平滑系数：0.02 代表每帧只逼近 2%，实现 S 型丝滑提速
+          alpha = 0.02
+          v_cruise_kph = v_cruise_kph * (1.0 - alpha) + raw_target * alpha
+          v_cruise_kph = round(v_cruise_kph, 1) # 保持精度
+          
           if self.frame % 50 == 0:
-            print(f"[VISUAL_ACC] Follow lead acc - Target: {v_cruise_kph:.1f}kph (max {target_max})")
+            print(f"[VISUAL_ACC] EMA Follow - Target: {v_cruise_kph:.1f}kph (Raw: {raw_target:.1f}, Max: {target_max})")
+            
         self._v_cruise_kph_pre_kpfe = 0
 
     return v_cruise_kph
