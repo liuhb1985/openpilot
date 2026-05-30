@@ -191,6 +191,7 @@ class VCruiseCarrot:
     self._paddle_decel_active = False
     self.carrot_cruise_active = False
     self._v_cruise_kph_pre_kpfe = 0
+    self._v_cruise_manual_max = 100.0
 
     #self.events = []
     self.xState = 0
@@ -370,6 +371,7 @@ class VCruiseCarrot:
 
     self.v_cruise_kph = np.clip(self.v_cruise_kph, self._cruise_speed_min, self._cruise_speed_max)
     self.v_cruise_cluster_kph = self.v_cruise_kph
+    self._v_cruise_manual_max = self.v_cruise_kph
 
   def _prepare_buttons(self, CS, v_cruise_kph):
     button_kph = v_cruise_kph
@@ -496,6 +498,7 @@ class VCruiseCarrot:
     if button_type in [ButtonType.accelCruise, ButtonType.decelCruise]:
       self._paddle_decel_active = False
       self._v_cruise_kph_pre_kpfe = 0
+      self._v_cruise_manual_max = button_kph
       if self.autoCruiseControl_cancel_timer > 0:
         self._add_log(f"AutoCruiseControl cancel timer RESET {button_type}")
         self.autoCruiseControl_cancel_timer = 0
@@ -831,11 +834,14 @@ class VCruiseCarrot:
           if self.frame % 50 == 0:
             print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
 
-      # 8. 当本车速度减速后，与前车速度相差在 10km/h 以内，自动恢复减速前的设定速度
-      elif self.v_lead_kph > 0 and self._v_cruise_kph_pre_kpfe > 0 and abs(v_ego_kph - self.v_lead_kph) <= 10.0:
-        v_cruise_kph = max(v_cruise_kph, self._v_cruise_kph_pre_kpfe)
-        if self.frame % 50 == 0:
-          print(f"[VISUAL_ACC] KPFE Recover - Target: {v_cruise_kph:.1f}kph")
+      # 8. 当前车自动加速后，纵向设置跟随前车加速，最大跟随设定值为 100km/h，除非手动设置大于 100km/h
+      elif self.v_lead_kph > 0:
+        target_max = max(100.0, self._v_cruise_manual_max)
+        if self.v_lead_kph + 2.0 > v_cruise_kph and v_cruise_kph < target_max:
+          # 平滑跟随前车加速
+          v_cruise_kph = min(self.v_lead_kph + 2.0, target_max)
+          if self.frame % 50 == 0:
+            print(f"[VISUAL_ACC] Follow lead acc - Target: {v_cruise_kph:.1f}kph (max {target_max})")
         self._v_cruise_kph_pre_kpfe = 0
 
     return v_cruise_kph
