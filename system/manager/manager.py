@@ -422,14 +422,6 @@ def main() -> None:
   # SystemExit on sigterm
   signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(1))
 
-  try:
-    manager_thread()
-  except Exception:
-    traceback.print_exc()
-    sentry.capture_exception()
-  finally:
-    manager_cleanup()
-
   params = Params()
   if params.get_bool("DoUninstall"):
     cloudlog.warning("uninstalling")
@@ -440,6 +432,21 @@ def main() -> None:
   elif params.get_bool("DoShutdown"):
     cloudlog.warning("shutdown")
     HARDWARE.shutdown()
+
+  try:
+    manager_thread()
+  except Exception:
+    traceback.print_exc()
+    sentry.capture_exception()
+  finally:
+    params = Params()
+    if params.get_bool("DoReboot"):
+      cloudlog.warning("reboot")
+      HARDWARE.reboot()
+    elif params.get_bool("DoShutdown"):
+      cloudlog.warning("shutdown")
+      HARDWARE.shutdown()
+    manager_cleanup()
 
 
 if __name__ == "__main__":

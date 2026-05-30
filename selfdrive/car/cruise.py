@@ -190,6 +190,7 @@ class VCruiseCarrot:
 
     self._paddle_decel_active = False
     self.carrot_cruise_active = False
+    self._v_cruise_kph_pre_kpfe = 0
 
     #self.events = []
     self.xState = 0
@@ -494,6 +495,7 @@ class VCruiseCarrot:
 
     if button_type in [ButtonType.accelCruise, ButtonType.decelCruise]:
       self._paddle_decel_active = False
+      self._v_cruise_kph_pre_kpfe = 0
       if self.autoCruiseControl_cancel_timer > 0:
         self._add_log(f"AutoCruiseControl cancel timer RESET {button_type}")
         self.autoCruiseControl_cancel_timer = 0
@@ -791,6 +793,9 @@ class VCruiseCarrot:
       v_ego_kph = CS.vEgo * CV.MS_TO_KPH
       # 只在前方车辆速度比自车速度慢 20km/h 以上时，才触发前瞻限速调整
       if self.v_lead_kph > 0 and (v_ego_kph - self.v_lead_kph) > 20.0:
+        if self._v_cruise_kph_pre_kpfe == 0:
+          self._v_cruise_kph_pre_kpfe = v_cruise_kph
+          
         # 1. 前车绝对时速 (m/s)
         v_lead = max(0.0, CS.vEgo + self.v_rel)
         
@@ -825,6 +830,13 @@ class VCruiseCarrot:
           v_cruise_kph = v_visual_limit
           if self.frame % 50 == 0:
             print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
+
+      # 8. 当本车速度减速后，与前车速度相差在 10km/h 以内，自动恢复减速前的设定速度
+      elif self.v_lead_kph > 0 and self._v_cruise_kph_pre_kpfe > 0 and abs(v_ego_kph - self.v_lead_kph) <= 10.0:
+        v_cruise_kph = max(v_cruise_kph, self._v_cruise_kph_pre_kpfe)
+        if self.frame % 50 == 0:
+          print(f"[VISUAL_ACC] KPFE Recover - Target: {v_cruise_kph:.1f}kph")
+        self._v_cruise_kph_pre_kpfe = 0
 
     return v_cruise_kph
 
