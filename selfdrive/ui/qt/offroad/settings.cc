@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <cassert>
 #include <cmath>
 #include <string>
 #include <tuple>
