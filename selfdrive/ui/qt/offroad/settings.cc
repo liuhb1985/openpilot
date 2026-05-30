@@ -245,8 +245,9 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   QObject::connect(default_btn, &QPushButton::clicked, [&]() {
     if (ConfirmationDialog::confirm(tr("Set to default?"), tr("Yes"), this)) {
       QTimer::singleShot(1000, []() {
-        printf("Set to default (reboot will be triggered by hardware service)\n");
-        Params().putInt("SoftRestartTriggered", 2);
+        printf("Resetting parameters to default...\n");
+        system("python3 -c 'from openpilot.system.manager.manager import set_default_params; set_default_params()'");
+        execAndReboot("");
       });
     }
   });
@@ -467,9 +468,6 @@ void DevicePanel::poweroff() {
       // Check engaged again in case it changed while the dialog was open
       if (!uiState()->engaged()) {
         params.putBool("DoShutdown", true);
-
-        // 延时5秒后执行关机脚本
-        std::system("(sleep 5 && python3 /home/$LOGNAME/ajouatom-pc/scripts/shutdown_pc.py) &");
       }
     }
   } else {

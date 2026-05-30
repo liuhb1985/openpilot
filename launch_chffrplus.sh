@@ -129,8 +129,8 @@ function launch {
   fi
   ./manager.py
 
-  # if broken, keep on screen error
-  while true; do sleep 1; done
+  # if manager exits normally, just exit the script so systemd doesn't hang on reboot
+  echo "manager.py exited cleanly. Script finishing."
 }
 
 launch
