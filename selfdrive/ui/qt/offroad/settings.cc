@@ -247,7 +247,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
       QTimer::singleShot(1000, []() {
         printf("Resetting parameters to default...\n");
         system("python3 -c 'from openpilot.system.manager.manager import set_default_params; set_default_params()'");
-        execAndReboot("");
+        Params().putBool("DoReboot", true);
       });
     }
   });
