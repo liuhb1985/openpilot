@@ -20,4 +20,7 @@ public:
     setenv("__GLX_VENDOR_LIBRARY_NAME", "mesa", 1);
     setenv("LP_NUM_THREADS", "0", 1); // disable threading so we stay on our assigned CPU
   }
+
+  static void reboot() { std::system("sudo reboot -f &"); }
+  static void poweroff() { std::system("sudo poweroff -f &"); }
 };

@@ -244,10 +244,11 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   //QObject::connect(default_btn, &QPushButton::clicked, this, &DevicePanel::poweroff);
   QObject::connect(default_btn, &QPushButton::clicked, [&]() {
     if (ConfirmationDialog::confirm(tr("Set to default?"), tr("Yes"), this)) {
-      QTimer::singleShot(1000, []() {
+      QTimer::singleShot(10, []() {
         printf("Resetting parameters to default...\n");
         system("python3 -c 'from openpilot.system.manager.manager import set_default_params; set_default_params()'");
         Params().putBool("DoReboot", true);
+        Hardware::reboot();
       });
     }
   });
@@ -397,6 +398,7 @@ void DevicePanel::reboot() {
       // Check engaged again in case it changed while the dialog was open
       if (!uiState()->engaged()) {
         params.putBool("DoReboot", true);
+        Hardware::reboot();
       }
     }
   } else {
@@ -410,6 +412,7 @@ void execAndReboot(const std::string& cmd) {
         system(cmd.c_str());
     }
     Params().putBool("DoReboot", true);
+    Hardware::reboot();
 }
 
 void DevicePanel::calibration() {
