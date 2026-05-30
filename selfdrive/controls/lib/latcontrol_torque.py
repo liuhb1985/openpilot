@@ -99,9 +99,9 @@ class LatControlTorque(LatControl):
       self.friction_look_ahead_bp = [9.0, 30.0] # corresponding speeds in m/s in [0, ~40] in 1.0 increments
 
       # Scaling the lateral acceleration "friction response" could be helpful for some.
-      # Increase for a stronger response, decrease for a weaker response.
-      self.lat_jerk_friction_factor = 0.4
-      self.lat_accel_friction_factor = 0.7 # in [0, 3], in 0.05 increments. 3 is arbitrary safety limit
+      # 极致优化：大幅降低高频抖动补偿因子，防止方向盘神经过敏
+      self.lat_jerk_friction_factor = 0.1
+      self.lat_accel_friction_factor = 0.6
 
       # precompute time differences between ModelConstants.T_IDXS
       self.t_diffs = np.diff(ModelConstants.T_IDXS)
@@ -129,6 +129,8 @@ class LatControlTorque(LatControl):
       self.roll_deque = deque(maxlen=history_check_frames[0])
       self.error_deque = deque(maxlen=history_check_frames[0])
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
+
+    self.actual_curvature_ema = 0.0
 
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
@@ -185,7 +187,14 @@ class LatControlTorque(LatControl):
         actual_curvature_llk = 0.0
         if len(CC.angularVelocity) > 2:
           actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo
-        actual_curvature = np.interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
+        actual_curvature_raw = np.interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
+        
+        # 极致优化：对 PC 版极其容易产生高频噪声的原始 IMU 曲率进行强效平滑，切断底层 PID 画龙源头
+        if self.actual_curvature_ema == 0.0:
+            self.actual_curvature_ema = actual_curvature_raw
+        self.actual_curvature_ema = 0.2 * actual_curvature_raw + 0.8 * self.actual_curvature_ema
+        actual_curvature = self.actual_curvature_ema
+        
         curvature_deadzone = 0.0
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
 

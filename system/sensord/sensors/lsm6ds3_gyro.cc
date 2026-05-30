@@ -145,6 +145,15 @@ int LSM6DS3_Gyro::init() {
     goto fail;
   }
 
+  // 极度优化：启用 LSM6DS3 内置的硬件 LPF2 (Low-Pass Filter) 以彻底滤除底盘高频震动 (画龙的罪魁祸首)
+  // CTRL4_C (0x13) Bit 1 (LPF1_SEL_G) = 1 -> 启用陀螺仪的 LPF1 通道
+  ret = set_register(LSM6DS3_GYRO_I2C_REG_CTRL4_C, 0b00000010);
+  if (ret < 0) goto fail;
+
+  // CTRL6_C (0x15) Bit 1:0 (FTYPE) = 01 -> 对于 104Hz ODR，设定 LPF2 截止频率为 10.5 Hz (极其平滑且无过度延迟)
+  ret = set_register(LSM6DS3_GYRO_I2C_REG_CTRL6_C, 0b00000001);
+  if (ret < 0) goto fail;
+
   ret = set_register(LSM6DS3_GYRO_I2C_REG_DRDY_CFG, LSM6DS3_GYRO_DRDY_PULSE_MODE);
   if (ret < 0) {
     goto fail;
