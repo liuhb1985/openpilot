@@ -163,6 +163,13 @@ class CH347LSM6:
         self.write_u8(0x10, 0x40)
         self.write_u8(0x11, 0x40)
 
+        # 极度优化：启用 LSM6DS3 硬件 LPF2 (Low-Pass Filter) 以彻底滤除底盘高频震动 (画龙的罪魁祸首)
+        try:
+            self.write_u8(0x13, 0x02) # CTRL4_C (0x13) Bit 1 (LPF1_SEL_G) = 1
+            self.write_u8(0x15, 0x01) # CTRL6_C (0x15) Bit 1:0 (FTYPE) = 01 -> 10.5Hz cutoff
+        except OSError:
+            pass
+
     def shutdown(self) -> None:
         if self.fd >= 0:
             try:
@@ -215,11 +222,21 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
         last_gyro_log_t = 0.0
 
         while not event.is_set():
-            status = sensor.read_u8(0x1E)
+            try:
+                status = sensor.read_u8(0x1E)
+            except OSError as e:
+                cloudlog.warning(f"CH347 I2C status read error ignored: {e}")
+                time.sleep(0.01)
+                continue
 
             # 读取加速度计（如果数据就绪）
             if status & 0x01:
-                b = sensor.read_block(0x28, 6)
+                try:
+                    b = sensor.read_block(0x28, 6)
+                except OSError as e:
+                    cloudlog.warning(f"CH347 I2C accel read error ignored: {e}")
+                    time.sleep(0.01)
+                    continue
                 x = Sensor.parse_16bit(b[0], b[1])
                 y = Sensor.parse_16bit(b[2], b[3])
                 z = Sensor.parse_16bit(b[4], b[5])
@@ -240,7 +257,12 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
             # 读取陀螺仪（如果数据就绪）- 即使加速度计也读取了，也要检查陀螺仪
             # 因为两者可能都准备好数据
             if status & 0x02:
-                b = sensor.read_block(0x22, 6)
+                try:
+                    b = sensor.read_block(0x22, 6)
+                except OSError as e:
+                    cloudlog.warning(f"CH347 I2C gyro read error ignored: {e}")
+                    time.sleep(0.01)
+                    continue
                 x = Sensor.parse_16bit(b[0], b[1])
                 y = Sensor.parse_16bit(b[2], b[3])
                 z = Sensor.parse_16bit(b[4], b[5])
@@ -269,7 +291,10 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
                 last_log_t = current_t
             if temp_ticks >= 10:
                 temp_ticks = 0
-                tb = sensor.read_block(0x20, 2)
+                try:
+                    tb = sensor.read_block(0x20, 2)
+                except OSError:
+                    continue
                 raw_t = Sensor.parse_16bit(tb[0], tb[1])
                 tscale = 16.0 if sensor.source == log.SensorEventData.SensorSource.lsm6ds3 else 256.0
 
