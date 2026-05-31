@@ -144,9 +144,9 @@ UI_WINDOW_Y=0
 UI_WINDOW_WIDTH=2048
 UI_WINDOW_HEIGHT=1080
 
-# 2. 盲区画面窗口 (适当放大，完全填满主界面下方的空隙，完美衔接主界面 1080)
-CAMERA_WINDOW_WIDTH=810
-CAMERA_WINDOW_HEIGHT=456
+# 2. 盲区画面窗口 (调整为标准的 640x360，完美贴合主界面底部，不大不小正好)
+CAMERA_WINDOW_WIDTH=640
+CAMERA_WINDOW_HEIGHT=360
 CAMERA_0_X=0
 CAMERA_0_Y=1080
 CAMERA_1_X=0
@@ -154,10 +154,10 @@ CAMERA_1_Y=1080
 CAMERA_2_X=0
 CAMERA_2_Y=1080
 
-# 3. 日志命令窗口 (自适应拓宽，占据盲区窗口往右的所有剩余空间，尺寸 1238x456)
-LOG_WINDOW_X=810
+# 3. 日志命令窗口 (自适应拓宽，占据盲区窗口往右的所有剩余空间，尺寸 1408x456)
+LOG_WINDOW_X=640
 LOG_WINDOW_Y=1080
-LOG_WINDOW_WIDTH=1238
+LOG_WINDOW_WIDTH=1408
 LOG_WINDOW_HEIGHT=456
 
 # -----------------------------------------------------------------------------
