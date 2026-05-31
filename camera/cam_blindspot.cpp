@@ -1064,7 +1064,7 @@ void display_loop() {
             }
             else {
                 static int display_tick = 0;
-                if (display_tick++ % 100 == 0) {
+                if (display_tick++ % 200 == 0) {
                     std::cout << "[cam_blindspot] Display heartbeat, active images: " << shared_images.size() << std::endl;
                 }
 

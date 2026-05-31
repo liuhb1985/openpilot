@@ -831,7 +831,7 @@ class VCruiseCarrot:
         # 7. 应用限制
         if v_visual_limit < v_cruise_kph:
           v_cruise_kph = v_visual_limit
-          if self.frame % 50 == 0:
+          if self.frame % 1000 == 0:
             print(f"[VISUAL_ACC] KPFE Active - dRel: {self.d_rel:.1f}m, vRel: {self.v_rel:.1f}m/s, Limit: {v_cruise_kph:.1f}kph")
 
       # 8. 距离补偿 EMA 滤波算法：智能平滑跟随前车加速
@@ -856,7 +856,7 @@ class VCruiseCarrot:
           v_cruise_kph = v_cruise_kph * (1.0 - alpha) + raw_target * alpha
           v_cruise_kph = round(v_cruise_kph, 1) # 保持精度
           
-          if self.frame % 50 == 0:
+          if self.frame % 1000 == 0:
             print(f"[VISUAL_ACC] EMA Follow - Target: {v_cruise_kph:.1f}kph (Raw: {raw_target:.1f}, Max: {target_max})")
             
         self._v_cruise_kph_pre_kpfe = 0
