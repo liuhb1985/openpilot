@@ -34,6 +34,12 @@ class JY62_UART(Sensor):
         self.start_ts = 0.
         self.bus = None  # 不使用I2C
 
+        # 软件 EMA 滤波状态 (Software LPF)
+        self.ema_alpha_gyro = 0.4   # 约15Hz截止频率，平滑高频震动
+        self.ema_alpha_accel = 0.4
+        self.last_gyro = None
+        self.last_accel = None
+
         # 如果用户传入 None 或者 0，将尝试自动扫描常见波特率
         if self.baudrate is None or self.baudrate == 0:
             self.baudrate = self._auto_baud()
@@ -99,8 +105,8 @@ class JY62_UART(Sensor):
             self.ser.write(bytes([0xFF, 0xAA, 0x00, 0x00]))
             time.sleep(0.1)
 
-            # 设置频率为10Hz (0x27 0x01)
-            self.ser.write(bytes([0xFF, 0xAA, 0x27, 0x01]))
+            # 设置频率为100Hz (0x03 0x09)，千万不能用10Hz！
+            self.ser.write(bytes([0xFF, 0xAA, 0x03, 0x09]))
             time.sleep(0.1)
 
             # 启动连续输出
@@ -135,7 +141,15 @@ class JY62_UART(Sensor):
             return None
 
         try:
-            data = self.ser.read(1)
+            # 极速读取所有可用字节，防止 Python 循环赶不上 100Hz (115200波特率下，每10ms约有115字节)
+            waiting = max(1, self.ser.in_waiting)
+            if waiting > 220:  # 如果积压超过 20 帧，说明系统卡顿，直接清空旧数据保证零延迟！
+                self.ser.read(waiting)
+                self.buffer.clear()
+                cloudlog.warning("JY62 serial buffer overrun (>200 bytes)! Flushed to ensure zero-latency.")
+                return None
+
+            data = self.ser.read(waiting)
             if not data:
                 return None
 
@@ -226,6 +240,15 @@ class JY62_UART(Sensor):
         ay = frame['ay'] * SCALE
         az = frame['az'] * SCALE
 
+        # 软件 EMA 低通滤波，有效削弱路面颠簸带来的高频噪声
+        if self.last_accel is None:
+            self.last_accel = [ax, ay, az]
+        else:
+            ax = self.last_accel[0] * (1.0 - self.ema_alpha_accel) + ax * self.ema_alpha_accel
+            ay = self.last_accel[1] * (1.0 - self.ema_alpha_accel) + ay * self.ema_alpha_accel
+            az = self.last_accel[2] * (1.0 - self.ema_alpha_accel) + az * self.ema_alpha_accel
+            self.last_accel = [ax, ay, az]
+
         event = log.SensorEventData.new_message()
         event.timestamp = ts if ts is not None else time.monotonic_ns()
         event.version = 1
@@ -261,6 +284,15 @@ class JY62_UART(Sensor):
         wx = frame['wx'] * GYRO_SCALE
         wy = frame['wy'] * GYRO_SCALE
         wz = frame['wz'] * GYRO_SCALE
+
+        # 软件 EMA 低通滤波，解决廉价 IMU 出弯画龙的核心黑科技
+        if self.last_gyro is None:
+            self.last_gyro = [wx, wy, wz]
+        else:
+            wx = self.last_gyro[0] * (1.0 - self.ema_alpha_gyro) + wx * self.ema_alpha_gyro
+            wy = self.last_gyro[1] * (1.0 - self.ema_alpha_gyro) + wy * self.ema_alpha_gyro
+            wz = self.last_gyro[2] * (1.0 - self.ema_alpha_gyro) + wz * self.ema_alpha_gyro
+            self.last_gyro = [wx, wy, wz]
 
         event = log.SensorEventData.new_message()
         event.timestamp = ts if ts is not None else time.monotonic_ns()
