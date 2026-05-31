@@ -144,20 +144,20 @@ UI_WINDOW_Y=0
 UI_WINDOW_WIDTH=2048
 UI_WINDOW_HEIGHT=1080
 
-# 2. 盲区画面窗口 (缩小为微型外后视镜模式 512x228，置于左下角)
-CAMERA_WINDOW_WIDTH=512
-CAMERA_WINDOW_HEIGHT=228
+# 2. 盲区画面窗口 (适当放大，完全填满主界面下方的空隙，完美衔接主界面 1080)
+CAMERA_WINDOW_WIDTH=810
+CAMERA_WINDOW_HEIGHT=456
 CAMERA_0_X=0
-CAMERA_0_Y=1308
+CAMERA_0_Y=1080
 CAMERA_1_X=0
-CAMERA_1_Y=1308
+CAMERA_1_Y=1080
 CAMERA_2_X=0
-CAMERA_2_Y=1308
+CAMERA_2_Y=1080
 
-# 3. 日志命令窗口 (自适应拓宽，占据 X=512 往右的所有剩余空间，尺寸 1536x456)
-LOG_WINDOW_X=512
+# 3. 日志命令窗口 (自适应拓宽，占据盲区窗口往右的所有剩余空间，尺寸 1238x456)
+LOG_WINDOW_X=810
 LOG_WINDOW_Y=1080
-LOG_WINDOW_WIDTH=1536
+LOG_WINDOW_WIDTH=1238
 LOG_WINDOW_HEIGHT=456
 
 # -----------------------------------------------------------------------------
