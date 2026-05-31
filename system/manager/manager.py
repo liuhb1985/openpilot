@@ -285,15 +285,26 @@ def manager_init() -> None:
 
 
 def manager_cleanup() -> None:
-  # send signals to kill all procs
+  # send signals to kill all procs (graceful shutdown)
   for p in managed_processes.values():
     p.stop(block=False)
 
-  # ensure all are killed
-  for p in managed_processes.values():
-    p.stop(block=True)
+  # 极度优化：给予最多 1.5 秒的时间让 loggerd, camerad 等进程优雅结束 (写入视频 MOOV atom 等)
+  t = time.monotonic()
+  while time.monotonic() - t < 1.5:
+    if all(p.proc is None or p.proc.exitcode is not None for p in managed_processes.values()):
+      break
+    time.sleep(0.1)
 
-  cloudlog.info("everything is dead")
+  # 确保所有未落盘的数据 (如数据库、视频) 被刷入磁盘，防止文件损坏
+  os.system("sync")
+
+  # 强制杀死仍未退出的顽固进程，防止死锁导致重启卡死
+  for p in managed_processes.values():
+    if p.proc is not None and p.proc.exitcode is None:
+      p.signal(signal.SIGKILL)
+
+  cloudlog.info("everything is dead or synced")
 
 
 def manager_thread() -> None:
@@ -428,9 +439,11 @@ def main() -> None:
     HARDWARE.uninstall()
   elif params.get_bool("DoReboot"):
     cloudlog.warning("reboot")
+    manager_cleanup()
     HARDWARE.reboot()
   elif params.get_bool("DoShutdown"):
     cloudlog.warning("shutdown")
+    manager_cleanup()
     HARDWARE.shutdown()
 
   try:
@@ -440,13 +453,13 @@ def main() -> None:
     sentry.capture_exception()
   finally:
     params = Params()
+    manager_cleanup()
     if params.get_bool("DoReboot"):
       cloudlog.warning("reboot")
       HARDWARE.reboot()
     elif params.get_bool("DoShutdown"):
       cloudlog.warning("shutdown")
       HARDWARE.shutdown()
-    manager_cleanup()
 
 
 if __name__ == "__main__":

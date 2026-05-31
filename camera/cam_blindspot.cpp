@@ -974,9 +974,9 @@ void display_loop() {
                 // 没有有效帧，跳过
                 if (valid_index == -1) goto wait_next;
 
-                // 恢复 16:9 显示标准 (640x360)，消除图像拉伸变形
-                int width = 640;
-                int height = 360;
+                // 恢复 16:9 显示标准，并根据用户需求适当调大窗口 (960x540)
+                int width = 960;
+                int height = 540;
                 int type = shared_images[valid_index].channels() == 1 ? CV_8UC3 : shared_images[valid_index].type();
 
                 // [修复] 统计实际有效帧数（cam_max_num=2 但可能只有1个摄像头有画面）
@@ -1076,9 +1076,9 @@ void display_loop() {
                         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
                     }
 
-                    // 统一缩放到 640x480，确保多窗口模式也与 2.2 版本一致
-                    if (img.cols != 640 || img.rows != 480) {
-                        cv::resize(img, img, cv::Size(640, 480));
+                    // 统一缩放到 960x540 (16:9)，适当调大显示画面
+                    if (img.cols != 960 || img.rows != 540) {
+                        cv::resize(img, img, cv::Size(960, 540));
                     }
 
                     std::string window_name = "Camera " + std::to_string(i);
