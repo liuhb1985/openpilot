@@ -754,6 +754,7 @@ class CarrotMan:
 
   def make_tmux_data(self):
     try:
+      os.makedirs(os.path.join(DATA_PATH, "media"), exist_ok=True)
       subprocess.run(f"rm {DATA_PATH}/media/tmux.log; tmux capture-pane -pq -S-1000 > {DATA_PATH}/media/tmux.log", shell=True, capture_output=True, text=False)
       from openpilot.common.basedir import BASEDIR
       subprocess.run(os.path.join(BASEDIR, "selfdrive/apilot.py"), shell=True, capture_output=True, text=False)
@@ -779,7 +780,8 @@ class CarrotMan:
     try:
       ftp.mkd(git_branch)
     except Exception as e:
-      print(f"目录创建失败: {e}")
+      if "550" not in str(e):
+        print(f"目录创建失败: {e}")
     ftp.cwd(git_branch)
 
     directory = car_selected + " " + Params().get("DongleId").decode('utf-8')
@@ -789,7 +791,8 @@ class CarrotMan:
     try:
       ftp.mkd(directory)
     except Exception as e:
-      print(f"目录创建失败: {e}")
+      if "550" not in str(e):
+        print(f"目录创建失败: {e}")
     ftp.cwd(directory)
 
     try:

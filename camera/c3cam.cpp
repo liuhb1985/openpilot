@@ -682,12 +682,12 @@ void lane_check_thread() {
 
             if(lane_safe[0] != left_status){
                 lane_safe[0] = left_status;
-                std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
+                // std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
             }
 
             if(lane_safe[1] != right_status){
                 lane_safe[1] = right_status;
-                std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
+                // std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
             }
         }
 

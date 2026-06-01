@@ -1193,22 +1193,12 @@ void lane_check_thread() {
 
             if(lane_safe[0] != left_status){
                 lane_safe[0] = left_status;
-                static auto last_print_left = std::chrono::steady_clock::now();
-                auto now = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_print_left).count() >= 1) {
-                    std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
-                    last_print_left = now;
-                }
+                // std::cout << (lane_safe[0] ? "left lane safe!" : "left lane unsafe!") << std::endl;
             }
 
             if(lane_safe[1] != right_status){
                 lane_safe[1] = right_status;
-                static auto last_print_right = std::chrono::steady_clock::now();
-                auto now = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_print_right).count() >= 1) {
-                    std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
-                    last_print_right = now;
-                }
+                // std::cout << (lane_safe[1] ? "right lane safe!" : "right lane unsafe!") << std::endl;
             }
         }
 
