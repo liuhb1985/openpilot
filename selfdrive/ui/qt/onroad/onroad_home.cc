@@ -38,8 +38,8 @@ public:
 
 OnroadWindow::OnroadWindow(QWidget *parent) : QOpenGLWidget(parent) {
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
-  main_layout->setMargin(0);
-  //main_layout->setContentsMargins(0, 0, 0, 0);
+  main_layout->setMargin(UI_BORDER_SIZE);
+  //main_layout->setContentsMargins(UI_BORDER_SIZE, 0, UI_BORDER_SIZE, 0);
 
   QStackedLayout *stacked_layout = new QStackedLayout;
   stacked_layout->setStackingMode(QStackedLayout::StackAll);
