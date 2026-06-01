@@ -201,29 +201,55 @@ maintain_layout() {
         if [ ! -z "$ui_win" ] && [ "$ui_win" != "$aligned_ui" ]; then
             wmctrl -i -r "$ui_win" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$ui_win" -b remove,decorations
+            if command -v xprop >/dev/null 2>&1; then
+                xprop -id "$ui_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
+            fi
             wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
             aligned_ui="$ui_win"
         fi
 
-        # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式)
+        # 核心智能对齐算法：动态检测主 UI 窗口在桌面环境中的实际底部 Y 坐标，作为下方盲区和日志窗口的起始顶部坐标 Y
+        local target_y=1080
+        if [ ! -z "$ui_win" ]; then
+            local ui_geom=$(wmctrl -l -G | grep -i "$ui_win" | head -n 1)
+            # wmctrl -l -G 输出中，第 4 列是实际 Y，第 6 列是实际 Height
+            local actual_y=$(echo "$ui_geom" | awk '{print $4}')
+            local actual_h=$(echo "$ui_geom" | awk '{print $6}')
+            # 验证实际值是否是合法正整数，避免异常环境运算报错
+            if [ ! -z "$actual_y" ] && [ ! -z "$actual_h" ] && [ "$actual_y" -eq "$actual_y" ] 2>/dev/null; then
+                target_y=$((actual_y + actual_h))
+            fi
+        fi
+
+        # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式，顶部使用动态计算的 target_y 进行完美对齐)
         local cam_win=$(wmctrl -l | grep -Ei "All Cameras|camera|cameras|Camera 0" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
         if [ ! -z "$cam_win" ] && [ "$cam_win" != "$aligned_cam" ]; then
             wmctrl -i -r "$cam_win" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$cam_win" -b remove,decorations
-            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$CAMERA_0_Y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
+            if command -v xprop >/dev/null 2>&1; then
+                xprop -id "$cam_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
+            fi
+            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
             aligned_cam="$cam_win"
         fi
 
-        # 3. 布局终端日志窗口
+        # 3. 布局终端日志窗口 (优先精准寻找当前脚本控制的 "Log Window"，顶部使用 target_y 与盲区窗口绝对对齐)
         local active_term_id="$term_win_id"
         if [ -z "$active_term_id" ]; then
+            # 优先精准匹配标题包含 "Log Window"
+            active_term_id=$(wmctrl -l | grep -Ei "Log Window" | head -n 1 | cut -d' ' -f1)
+        fi
+        if [ -z "$active_term_id" ]; then
             # 备选模糊标题匹配
-            active_term_id=$(wmctrl -l | grep -Ei "log window|terminal|bash" | head -n 1 | cut -d' ' -f1)
+            active_term_id=$(wmctrl -l | grep -Ei "terminal|bash" | head -n 1 | cut -d' ' -f1)
         fi
         if [ ! -z "$active_term_id" ] && [ "$active_term_id" != "$aligned_term" ]; then
             wmctrl -i -r "$active_term_id" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$active_term_id" -b remove,decorations
-            wmctrl -i -r "$active_term_id" -e 0,$LOG_WINDOW_X,$LOG_WINDOW_Y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
+            if command -v xprop >/dev/null 2>&1; then
+                xprop -id "$active_term_id" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
+            fi
+            wmctrl -i -r "$active_term_id" -e 0,$LOG_WINDOW_X,$target_y,$LOG_WINDOW_WIDTH,$LOG_WINDOW_HEIGHT
             aligned_term="$active_term_id"
         fi
 
