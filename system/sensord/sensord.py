@@ -91,31 +91,50 @@ class CH347LSM6:
             raise OSError("CH347 I2C write failed")
 
     def read_u8(self, reg: int) -> int:
-        return self._stream_read([self.addr << 1, reg], 1)[0]
+        for attempt in range(3):
+            try:
+                return self._stream_read([self.addr << 1, reg], 1)[0]
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.001)
 
     def write_u8(self, reg: int, val: int) -> None:
-        self._stream_write([self.addr << 1, reg, val])
+        for attempt in range(3):
+            try:
+                self._stream_write([self.addr << 1, reg, val])
+                return
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.001)
 
     def read_block(self, start_reg: int, length: int) -> bytes:
-        # 使用多字节连续读取，比单字节循环读取高效得多
-        # 组合：写地址 + 读取数据
-        write_bytes = [self.addr << 1 | 0x00, start_reg]
-        wbuf = (ctypes.c_ubyte * len(write_bytes))(*write_bytes)
-        rbuf = (ctypes.c_ubyte * length)()
-        ack = ctypes.c_ubyte()
+        for attempt in range(3):
+            try:
+                # 使用多字节连续读取，比单字节循环读取高效得多
+                # 组合：写地址 + 读取数据
+                write_bytes = [self.addr << 1 | 0x00, start_reg]
+                wbuf = (ctypes.c_ubyte * len(write_bytes))(*write_bytes)
+                rbuf = (ctypes.c_ubyte * length)()
+                ack = ctypes.c_ubyte()
 
-        # 先写寄存器地址
-        ok = self.lib.CH347StreamI2C_RetAck(self.fd, len(write_bytes), wbuf, 0, None, ctypes.byref(ack))
-        if not ok:
-            raise OSError(f"CH347 I2C block write address failed, ack={ack.value}")
+                # 先写寄存器地址
+                ok = self.lib.CH347StreamI2C_RetAck(self.fd, len(write_bytes), wbuf, 0, None, ctypes.byref(ack))
+                if not ok:
+                    raise OSError(f"CH347 I2C block write address failed, ack={ack.value}")
 
-        # 然后连续读取数据
-        wbuf_read = (ctypes.c_ubyte * 1)(self.addr << 1 | 0x01)
-        ok = self.lib.CH347StreamI2C_RetAck(self.fd, 1, wbuf_read, length, rbuf, ctypes.byref(ack))
-        if not ok:
-            raise OSError(f"CH347 I2C block read data failed, ack={ack.value}")
+                # 然后连续读取数据
+                wbuf_read = (ctypes.c_ubyte * 1)(self.addr << 1 | 0x01)
+                ok = self.lib.CH347StreamI2C_RetAck(self.fd, 1, wbuf_read, length, rbuf, ctypes.byref(ack))
+                if not ok:
+                    raise OSError(f"CH347 I2C block read data failed, ack={ack.value}")
 
-        return bytes(rbuf)
+                return bytes(rbuf)
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.001)
 
     def open(self) -> None:
         self.fd = self.lib.CH347OpenDevice(self.dev_path.encode())
@@ -223,10 +242,13 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
 
         consecutive_errors = 0
         last_error_log_t = 0.0
+        is_status_read = False
 
         while not event.is_set():
             try:
+                is_status_read = True
                 status = sensor.read_u8(0x1E)
+                is_status_read = False
 
                 # 读取加速度计（如果数据就绪）
                 if status & 0x01:
@@ -298,11 +320,29 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
             except OSError as e:
                 consecutive_errors += 1
                 if consecutive_errors > 100:
-                    raise OSError(f"CH347 persistent I2C error (consecutive={consecutive_errors}): {e}")
+                    cloudlog.warning(f"CH347 I2C persistent error, attempting reconnect... (consecutive={consecutive_errors}): {e}")
+                    try:
+                        sensor.shutdown()
+                        time.sleep(0.5)
+                        sensor.open()
+                        sensor.init_sensor()
+                        consecutive_errors = 0
+                        is_status_read = False
+                        cloudlog.info("CH347 reconnected successfully!")
+                        continue
+                    except Exception as re_err:
+                        cloudlog.error(f"CH347 reconnection failed: {re_err}")
+                        if consecutive_errors > 300:
+                            raise OSError(f"CH347 persistent I2C error after multiple reconnect attempts (consecutive={consecutive_errors}): {e}") from e
+
                 now = time.monotonic()
                 if now - last_error_log_t > 1.0:
-                    cloudlog.warning(f"CH347 I2C error ignored (consecutive={consecutive_errors}): {e}")
+                    if is_status_read:
+                        cloudlog.warning(f"CH347 I2C status read error ignored:\n{e}")
+                    else:
+                        cloudlog.warning(f"CH347 I2C error ignored (consecutive={consecutive_errors}): {e}")
                     last_error_log_t = now
+                is_status_read = False
                 time.sleep(0.01)
     finally:
         sensor.shutdown()
