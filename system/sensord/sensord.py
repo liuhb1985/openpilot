@@ -221,92 +221,89 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
 
         last_gyro_log_t = 0.0
 
+        consecutive_errors = 0
+        last_error_log_t = 0.0
+
         while not event.is_set():
             try:
                 status = sensor.read_u8(0x1E)
-            except OSError as e:
-                cloudlog.warning(f"CH347 I2C status read error ignored: {e}")
-                time.sleep(0.01)
-                continue
 
-            # 读取加速度计（如果数据就绪）
-            if status & 0x01:
-                try:
+                # 读取加速度计（如果数据就绪）
+                if status & 0x01:
                     b = sensor.read_block(0x28, 6)
-                except OSError as e:
-                    cloudlog.warning(f"CH347 I2C accel read error ignored: {e}")
-                    time.sleep(0.01)
-                    continue
-                x = Sensor.parse_16bit(b[0], b[1])
-                y = Sensor.parse_16bit(b[2], b[3])
-                z = Sensor.parse_16bit(b[4], b[5])
-                scale = 9.81 * 2.0 / (1 << 15)
-                last_acc_v = [y * scale, -x * scale, z * scale]
+                    x = Sensor.parse_16bit(b[0], b[1])
+                    y = Sensor.parse_16bit(b[2], b[3])
+                    z = Sensor.parse_16bit(b[4], b[5])
+                    scale = 9.81 * 2.0 / (1 << 15)
+                    last_acc_v = [y * scale, -x * scale, z * scale]
 
-                msg = messaging.new_message("accelerometer", valid=True)
-                msg.accelerometer.version = 1
-                msg.accelerometer.sensor = 1
-                msg.accelerometer.type = 1
-                msg.accelerometer.source = sensor.source
-                msg.accelerometer.timestamp = msg.logMonoTime  # 使用logMonoTime而不是time.time_ns()
-                acc = msg.accelerometer.init("acceleration")
-                acc.v = last_acc_v
-                acc.status = 1
-                pm.send("accelerometer", msg)
+                    msg = messaging.new_message("accelerometer", valid=True)
+                    msg.accelerometer.version = 1
+                    msg.accelerometer.sensor = 1
+                    msg.accelerometer.type = 1
+                    msg.accelerometer.source = sensor.source
+                    msg.accelerometer.timestamp = msg.logMonoTime  # 使用logMonoTime而不是time.time_ns()
+                    acc = msg.accelerometer.init("acceleration")
+                    acc.v = last_acc_v
+                    acc.status = 1
+                    pm.send("accelerometer", msg)
 
-            # 读取陀螺仪（如果数据就绪）- 即使加速度计也读取了，也要检查陀螺仪
-            # 因为两者可能都准备好数据
-            if status & 0x02:
-                try:
+                # 读取陀螺仪（如果数据就绪）- 即使加速度计也读取了，也要检查陀螺仪
+                # 因为两者可能都准备好数据
+                if status & 0x02:
                     b = sensor.read_block(0x22, 6)
-                except OSError as e:
-                    cloudlog.warning(f"CH347 I2C gyro read error ignored: {e}")
-                    time.sleep(0.01)
-                    continue
-                x = Sensor.parse_16bit(b[0], b[1])
-                y = Sensor.parse_16bit(b[2], b[3])
-                z = Sensor.parse_16bit(b[4], b[5])
-                scale = (8.75 / 1000.0) * (math.pi / 180.0)
-                last_gyro_v = [y * scale, -x * scale, z * scale]
-                msg = messaging.new_message("gyroscope", valid=True)
-                msg.gyroscope.version = 2
-                msg.gyroscope.sensor = 5
-                msg.gyroscope.type = 16
-                msg.gyroscope.source = sensor.source
-                msg.gyroscope.timestamp = msg.logMonoTime  # 使用logMonoTime而不是time.time_ns()
-                gyro = msg.gyroscope.init("gyroUncalibrated")
-                gyro.v = last_gyro_v
-                gyro.status = 1
-                pm.send("gyroscope", msg)
+                    x = Sensor.parse_16bit(b[0], b[1])
+                    y = Sensor.parse_16bit(b[2], b[3])
+                    z = Sensor.parse_16bit(b[4], b[5])
+                    scale = (8.75 / 1000.0) * (math.pi / 180.0)
+                    last_gyro_v = [y * scale, -x * scale, z * scale]
+                    msg = messaging.new_message("gyroscope", valid=True)
+                    msg.gyroscope.version = 2
+                    msg.gyroscope.sensor = 5
+                    msg.gyroscope.type = 16
+                    msg.gyroscope.source = sensor.source
+                    msg.gyroscope.timestamp = msg.logMonoTime  # 使用logMonoTime而不是time.time_ns()
+                    gyro = msg.gyroscope.init("gyroUncalibrated")
+                    gyro.v = last_gyro_v
+                    gyro.status = 1
+                    pm.send("gyroscope", msg)
 
-            temp_ticks += 1
+                temp_ticks += 1
 
-            # 每 10 秒打印一次 IMU 数据，避免日志过多
-            current_t = time.time()
-            if current_t - last_log_t >= 10.0:
-                if last_acc_v:
-                    cloudlog.warning(f"[CH347_ACCEL] X={last_acc_v[0]:6.3f}, Y={last_acc_v[1]:6.3f}, Z={last_acc_v[2]:6.3f} m/s²")
-                if last_gyro_v:
-                    cloudlog.warning(f"[CH347_GYRO] X={last_gyro_v[0]:6.3f}, Y={last_gyro_v[1]:6.3f}, Z={last_gyro_v[2]:6.3f} rad/s")
-                last_log_t = current_t
+                # 每 10 秒打印一次 IMU 数据，避免日志过多
+                current_t = time.time()
+                if current_t - last_log_t >= 10.0:
+                    if last_acc_v:
+                        cloudlog.warning(f"[CH347_ACCEL] X={last_acc_v[0]:6.3f}, Y={last_acc_v[1]:6.3f}, Z={last_acc_v[2]:6.3f} m/s²")
+                    if last_gyro_v:
+                        cloudlog.warning(f"[CH347_GYRO] X={last_gyro_v[0]:6.3f}, Y={last_gyro_v[1]:6.3f}, Z={last_gyro_v[2]:6.3f} rad/s")
+                    last_log_t = current_t
 
-            if temp_ticks >= 10:
-                temp_ticks = 0
-                try:
+                if temp_ticks >= 10:
+                    temp_ticks = 0
                     tb = sensor.read_block(0x20, 2)
-                except OSError:
-                    continue
-                raw_t = Sensor.parse_16bit(tb[0], tb[1])
-                tscale = 16.0 if sensor.source == log.SensorEventData.SensorSource.lsm6ds3 else 256.0
+                    raw_t = Sensor.parse_16bit(tb[0], tb[1])
+                    tscale = 16.0 if sensor.source == log.SensorEventData.SensorSource.lsm6ds3 else 256.0
 
-                msg = messaging.new_message("temperatureSensor", valid=True)
-                msg.temperatureSensor.version = 1
-                msg.temperatureSensor.source = sensor.source
-                msg.temperatureSensor.timestamp = msg.logMonoTime
-                msg.temperatureSensor.temperature = 25 + (raw_t / tscale)
-                pm.send("temperatureSensor", msg)
+                    msg = messaging.new_message("temperatureSensor", valid=True)
+                    msg.temperatureSensor.version = 1
+                    msg.temperatureSensor.source = sensor.source
+                    msg.temperatureSensor.timestamp = msg.logMonoTime
+                    msg.temperatureSensor.temperature = 25 + (raw_t / tscale)
+                    pm.send("temperatureSensor", msg)
 
-            rk.keep_time()
+                consecutive_errors = 0
+                rk.keep_time()
+
+            except OSError as e:
+                consecutive_errors += 1
+                if consecutive_errors > 100:
+                    raise OSError(f"CH347 persistent I2C error (consecutive={consecutive_errors}): {e}")
+                now = time.monotonic()
+                if now - last_error_log_t > 1.0:
+                    cloudlog.warning(f"CH347 I2C error ignored (consecutive={consecutive_errors}): {e}")
+                    last_error_log_t = now
+                time.sleep(0.01)
     finally:
         sensor.shutdown()
 
