@@ -132,12 +132,15 @@ def create_lfahda_mfc(packer, CC, blinking_signal, CP, v_ego=0.0, stock_cruise_e
     # 只要 HDA 激活，就显示 HDA 图标 (2)
     hda_icon = 2 if hda_active else 0
 
-  # [Optimization] 为了防止胜达报错 "无法开启智能导航系统"
-  # 强制将 HDA_USM 设为 2 (表示已安装但非活动)，这是老款车型最兼容的模式。
+  # [Optimization] 为了防止胜达和仅开启横向控制的车辆报错 "无法开启智能导航系统"
+  # 强制将 HDA_USM 设为 2 (表示已安装已开启)，这是最兼容的模式。
   # 扩展到所有胜达车型 (2019-2023)
   santa_fe_variants = (CAR.HYUNDAI_SANTA_FE, CAR.HYUNDAI_SANTA_FE_2022, 
                        CAR.HYUNDAI_SANTA_FE_HEV_2022, CAR.HYUNDAI_SANTA_FE_PHEV_2022)
-  hda_usm = 2 if CP.carFingerprint in santa_fe_variants else (2 if hda_active == 1 or v_ego > 10 / 3.6 else 0)
+  if not CP.openpilotLongitudinalControl or CP.carFingerprint in santa_fe_variants:
+    hda_usm = 2
+  else:
+    hda_usm = 2 if hda_active == 1 or v_ego > 10 / 3.6 else 0
 
   values = {
     "LFA_Icon_State": 2 if CC.latActive else 1 if CC.enabled else 0,
