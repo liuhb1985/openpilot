@@ -292,10 +292,9 @@ def yaw_from_path_no_scipy(path_xyz, v_plan, smooth_window=5,
                            clip_rate=2.0, align_first_yaw=None):
 
   v0 = float(np.asarray(v_plan)[0]) if len(v_plan) else 0.0
-  # 极度优化：动态平滑窗口。速度越快，窗口越大，彻底压制高速时 AI 视觉模型的高频抖动 (画龙的另一大元凶)
-  v_kph = v0 * 3.6
-  dynamic_window = int(np.interp(v_kph, [0.0, 40.0, 80.0, 120.0], [5, 9, 15, 21]))
-  smooth_window = max(smooth_window, dynamic_window)
+  # 저속(≤6 m/s)에서는 창을 크게
+  if v0 <= 6.0:
+    smooth_window = max(smooth_window, 9)   # 9~11 권장
     
   N = path_xyz.shape[0]
   x = path_xyz[:, 0].astype(float)

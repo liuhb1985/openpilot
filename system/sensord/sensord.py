@@ -182,12 +182,6 @@ class CH347LSM6:
         self.write_u8(0x10, 0x40)
         self.write_u8(0x11, 0x40)
 
-        # 极度优化：启用 LSM6DS3 硬件 LPF2 (Low-Pass Filter) 以彻底滤除底盘高频震动 (画龙的罪魁祸首)
-        try:
-            self.write_u8(0x13, 0x02) # CTRL4_C (0x13) Bit 1 (LPF1_SEL_G) = 1
-            self.write_u8(0x15, 0x01) # CTRL6_C (0x15) Bit 1:0 (FTYPE) = 01 -> 10.5Hz cutoff
-        except OSError:
-            pass
 
     def shutdown(self) -> None:
         if self.fd >= 0:
