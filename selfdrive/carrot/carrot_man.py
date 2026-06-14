@@ -244,6 +244,7 @@ class CarrotMan:
     self.active_carrot_last = False
 
     self.is_metric = self.params.get_bool("IsMetric")
+    self.kisa_connected = False
 
   def get_broadcast_address(self):
     # 修改为支持 PC 的多接口检测
@@ -651,10 +652,8 @@ class CarrotMan:
                 #  print(f"carrot_man_thread: send 错误...: {e}")
 
               except TimeoutError:
-                if not hasattr(self, 'carrot_timeout_cnt'): self.carrot_timeout_cnt = 0
-                self.carrot_timeout_cnt += 1
-                if self.carrot_timeout_cnt % 100 == 1:
-                  print(f"[Carrot] 等待数据中 (超时次数: {self.carrot_timeout_cnt})...")
+                if self.remote_addr is not None:
+                  print("[Carrot] 外部连接超时断开，等待数据中...")
                 self.remote_addr = None
                 time.sleep(1)
 
@@ -718,6 +717,9 @@ class CarrotMan:
                 #  print("已连接到: ", remote_addr)
                 #self.remote_addr = remote_addr
                 try:
+                  if not self.kisa_connected:
+                    print("Kisa 已连接: ", remote_addr)
+                    self.kisa_connected = True
                   print(data)
                   kisa_data = self.parse_kisa_data(data)
                   self.carrot_serv.update_kisa(kisa_data)
@@ -729,11 +731,9 @@ class CarrotMan:
                   print(data)
 
               except TimeoutError:
-                if not hasattr(self, 'kisa_timeout_cnt'): self.kisa_timeout_cnt = 0
-                self.kisa_timeout_cnt += 1
-                if self.kisa_timeout_cnt % 100 == 1:
-                  print(f"[Kisa] 等待数据中 (超时次数: {self.kisa_timeout_cnt})...")
-                #self.remote_addr = None
+                if self.kisa_connected:
+                  print("[Kisa] 外部连接超时断开，等待数据中...")
+                  self.kisa_connected = False
                 time.sleep(1)
 
               except Exception as e:

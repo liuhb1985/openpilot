@@ -1001,6 +1001,14 @@ int main() {
     // 强制关闭 OpenCL，防止 RDNA3 驱动忙等导致 GPU 占用率虚高 (99%)
     cv::ocl::setUseOpenCL(false);
 
+    // 屏蔽 libjpeg/OpenCV 产生的 JPEG 损坏等垃圾日志 (Corrupt JPEG data)
+    std::cerr.rdbuf(std::cout.rdbuf());
+    int fd_null = open("/dev/null", O_WRONLY);
+    if (fd_null >= 0) {
+        dup2(fd_null, 2);
+        close(fd_null);
+    }
+
     // 注册信号处理函数
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
