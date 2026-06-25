@@ -150,6 +150,9 @@ cat > "/etc/udev/rules.d/99-ch347_vcp.rules" << 'EOF'
 # 设备权限
 SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="55db", MODE="0666"
 SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="55dd", MODE="0666"
+# 禁止 autosuspend（防止 CH347T 被 USB core 挂起导致 I2C ENODEV）
+SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="55db", ATTR{power/autosuspend}="-1"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="55dd", ATTR{power/autosuspend}="-1"
 # I2C 设备节点权限（AYSTARIK 驱动创建标准 /dev/i2c-* 设备）
 KERNEL=="i2c-[0-9]*", MODE="0666", GROUP="plugdev"
 # 设备插入时自动加载驱动
@@ -160,6 +163,23 @@ EOF
 udevadm control --reload-rules
 udevadm trigger
 echo "  udev规则已配置（插拔设备时自动加载驱动）"
+
+# ── 步骤3b：禁用 fwupd（防止它扫描 USB 时释放 CH347T 的 interface）───
+echo -e "\n[3b/5] 彻底禁用 fwupd（避免它扫描 USB 时释放 CH347T 的 interface）..."
+# 停止所有 fwupd 相关服务
+systemctl stop fwupd.service fwupd-refresh.timer fwupd-refresh.service fwupd-offline-update.service 2>/dev/null
+# 禁用
+systemctl disable fwupd.service fwupd-refresh.timer fwupd-refresh.service 2>/dev/null
+# mask 彻底封锁（即使被 D-Bus/其他服务/snap 拉起也无法启动）
+systemctl mask fwupd.service fwupd-refresh.timer fwupd-refresh.service fwupd-offline-update.service 2>/dev/null
+echo "  fwupd 已 mask（所有 systemd/D-Bus 激活路径均被封锁）"
+
+# 移除 snap firmware-updater（它是触发 fwupd 启动的元凶）
+if command -v snap &>/dev/null && snap list firmware-updater &>/dev/null 2>&1; then
+    echo "  移除 snap firmware-updater..."
+    snap remove firmware-updater 2>/dev/null
+    echo "  firmware-updater snap 已移除"
+fi
 
 # ── 步骤4：立即加载驱动 ──────────────────────────────────
 echo -e "\n[4/5] 加载驱动模块..."
