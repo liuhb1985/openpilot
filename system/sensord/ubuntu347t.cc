@@ -1,5 +1,5 @@
 // =============================================================================
-// ubuntu347: LSM6DS3 IMU via Linux native /dev/i2c-N with cereal publishing
+// ubuntu347t: LSM6DS3 IMU via Linux native /dev/i2c-N with cereal publishing
 //
 // 特性：
 //   - 启动时自动校准 IMU 装偏（2秒静态采样 + Rodrigues 旋转矩阵）
@@ -506,7 +506,7 @@ static bool sensor_open_retry(LinuxI2CLSM6& sensor, int bus_num, int max_retries
 
 static void i2c_loop(int bus_num, PubMaster& pm) {
   I2CState state;
-  RateKeeper rk("ubuntu347d", 104.0f);
+  RateKeeper rk("ubuntu347td", 104.0f);
 
   if (!sensor_open_retry(state.sensor, bus_num, 10)) {
     LOGE("I2C: sensor.open() failed after 10 retries");
@@ -758,13 +758,13 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
             }
           }
           const char* fault = (i2c_error || !who_ok) ? "CH347T" : "LSM6DS3";
-          fprintf(stderr, "[ubuntu347] FROZEN! fault=%s freeze=%d, data halted\n",
+          fprintf(stderr, "[ubuntu347t] FROZEN! fault=%s freeze=%d, data halted\n",
                   fault, state.freeze_counter);
         } else if (state.has_acc_raw) {
           const char* freeze_tag = (state.freeze_counter > 0) ? " (freeze)" : "";
-          fprintf(stderr, "[ubuntu347] ACC: [%9.4f, %9.4f, %9.4f] m/s2%s\n",
+          fprintf(stderr, "[ubuntu347t] ACC: [%9.4f, %9.4f, %9.4f] m/s2%s\n",
                   state.last_acc_v[0], state.last_acc_v[1], state.last_acc_v[2], freeze_tag);
-          fprintf(stderr, "[ubuntu347] GYRO: [%9.5f, %9.5f, %9.5f] rad/s\n",
+          fprintf(stderr, "[ubuntu347t] GYRO: [%9.5f, %9.5f, %9.5f] rad/s\n",
                   state.last_gyro_v[0], state.last_gyro_v[1], state.last_gyro_v[2]);
         }
         fflush(stderr);
@@ -817,6 +817,6 @@ int main() {
   LOGW("I2C bus ready, waiting 1s...");
   util::sleep_for(1000);
   i2c_loop(bus_num, publisher);
-  LOGW("ubuntu347 exiting");
+  LOGW("ubuntu347t exiting");
   return 0;
 }
