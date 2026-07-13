@@ -101,7 +101,7 @@ procs = [
   #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], always_run),
   #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
   PythonProcess("sensord", "system.sensord.sensord", only_onroad, enabled=not PC),
-  NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
+  # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
   NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=PC),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   NativeProcess("sensord_ch347", "system/sensord", ["./ch347t"], always_run, enabled=PC, watchdog_max_dt=3),
