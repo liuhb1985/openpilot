@@ -8,10 +8,12 @@
 //   - cereal 消息发布：accelerometer / gyroscope / temperatureSensor
 // =============================================================================
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <cmath>
 #include <unistd.h>
 #include <fcntl.h>
@@ -21,8 +23,11 @@
 #include <linux/i2c-dev.h>
 #include <dirent.h>
 #include <chrono>
+#include <climits>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <array>
 
@@ -33,6 +38,144 @@
 #include "common/util.h"
 
 ExitHandler do_exit;
+
+// ============================================================
+// 机器码授权验证模块
+// 授权设备才能运行此程序
+// 自动采集可用硬件信息，无需 root 权限
+// ============================================================
+namespace license {
+
+// ========== 授权设备码白名单 ==========
+static const std::vector<std::string> AUTHORIZED_DEVICE_CODES = {
+    "551009E9F9532060",   // 当前开发机 (fallback: machine_id+hostname+mac)
+    "A1B2C3D4E5F6G7H8",
+    "C774B7F4A301037C",
+    "5BC57BECDBA0BA57",
+    "1957FD0C46BD2B3F",  //CRV
+    "2D1920D2CE6E5D6A",  //20han
+};
+
+static std::string read_file_trimmed(const char *path) {
+    std::ifstream f(path);
+    if (!f.is_open()) return "";
+    std::string content;
+    std::getline(f, content);
+    while (!content.empty() && (content.back() == '\r' || content.back() == '\n' || content.back() == ' ')) {
+        content.pop_back();
+    }
+    return content;
+}
+
+static std::string get_machine_id() {
+    return read_file_trimmed("/etc/machine-id");
+}
+
+static std::string get_bios_uuid() {
+    return read_file_trimmed("/sys/class/dmi/id/product_uuid");
+}
+
+static std::string get_hostname() {
+    char buf[256] = {};
+    gethostname(buf, sizeof(buf) - 1);
+    return std::string(buf);
+}
+
+static std::string get_mac_address() {
+    const char *net_path = "/sys/class/net";
+    DIR *dir = opendir(net_path);
+    if (dir) {
+        std::vector<std::string> ifnames;
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != nullptr) {
+            if (entry->d_name[0] == '.' || strcmp(entry->d_name, "lo") == 0) continue;
+            ifnames.push_back(entry->d_name);
+        }
+        closedir(dir);
+
+        std::sort(ifnames.begin(), ifnames.end());
+
+        for (const auto &ifname : ifnames) {
+            char addr_path[256];
+            snprintf(addr_path, sizeof(addr_path), "%s/%s/address", net_path, ifname.c_str());
+            std::string mac = read_file_trimmed(addr_path);
+            if (!mac.empty() && mac != "00:00:00:00:00:00") {
+                return mac;
+            }
+        }
+    }
+
+    std::ifstream f("/proc/net/arp");
+    if (f.is_open()) {
+        std::string line;
+        std::vector<std::pair<std::string, std::string>> arp_entries;
+        while (std::getline(f, line)) {
+            if (line.find("IP address") != std::string::npos) continue;
+            std::istringstream iss(line);
+            std::string ip, hwtype, flags, mac, mask, device;
+            if (iss >> ip >> hwtype >> flags >> mac >> mask >> device) {
+                if (mac != "00:00:00:00:00:00" && device != "lo") {
+                    arp_entries.push_back({device, mac});
+                }
+            }
+        }
+        std::sort(arp_entries.begin(), arp_entries.end());
+        if (!arp_entries.empty()) {
+            return arp_entries[0].second;
+        }
+    }
+    return "";
+}
+
+static std::string compute_device_code(const std::vector<std::string> &factors) {
+    std::string combined;
+    for (const auto &f : factors) {
+        if (!combined.empty()) combined += "|";
+        combined += f.empty() ? "(none)" : f;
+    }
+
+    uint64_t hash = 14695981039346656037ULL;
+    for (char c : combined) {
+        hash ^= (uint64_t)(unsigned char)c;
+        hash *= 1099511628211ULL;
+    }
+
+    std::ostringstream oss;
+    oss << std::uppercase << std::hex << std::setfill('0') << std::setw(16) << hash;
+    return oss.str();
+}
+
+static bool verify_license() {
+    std::string machine_id = get_machine_id();
+    std::string bios_uuid   = get_bios_uuid();
+    std::string hostname    = get_hostname();
+    std::string mac_addr    = get_mac_address();
+
+    if (machine_id.empty()) {
+        return false;
+    }
+
+    std::vector<std::string> factors;
+    factors.push_back(machine_id);
+    if (!bios_uuid.empty()) {
+        factors.push_back(bios_uuid);
+    } else {
+        if (!hostname.empty()) factors.push_back(hostname);
+        if (!mac_addr.empty()) factors.push_back(mac_addr);
+    }
+
+    std::string device_code = compute_device_code(factors);
+
+    for (const auto &authorized : AUTHORIZED_DEVICE_CODES) {
+        if (device_code == authorized) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+}  // namespace license
 
 // CH347 USB VID/PID
 static constexpr const char* CH347_USB_VID = "1a86";
@@ -791,6 +934,19 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
 }
 
 int main() {
+  // 机器码授权验证（未授权设备无法运行）
+  if (!license::verify_license()) {
+    std::srand((unsigned int)std::time(nullptr));
+    while (!do_exit) {
+      int timeout = 500 + std::rand() % 500;
+      fprintf(stderr, "CH347 not responding, retry in %dms...\n", timeout);
+      for (int i = 0; i < 10 && !do_exit; i++) {
+        usleep(50000);
+      }
+    }
+    return 0;
+  }
+
   setpriority(PRIO_PROCESS, 0, -15);
   PubMaster publisher({"accelerometer", "gyroscope", "temperatureSensor"});
 
