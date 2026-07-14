@@ -183,10 +183,23 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
         for doc in platform.config.car_docs:
           if name == doc.name:
             return platform
+      for platform in BYD:
+        for doc in platform.config.car_docs:
+          if name == doc.name:
+            return platform
       return None
     found_car = find_car(selected_car.decode("utf-8"))
     if found_car is not None:
       candidate = found_car
+
+  # Resolve car doc name (e.g. "BYD HAN EV 20") to platform enum value (e.g. "BYD_HAN_EV_20")
+  if candidate is not None and candidate not in interfaces:
+    for brand in BRANDS:
+      for platform in brand:
+        for doc in platform.config.car_docs:
+          if candidate == doc.name:
+            candidate = platform.value
+            break
 
   print(f"SelectedCar = {candidate}")
   Params().put("CarName", candidate)

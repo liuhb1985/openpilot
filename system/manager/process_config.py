@@ -81,10 +81,10 @@ def c3x_lite(started: bool, params: Params, CP: car.CarParams) -> bool:
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),
 
-  #NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
-  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad, enabled=not PC),
-  NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
-  PythonProcess("logmessaged", "system.logmessaged", always_run),
+  # #NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
+  # NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad, enabled=not PC),
+  # NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
+  # PythonProcess("logmessaged", "system.logmessaged", always_run),
 
   #NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not WEBCAM),
   NativeProcess("usbcamerad", "tools/webcam", ["./camerad"], driverview, enabled=USBCAM),

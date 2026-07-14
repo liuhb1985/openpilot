@@ -25,11 +25,11 @@ if ! grep -q "ch347" /sys/bus/i2c/devices/i2c-*/name 2>/dev/null; then
     exit 1
 fi
 
-export FINGERPRINT="TOYOTA_COROLLA_TSS2"
+export FINGERPRINT="BYD HAN EV 20"
 OP_DIR=$(dirname "$(readlink -f "$0")")
 export PYTHONPATH="$OP_DIR:$PYTHONPATH"
 export PARAMS_ROOT="$OP_DIR/params"
 export LOG_ROOT="$OP_DIR/.comma"
 cd "$OP_DIR" &&
 source .venv/bin/activate &&
-USE_USBCAM=1 NO_DM=1 ROAD_CAM=0 WIDE_CAM=2 system/manager/manager.py
+USE_WEBCAM=1 NO_DM=1 ROAD_CAM=0 system/manager/manager.py
