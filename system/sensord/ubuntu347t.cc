@@ -294,7 +294,7 @@ struct LinuxI2CLSM6 {
     ioctl_data.msgs = msgs;
     ioctl_data.nmsgs = 2;
 
-    return ioctl(fd, I2C_RDWR, &ioctl_data) == 0;
+    return ioctl(fd, I2C_RDWR, &ioctl_data) > 0;
   }
 
   bool _i2c_write(const uint8_t* write_bytes, size_t write_len) {
@@ -308,7 +308,7 @@ struct LinuxI2CLSM6 {
     ioctl_data.msgs = msgs;
     ioctl_data.nmsgs = 1;
 
-    return ioctl(fd, I2C_RDWR, &ioctl_data) == 0;
+    return ioctl(fd, I2C_RDWR, &ioctl_data) > 0;
   }
 
   bool read_u8(uint8_t reg, uint8_t& val) {
@@ -424,7 +424,7 @@ static int find_ch347_i2c_bus() {
       ioctl_data.msgs = msgs;
       ioctl_data.nmsgs = 2;
 
-      if (ioctl(fd, I2C_RDWR, &ioctl_data) == 0) {
+      if (ioctl(fd, I2C_RDWR, &ioctl_data) > 0) {
         for (size_t j = 0; j < sizeof(CH347_WHO_AM_I_IDS); j++) {
           if (rbuf == CH347_WHO_AM_I_IDS[j]) {
             ::close(fd);
