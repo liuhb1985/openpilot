@@ -239,15 +239,19 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
         except Exception:
             rotation = 0
 
-    def map_axes(x, y, z, rot):
-        if rot == 90 or rot == 1:
-            return [x, y, z]
-        elif rot == 180 or rot == 2:
-            return [-y, x, z]
-        elif rot == 270 or rot == 3:
-            return [-x, -y, z]
-        else:
-            return [y, -x, z]
+    # 预先绑定映射函数以优化热路径性能
+    if rotation == 90 or rotation == 1:
+        map_axes = lambda x, y, z: [x, y, z]
+    elif rotation == 180 or rotation == 2:
+        map_axes = lambda x, y, z: [-y, x, z]
+    elif rotation == 270 or rotation == 3:
+        map_axes = lambda x, y, z: [-x, -y, z]
+    else:
+        map_axes = lambda x, y, z: [y, -x, z]
+
+    # 预计算常数以优化热路径性能
+    accel_scale = 9.81 * 2.0 / (1 << 15)
+    gyro_scale = (8.75 / 1000.0) * (math.pi / 180.0)
 
     try:
         sensor.open()
@@ -272,8 +276,7 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
                     x = Sensor.parse_16bit(b[0], b[1])
                     y = Sensor.parse_16bit(b[2], b[3])
                     z = Sensor.parse_16bit(b[4], b[5])
-                    scale = 9.81 * 2.0 / (1 << 15)
-                    last_acc_v = map_axes(x * scale, y * scale, z * scale, rotation)
+                    last_acc_v = map_axes(x * accel_scale, y * accel_scale, z * accel_scale)
 
                     msg = messaging.new_message("accelerometer", valid=True)
                     msg.accelerometer.version = 1
@@ -293,8 +296,7 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
                     x = Sensor.parse_16bit(b[0], b[1])
                     y = Sensor.parse_16bit(b[2], b[3])
                     z = Sensor.parse_16bit(b[4], b[5])
-                    scale = (8.75 / 1000.0) * (math.pi / 180.0)
-                    last_gyro_v = map_axes(x * scale, y * scale, z * scale, rotation)
+                    last_gyro_v = map_axes(x * gyro_scale, y * gyro_scale, z * gyro_scale)
                     msg = messaging.new_message("gyroscope", valid=True)
                     msg.gyroscope.version = 2
                     msg.gyroscope.sensor = 5

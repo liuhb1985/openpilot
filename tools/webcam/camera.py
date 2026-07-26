@@ -6,12 +6,19 @@ import os
 
 # 强制禁用 OpenCV OpenCL 后端加速，消除现代显卡驱动（如 RDNA3 等）中的 busy-wait GPU 飙升异常
 cv2.ocl.setUseOpenCL(False)
+# 限制 OpenCV 仅使用单线程，彻底消除多核系统下的线程忙等与同步 overhead
+cv2.setNumThreads(1)
 
+# 检测当前 OpenCV 版本是否支持直接转 NV12，以实现 C++ 级一步到位的高效转码
+HAS_DIRECT_NV12 = hasattr(cv2, 'COLOR_BGR2YUV_NV12')
 
 def bgr_to_nv12_bytes(bgr):
     """Convert a BGR ndarray to NV12 bytes using optimized OpenCV/NumPy.
     NV12 format: Y plane followed by interleaved UV plane.
     """
+    if HAS_DIRECT_NV12:
+        return cv2.cvtColor(bgr, cv2.COLOR_BGR2YUV_NV12).tobytes()
+
     h, w = bgr.shape[:2]
     # 1. Convert BGR to YUV I420 (Y plane followed by U and V planes)
     yuv_i420 = cv2.cvtColor(bgr, cv2.COLOR_BGR2YUV_I420)
