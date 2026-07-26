@@ -169,6 +169,7 @@ class LatControlTorque(LatControl):
       output_torque = 0.0
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
+      self.actual_curvature_ema = 0.0
     else:
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
       angle_steers_des += params.angleOffsetDeg
@@ -187,9 +188,15 @@ class LatControlTorque(LatControl):
         actual_curvature_llk = 0.0
         if len(CC.angularVelocity) > 2:
           actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo
-        actual_curvature_raw = np.interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
+        actual_curvature_raw = np.interp(CS.vEgo, [3.0, 8.0], [actual_curvature_vm, actual_curvature_llk])
         
-        actual_curvature = actual_curvature_raw
+        # 针对低速/路口细碎波动优化：引入随车速动态变化的 EMA 滤波，低速强平滑，高速无滞后
+        if self.actual_curvature_ema == 0.0:
+          self.actual_curvature_ema = actual_curvature_raw
+        
+        alpha = np.interp(CS.vEgo, [3.0, 10.0], [0.15, 1.0])
+        self.actual_curvature_ema = alpha * actual_curvature_raw + (1.0 - alpha) * self.actual_curvature_ema
+        actual_curvature = self.actual_curvature_ema
         
         curvature_deadzone = 0.0
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2

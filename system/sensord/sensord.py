@@ -227,10 +227,32 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
     last_log_t = 0.0
     last_acc_v = None
     last_gyro_v = None
+
+    # 读取 IMU 轴向旋转配置 (0, 90, 180, 270)
+    try:
+        from openpilot.common.params import Params
+        params = Params()
+        rotation = params.get_int("CH347ImuRotation")
+    except Exception:
+        try:
+            rotation = int(os.getenv("SENSORD_CH347_ROTATION", "0"))
+        except Exception:
+            rotation = 0
+
+    def map_axes(x, y, z, rot):
+        if rot == 90 or rot == 1:
+            return [x, y, z]
+        elif rot == 180 or rot == 2:
+            return [-y, x, z]
+        elif rot == 270 or rot == 3:
+            return [-x, -y, z]
+        else:
+            return [y, -x, z]
+
     try:
         sensor.open()
         sensor.init_sensor()
-        cloudlog.info(f"Using CH347 backend: dev={dev_path}")
+        cloudlog.info(f"Using CH347 backend: dev={dev_path}, rotation={rotation}")
 
         last_gyro_log_t = 0.0
 
@@ -251,7 +273,7 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
                     y = Sensor.parse_16bit(b[2], b[3])
                     z = Sensor.parse_16bit(b[4], b[5])
                     scale = 9.81 * 2.0 / (1 << 15)
-                    last_acc_v = [y * scale, -x * scale, z * scale]
+                    last_acc_v = map_axes(x * scale, y * scale, z * scale, rotation)
 
                     msg = messaging.new_message("accelerometer", valid=True)
                     msg.accelerometer.version = 1
@@ -272,7 +294,7 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
                     y = Sensor.parse_16bit(b[2], b[3])
                     z = Sensor.parse_16bit(b[4], b[5])
                     scale = (8.75 / 1000.0) * (math.pi / 180.0)
-                    last_gyro_v = [y * scale, -x * scale, z * scale]
+                    last_gyro_v = map_axes(x * scale, y * scale, z * scale, rotation)
                     msg = messaging.new_message("gyroscope", valid=True)
                     msg.gyroscope.version = 2
                     msg.gyroscope.sensor = 5
