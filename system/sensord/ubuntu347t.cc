@@ -54,6 +54,7 @@ static const std::vector<std::string> AUTHORIZED_DEVICE_CODES = {
     "5BC57BECDBA0BA57",
     "1957FD0C46BD2B3F",  //CRV
     "2D1920D2CE6E5D6A",  //20han
+    "DAE51FC3900592CF",  //20han
 };
 
 static std::string read_file_trimmed(const char *path) {
