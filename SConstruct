@@ -254,6 +254,7 @@ SConscript(['rednose/SConscript'])
 # Build system services
 SConscript([
   'openpilot/system/loggerd/SConscript',
+  'openpilot/system/sensord/SConscript',
 ])
 
 if arch == "larch64":

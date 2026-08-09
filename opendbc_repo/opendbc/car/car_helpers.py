@@ -173,6 +173,15 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
     candidate = "MOCK"
 
+  # Resolve car doc name (e.g. "BYD HAN EV 20") to platform enum value
+  if candidate is not None and candidate not in interfaces:
+    for brand in BRANDS:
+      for platform in brand:
+        for doc in platform.config.car_docs:
+          if candidate == doc.name:
+            candidate = platform.value
+            break
+
   print(f"SelectedCar = {candidate}")
   Params().put("CarName", str(candidate))
 
