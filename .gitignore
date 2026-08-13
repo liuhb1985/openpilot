@@ -13,6 +13,12 @@ venv/
 model2.png
 a.out
 .hypothesis
+params/
+.comma/
+tools/sim.org
+.github
+.vscode
+.qoder
 
 /docs_site/
 
@@ -29,8 +35,22 @@ a.out
 *.o-*
 *.os
 *.os-*
+
+# Ignore .so and .a files except acados and libyuv libraries
 *.so
 *.a
+
+# Exceptions for acados libraries
+!third_party/acados/*/libacados.so
+!third_party/acados/*/libblasfeo.so
+!third_party/acados/*/libhpipm.so
+!third_party/acados/*/libqpOASES_e.so*
+!third_party/acados/*/lib/*.so
+!third_party/acados/*/lib/*.a
+
+# Exceptions for libyuv libraries
+!third_party/libyuv/*/lib/*.a
+!third_party/libyuv/*/lib/*.so
 *.clb
 *.class
 *.pyxbldc
@@ -41,17 +61,6 @@ config.json
 clcache
 compile_commands.json
 compare_runtime*.html
-__pycache__/
-.sconf_temp/
-config.log
-
-# Compiled Binaries
-camera/c3cam
-camera/cam_blindspot
-system/sensord/sensord
-system/sensord/sensord_jy62
-system/ubloxd/ubloxd
-tools/webcam/camerad
 
 persist
 selfdrive/pandad/pandad
@@ -116,8 +125,7 @@ Pipfile
 .history
 .ionide
 .vs
-
-# Allow CH347 library files
-!third_party/ch347/lib/**/*.so
-!third_party/ch347/lib/**/*.a
-!third_party/ch347/ch34x_pis.ko
+system/sensord_wt/sensord_wt
+system/sensord_wt/wt_calibration_tool
+opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc
+/opendbc_repo/opendbc/car/byd.dp
