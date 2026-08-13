@@ -250,17 +250,8 @@ class AMDComputeQueue(HWQueue):
     try:
       self.wreg(self.gc.regCOMPUTE_PGM_LO, *data64_le(prg.prog_addr >> 8))
     except Exception as e:
-      try:
-        with open("debug_regs.txt", "w") as f:
-          f.write(f"target: {self.dev.target}\n")
-          f.write(f"ip_versions: {self.dev.dev_iface.ip_versions}\n")
-          f.write(f"regs in gc: {list(self.gc.regs.keys())}\n")
-          f.write(f"has regCOMPUTE_PGM_LO: {'regCOMPUTE_PGM_LO' in self.gc.regs}\n")
-          f.write(f"has mmCOMPUTE_PGM_LO: {'mmCOMPUTE_PGM_LO' in self.gc.regs}\n")
-          f.write(f"matching regs: {[r for r in self.gc.regs if 'COMPUTE_PGM' in r or 'PGM' in r]}\n")
-      except Exception:
-        pass
-      raise e
+      msg = f"target: {self.dev.target}, ip_versions: {self.dev.dev_iface.ip_versions}, has_lo: {'regCOMPUTE_PGM_LO' in self.gc.regs}, has_mm_lo: {'mmCOMPUTE_PGM_LO' in self.gc.regs}, matching: {[r for r in self.gc.regs if 'COMPUTE_PGM' in r or 'PGM' in r]}"
+      raise KeyError(f"{e} | {msg}") from e
     self.wreg(self.gc.regCOMPUTE_PGM_RSRC1, prg.rsrc1, prg.rsrc2)
     self.wreg(self.gc.regCOMPUTE_PGM_RSRC3, prg.rsrc3)
     self.wreg(self.gc.regCOMPUTE_TMPRING_SIZE, prg.dev.tmpring_size)
