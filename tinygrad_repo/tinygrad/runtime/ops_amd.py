@@ -247,11 +247,7 @@ class AMDComputeQueue(HWQueue):
 
     if prg.dev.sqtt_enabled: self.sqtt_prg_marker(prg, global_size)
 
-    try:
-      self.wreg(self.gc.regCOMPUTE_PGM_LO, *data64_le(prg.prog_addr >> 8))
-    except Exception as e:
-      msg = f"target: {self.dev.target}, ip_versions: {self.dev.dev_iface.ip_versions}, has_lo: {'regCOMPUTE_PGM_LO' in self.gc.regs}, has_mm_lo: {'mmCOMPUTE_PGM_LO' in self.gc.regs}, matching: {[r for r in self.gc.regs if 'COMPUTE_PGM' in r or 'PGM' in r]}"
-      raise KeyError(f"{e} | {msg}") from e
+    self.wreg(self.gc.regCOMPUTE_PGM_LO, *data64_le(prg.prog_addr >> 8))
     self.wreg(self.gc.regCOMPUTE_PGM_RSRC1, prg.rsrc1, prg.rsrc2)
     self.wreg(self.gc.regCOMPUTE_PGM_RSRC3, prg.rsrc3)
     self.wreg(self.gc.regCOMPUTE_TMPRING_SIZE, prg.dev.tmpring_size)

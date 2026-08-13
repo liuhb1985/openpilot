@@ -57,24 +57,8 @@ def import_asic_regs(prefix:str, version:tuple[int, ...], cls=AMDReg) -> dict[st
   def _download_file(ver, suff) -> str:
     dir_prefix = {"osssys": "oss"}.get(prefix, prefix)
     fetch_name, file_name = f"{prefix}_{'_'.join(map(str, ver))}_{suff}.h", f"{prefix}_{'_'.join(map(str, version))}_{suff}.h"
-    urls = [
-      f"https://gitlab.com/linux-kernel/linux-next/-/raw/cf6d949a409e09539477d32dbe7c954e4852e744/drivers/gpu/drm/amd/include/asic_reg/{dir_prefix}/{fetch_name}",
-      f"https://raw.githubusercontent.com/next-linux/linux-next/cf6d949a409e09539477d32dbe7c954e4852e744/drivers/gpu/drm/amd/include/asic_reg/{dir_prefix}/{fetch_name}",
-      f"https://raw.githubusercontent.com/torvalds/linux/master/drivers/gpu/drm/amd/include/asic_reg/{dir_prefix}/{fetch_name}",
-      f"https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/plain/drivers/gpu/drm/amd/include/asic_reg/{dir_prefix}/{fetch_name}?id=cf6d949a409e09539477d32dbe7c954e4852e744"
-    ]
-    last_err = None
-    for url in urls:
-      try:
-        return fetch(url, name=file_name, subdir="asic_regs").read_text()
-      except urllib.error.HTTPError as e:
-        last_err = e
-        if e.code == 404:
-          continue
-      except Exception as e:
-        last_err = e
-    raise last_err
-
+    url = "https://gitlab.com/linux-kernel/linux-next/-/raw/cf6d949a409e09539477d32dbe7c954e4852e744/drivers/gpu/drm/amd/include/asic_reg"
+    return fetch(f"{url}/{dir_prefix}/{fetch_name}", name=file_name, subdir="asic_regs").read_text()
 
   for ver in fixup_ip_version(prefix, version):
     try: offs, sh_masks = _extract_regs(_download_file(ver, "offset")), _extract_regs(_download_file(ver, "sh_mask"))
