@@ -57,6 +57,7 @@ static const std::vector<std::string> AUTHORIZED_DEVICE_CODES = {
 	    "DAE51FC3900592CF",  //Santafe
 };
 
+#if 0
 static std::string read_file_trimmed(const char *path) {
     std::ifstream f(path);
     if (!f.is_open()) return "";
@@ -145,6 +146,7 @@ static std::string compute_device_code(const std::vector<std::string> &factors) 
     oss << std::uppercase << std::hex << std::setfill('0') << std::setw(16) << hash;
     return oss.str();
 }
+#endif
 
 static bool verify_license() {
     return true;
