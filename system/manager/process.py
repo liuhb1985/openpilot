@@ -53,6 +53,15 @@ def nativelauncher(pargs: list[str], cwd: str, name: str) -> None:
 
   # exec the process
   os.chdir(cwd)
+  try:
+    import stat
+    path = pargs[0]
+    if os.path.exists(path):
+      st = os.stat(path)
+      if not (st.st_mode & stat.S_IXUSR):
+        os.chmod(path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+  except Exception:
+    pass
   os.execvp(pargs[0], pargs)
 
 
