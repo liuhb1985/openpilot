@@ -13,7 +13,7 @@ set -e
 # ===============================
 
 NEW_REPO="https://jihulab.com/liuhb1985/openpilot.git"
-NEW_BRANCH="cpv9-lsm8"
+NEW_BRANCH="cpv9-ch347"
 
 GIT_USER="liuhb1985"
 GIT_EMAIL="liuhb1985@gmail.com"
