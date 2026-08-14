@@ -10,6 +10,9 @@ from tinygrad.helpers import DEBUG, getenv
 from tinygrad.tensor import _from_np_dtype
 from tinygrad.engine.realize import CompiledRunner
 
+os.environ["TINYGRAD_DEVICE"] = "CPU"
+os.environ["CLANG"] = "1"
+
 import onnx
 from onnx.helper import tensor_dtype_to_np_dtype
 from tinygrad.frontend.onnx import OnnxRunner, onnx_load
