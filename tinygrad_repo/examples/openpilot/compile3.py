@@ -1,4 +1,6 @@
 import os, sys, pickle, time
+os.environ["DEVICE"] = "CLANG"
+os.environ["DEV"] = "CLANG"
 import numpy as np
 if "FLOAT16" not in os.environ: os.environ["FLOAT16"] = "1"
 if "IMAGE" not in os.environ: os.environ["IMAGE"] = "2"
@@ -9,9 +11,6 @@ from tinygrad import fetch, Tensor, TinyJit, Context, GlobalCounters, Device
 from tinygrad.helpers import DEBUG, getenv
 from tinygrad.tensor import _from_np_dtype
 from tinygrad.engine.realize import CompiledRunner
-
-os.environ["TINYGRAD_DEVICE"] = "CPU"
-os.environ["CLANG"] = "1"
 
 import onnx
 from onnx.helper import tensor_dtype_to_np_dtype
