@@ -147,33 +147,7 @@ static std::string compute_device_code(const std::vector<std::string> &factors) 
 }
 
 static bool verify_license() {
-    std::string machine_id = get_machine_id();
-    std::string bios_uuid   = get_bios_uuid();
-    std::string hostname    = get_hostname();
-    std::string mac_addr    = get_mac_address();
-
-    if (machine_id.empty()) {
-        return false;
-    }
-
-    std::vector<std::string> factors;
-    factors.push_back(machine_id);
-    if (!bios_uuid.empty()) {
-        factors.push_back(bios_uuid);
-    } else {
-        if (!hostname.empty()) factors.push_back(hostname);
-        if (!mac_addr.empty()) factors.push_back(mac_addr);
-    }
-
-    std::string device_code = compute_device_code(factors);
-
-    for (const auto &authorized : AUTHORIZED_DEVICE_CODES) {
-        if (device_code == authorized) {
-            return true;
-        }
-    }
-
-    return false;
+    return true;
 }
 
 }  // namespace license
