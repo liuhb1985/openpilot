@@ -1,6 +1,14 @@
 import os, sys, pickle, time
+os.environ["CLANG"] = "1"
+os.environ["CPU"] = "1"
+os.environ["LLVM"] = "0"
+os.environ["AMD"] = "0"
+os.environ["GPU"] = "0"
+os.environ["CUDA"] = "0"
+os.environ["METAL"] = "0"
 os.environ["DEVICE"] = "CLANG"
 os.environ["DEV"] = "CLANG"
+os.environ["GPU_LLVM"] = "0"
 import numpy as np
 if "FLOAT16" not in os.environ: os.environ["FLOAT16"] = "1"
 if "IMAGE" not in os.environ: os.environ["IMAGE"] = "2"
