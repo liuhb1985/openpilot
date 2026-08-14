@@ -540,8 +540,8 @@ def main() -> None:
   magnetometer_available = is_magnetometer_present(i2c_bus_imu)
 
   sensors_cfg = [
-    (LSM6DS3_Accel(i2c_bus_imu), "accelerometer", True),
-    (LSM6DS3_Gyro(i2c_bus_imu), "gyroscope", True),
+    (LSM6DS3_Accel(i2c_bus_imu), "accelerometer", interrupt_available),
+    (LSM6DS3_Gyro(i2c_bus_imu), "gyroscope", interrupt_available),
     (LSM6DS3_Temp(i2c_bus_imu), "temperatureSensor", False),
   ]
   if HARDWARE.get_device_type() == "tizi":

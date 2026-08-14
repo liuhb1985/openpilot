@@ -35,19 +35,6 @@ class Sensor:
     assert chip_id in expected_ids
     return chip_id
 
-  def detect_i2c_device(self, candidate_addrs: Iterable[int], who_am_i_reg: int, expected_ids: Iterable[int]) -> tuple[int, int]:
-    expected = set(expected_ids)
-    for addr in candidate_addrs:
-      try:
-        chip_id = self.bus.read_i2c_block_data(addr, who_am_i_reg, 1)[0]
-      except OSError:
-        continue
-
-      if chip_id in expected:
-        return addr, chip_id
-
-    raise self.SensorException(f"unable to detect device on addresses: {[hex(a) for a in candidate_addrs]}")
-
   # Abstract methods that must be implemented by subclasses
   @property
   def device_address(self) -> int:

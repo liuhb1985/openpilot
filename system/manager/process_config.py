@@ -103,8 +103,8 @@ procs = [
   PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM and not USBCAM),
   
   # 系统状态记录：logcat 日志、进程资源消耗统计
-  NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad, enabled=not PC),
-  NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad, enabled=not PC),
+  NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad),
+  NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad),
   
   # 麦克风音频采集
   PythonProcess("micd", "system.micd", iscar),
@@ -115,27 +115,18 @@ procs = [
   PythonProcess("modeld", "selfdrive.modeld.modeld", only_onroad),
   # 驾驶员监控模型推理
   PythonProcess("dmonitoringmodeld", "selfdrive.modeld.dmonitoringmodeld", enable_dm, enabled=(WEBCAM or not PC)),
-  
-  # 传感器驱动系列：IMU、加速度计、陀螺仪
-  PythonProcess("sensord", "system.sensord.sensord", always_run, enabled=(PC and JY62==3), watchdog_max_dt=3),
-  # JY62 专用传感器驱动 (串口)
-  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", always_run, enabled=(PC and JY62==1)),
-  # CarrotPilot 原生 IMU 处理逻辑
-  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", always_run, enabled=(PC and JY62==0)),
-  
-  # 位置估算核心 (卡尔曼滤波)，发布 livePose
-  PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad, enabled=(JY62!=2)),
-  # 音频播放服务 (播报语音警报)
-  PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
-  # UI 界面渲染进程 (主屏幕显示)
+  #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], only_onroad),
+  #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], always_run),
+  #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
+  PythonProcess("sensord", "system.sensord.sensord", only_onroad, enabled=not PC),
+  # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
+  NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=PC),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
-  
-  # 备用音频播放服务
+  NativeProcess("sensord_ch347", "system/sensord", ["./ch347t"], always_run, enabled=PC, watchdog_max_dt=3),
+  #NativeProcess("ubuntu347t", "system/sensord", ["./ubuntu347t"], always_run, enabled=PC,watchdog_max_dt=3),
+  # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
-  # 基于 JY62 的专用位置估算进程
-  NativeProcess("locationd_jy62", "selfdrive/locationd", ["./locationd_jy62", "--type=jy62", "--device=/dev/ttyUSB0", "--baud=115200"], always_run, enabled=(JY62==2)),
-  
-  # Panda 固件更新管理 (内部逻辑，通常设为 False)
+  PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad),
   NativeProcess("_pandad", "selfdrive/pandad", ["./pandad"], always_run, enabled=False),
   
   # 摄像头在线校准进程 (计算俯仰角和偏航角)
@@ -181,10 +172,8 @@ procs = [
   PythonProcess("tombstoned", "system.tombstoned", always_run, enabled=not PC),
   # 系统自动更新进程
   PythonProcess("updated", "system.updated.updated", enable_updated, enabled=not PC),
-  # 日志自动上传进程
-  PythonProcess("uploader", "system.loggerd.uploader", enable_connect, enabled=not PC),
-  # 统计信息收集
-  PythonProcess("statsd", "system.statsd", always_run, enabled=not PC),
+  PythonProcess("uploader", "system.loggerd.uploader", enable_connect),
+  PythonProcess("statsd", "system.statsd", always_run),
 
   # 调试进程：消息桥接、WebRTC 远程画面、Web 摇杆
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
@@ -193,7 +182,7 @@ procs = [
   PythonProcess("joystick", "tools.joystick.joystick_control", and_(joystick, iscar)),
 
   #PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet, enabled=not PC),
-  PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet, enabled=not PC),
+  PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet),
   PythonProcess("carrot_man", "selfdrive.carrot.carrot_man", always_run),#, enabled=not PC),
 
   #Xiaoge data broadcaster (conditional on ShareData param)

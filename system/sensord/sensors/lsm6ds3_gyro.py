@@ -6,10 +6,6 @@ from cereal import log
 from openpilot.system.sensord.sensors.i2c_sensor import Sensor
 
 class LSM6DS3_Gyro(Sensor):
-  LSM6DS3_GYRO_I2C_ADDRS = (0x6A, 0x6B)
-  LSM6DS3_GYRO_WHO_AM_I_REG = 0x0F
-  LSM6DS3_GYRO_WHO_AM_I_IDS = (0x69, 0x6A)
-
   LSM6DS3_GYRO_I2C_REG_DRDY_CFG  = 0x0B
   LSM6DS3_GYRO_I2C_REG_INT1_CTRL = 0x0D
   LSM6DS3_GYRO_I2C_REG_CTRL2_G   = 0x11
@@ -31,23 +27,14 @@ class LSM6DS3_Gyro(Sensor):
 
   @property
   def device_address(self) -> int:
-    if not hasattr(self, "_device_address"):
-      self._device_address, self._chip_id = self.detect_i2c_device(
-        self.LSM6DS3_GYRO_I2C_ADDRS,
-        self.LSM6DS3_GYRO_WHO_AM_I_REG,
-        self.LSM6DS3_GYRO_WHO_AM_I_IDS,
-      )
-    return self._device_address
+    return 0x6A
 
   def reset(self):
     self.write(0x12, 0x1)
     time.sleep(0.1)
 
   def init(self):
-    chip_id = self.verify_chip_id(
-      self.LSM6DS3_GYRO_WHO_AM_I_REG,
-      list(self.LSM6DS3_GYRO_WHO_AM_I_IDS),
-    )
+    chip_id = self.verify_chip_id(0x0F, [0x69, 0x6A])
     if chip_id == 0x6A:
       self.source = log.SensorEventData.SensorSource.lsm6ds3trc
     else:
