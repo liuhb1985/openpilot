@@ -345,7 +345,6 @@ void CH347LSM6::write_u8(uint8_t reg, uint8_t value) {
 
 std::vector<uint8_t> CH347LSM6::read_block(uint8_t reg, int len) {
   uint8_t addr_w = static_cast<uint8_t>(addr_ << 1);
-  uint8_t addr_r = static_cast<uint8_t>((addr_ << 1) | 1);
 
   int ret_len = 0;
   std::vector<uint8_t> out;
@@ -727,10 +726,17 @@ static void publish_accelerometer(
   auto data = evt.initAccelerometer();
 
   data.setSource(source);
-  auto v = data.initV(3);
+  data.setVersion(1);
+  data.setSensor(1);
+  data.setType(1);
+  data.setTimestamp(evt.getLogMonoTime());
+
+  auto acc = data.initAcceleration();
+  auto v = acc.initV(3);
   v.set(0, x);
   v.set(1, y);
   v.set(2, z);
+  acc.setStatus(1);
 
   pm.send("accelerometer", msg);
 }
@@ -745,10 +751,17 @@ static void publish_gyroscope(
   auto data = evt.initGyroscope();
 
   data.setSource(source);
-  auto v = data.initV(3);
+  data.setVersion(2);
+  data.setSensor(5);
+  data.setType(16);
+  data.setTimestamp(evt.getLogMonoTime());
+
+  auto gyro = data.initGyroUncalibrated();
+  auto v = gyro.initV(3);
   v.set(0, x);
   v.set(1, y);
   v.set(2, z);
+  gyro.setStatus(1);
 
   pm.send("gyroscope", msg);
 }
@@ -822,7 +835,6 @@ static void sensor_read_loop(
   while (!do_exit) {
     rk.keepTime();
 
-    int i2c_error = 0;
     bool fresh_acc = false;
     bool fresh_gyro = false;
 
@@ -893,7 +905,6 @@ static void sensor_read_loop(
       reinit_attempts = 0;
 
     } catch (const std::exception &e) {
-      ++i2c_error;
       ++consecutive_errors;
 
       if (cache.have_acc || cache.have_gyro) {
@@ -1025,7 +1036,7 @@ int main(int argc, char **argv) {
   }
 
   PubMaster pm({"accelerometer", "gyroscope", "temperatureSensor"});
-  RateKeeper rk(104.0, 1000000);
+  RateKeeper rk("sensord_ch347", 104.0f);
 
   std::string ch347_dev;
   std::string ch347_lib;
