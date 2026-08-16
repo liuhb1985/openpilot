@@ -669,7 +669,7 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
         float y = (int16_t)((uint16_t)fresh_acc_raw[3] << 8 | fresh_acc_raw[2]);
         float z = (int16_t)((uint16_t)fresh_acc_raw[5] << 8 | fresh_acc_raw[4]);
         float scale = 9.81f * 2.0f / (1 << 15);
-        float raw[3] = {y * scale, -x * scale, z * scale};
+        float raw[3] = {-y * scale, x * scale, z * scale};
         mat3_mul_vec3(state.imu_calib_R, raw, fresh_acc);
         fresh_acc_valid = true;
         memcpy(state.last_acc_v, fresh_acc, sizeof(fresh_acc));
@@ -685,7 +685,7 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
         float y = (int16_t)((uint16_t)fresh_gyro_raw[3] << 8 | fresh_gyro_raw[2]);
         float z = (int16_t)((uint16_t)fresh_gyro_raw[5] << 8 | fresh_gyro_raw[4]);
         float scale = (8.75f / 1000.0f) * (M_PI / 180.0f);
-        float raw[3] = {y * scale, -x * scale, z * scale};
+        float raw[3] = {-y * scale, x * scale, z * scale};
         mat3_mul_vec3(state.imu_calib_R, raw, fresh_gyro);
         fresh_gyro_valid = true;
         memcpy(state.last_gyro_v, fresh_gyro, sizeof(fresh_gyro));

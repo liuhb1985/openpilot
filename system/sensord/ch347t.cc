@@ -857,8 +857,8 @@ static void sensor_read_loop(
               static_cast<uint16_t>(b[4]) |
               (static_cast<uint16_t>(b[5]) << 8));
 
-          cache.acc[0] = x * ACCEL_SCALE;
-          cache.acc[1] = y * ACCEL_SCALE;
+          cache.acc[0] = -y * ACCEL_SCALE;
+          cache.acc[1] = x * ACCEL_SCALE;
           cache.acc[2] = z * ACCEL_SCALE;
           cache.have_acc = true;
           fresh_acc = true;
@@ -878,8 +878,8 @@ static void sensor_read_loop(
               static_cast<uint16_t>(b[4]) |
               (static_cast<uint16_t>(b[5]) << 8));
 
-          cache.gyro[0] = x * GYRO_SCALE;
-          cache.gyro[1] = y * GYRO_SCALE;
+          cache.gyro[0] = -y * GYRO_SCALE;
+          cache.gyro[1] = x * GYRO_SCALE;
           cache.gyro[2] = z * GYRO_SCALE;
           cache.have_gyro = true;
           fresh_gyro = true;
