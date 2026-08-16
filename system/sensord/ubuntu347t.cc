@@ -643,12 +643,12 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
   float yaw_offset = 0.0f;
   bool yaw_calibrated = false;
   std::vector<std::pair<float, float>> yaw_samples;
-  std::string yaw_param_path = "/data/params/d/ImuYawOffset";
 
-  std::ifstream yaw_file(yaw_param_path);
+  std::string load_path = "/data/params/d/ImuYawOffset";
+  std::ifstream yaw_file(load_path);
   if (!yaw_file.is_open()) {
-    yaw_param_path = "/tmp/imu_yaw_offset";
-    yaw_file.open(yaw_param_path);
+    load_path = "/tmp/imu_yaw_offset";
+    yaw_file.open(load_path);
   }
   if (yaw_file.is_open()) {
     if (yaw_file >> yaw_offset) {
@@ -718,7 +718,7 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
       float ay = fresh_acc[1];
       float norm = std::sqrt(ax * ax + ay * ay);
 
-      if (std::fabs(gz) < 0.05f && norm > 0.8f && norm < 4.0f) {
+      if (std::fabs(gz) < 0.02f && norm > 1.0f && norm < 4.0f) {
         yaw_samples.push_back({ax, ay});
         if (yaw_samples.size() >= 150) {
           float sum_x = 0, sum_y = 0;
@@ -731,10 +731,11 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
           yaw_offset = std::atan2(-avg_y, -avg_x);
           yaw_calibrated = true;
 
-          std::ofstream out_file(yaw_param_path);
+          std::string save_path = "/data/params/d/ImuYawOffset";
+          std::ofstream out_file(save_path);
           if (!out_file.is_open()) {
-            yaw_param_path = "/tmp/imu_yaw_offset";
-            out_file.open(yaw_param_path);
+            save_path = "/tmp/imu_yaw_offset";
+            out_file.open(save_path);
           }
           if (out_file.is_open()) {
             out_file << yaw_offset;
