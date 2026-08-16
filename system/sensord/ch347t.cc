@@ -832,6 +832,24 @@ static void sensor_read_loop(
   bool send_stale = false;
   uint64_t last_log_t = 0;
 
+  float yaw_offset = 0.0f;
+  bool yaw_calibrated = false;
+  std::vector<std::pair<float, float>> yaw_samples;
+  std::string yaw_param_path = "/data/params/d/ImuYawOffset";
+
+  std::ifstream yaw_file(yaw_param_path);
+  if (!yaw_file.is_open()) {
+    yaw_param_path = "/tmp/imu_yaw_offset";
+    yaw_file.open(yaw_param_path);
+  }
+  if (yaw_file.is_open()) {
+    if (yaw_file >> yaw_offset) {
+      yaw_calibrated = true;
+      cloudlog_e(INFO, "system/sensord/ch347t.cc", 0, "sensor_read_loop", "Loaded saved ImuYawOffset: %.4f rad", yaw_offset);
+    }
+    yaw_file.close();
+  }
+
   while (!do_exit) {
     rk.keepTime();
 
@@ -956,6 +974,61 @@ static void sensor_read_loop(
       }
 
       usleep(2000);
+    }
+
+    // 自动 XY 偏航角自适应标定
+    if (!yaw_calibrated && cache.have_acc && cache.have_gyro && fresh_acc && fresh_gyro) {
+      float gz = cache.gyro[2];
+      float ax = cache.acc[0];
+      float ay = cache.acc[1];
+      float norm = sqrt(ax * ax + ay * ay);
+
+      if (fabs(gz) < 0.05f && norm > 0.8f && norm < 4.0f) {
+        yaw_samples.push_back({ax, ay});
+        if (yaw_samples.size() >= 150) {
+          float sum_x = 0, sum_y = 0;
+          for (const auto& s : yaw_samples) {
+            sum_x += s.first;
+            sum_y += s.second;
+          }
+          float avg_x = sum_x / yaw_samples.size();
+          float avg_y = sum_y / yaw_samples.size();
+          yaw_offset = atan2(-avg_y, -avg_x);
+          yaw_calibrated = true;
+
+          std::ofstream out_file(yaw_param_path);
+          if (!out_file.is_open()) {
+            yaw_param_path = "/tmp/imu_yaw_offset";
+            out_file.open(yaw_param_path);
+          }
+          if (out_file.is_open()) {
+            out_file << yaw_offset;
+            out_file.close();
+          }
+          cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0, "sensor_read_loop",
+                     "IMU Yaw auto-calibrated: %.4f rad (%.2f deg)", yaw_offset, yaw_offset * 180.0f / M_PI);
+        }
+      }
+    }
+
+    // 应用自适应 XY 旋转
+    if (yaw_calibrated) {
+      float cos_y = cos(yaw_offset);
+      float sin_y = sin(yaw_offset);
+
+      if (cache.have_acc && (fresh_acc || send_stale)) {
+        float rx = cache.acc[0];
+        float ry = cache.acc[1];
+        cache.acc[0] = rx * cos_y - ry * sin_y;
+        cache.acc[1] = rx * sin_y + ry * cos_y;
+      }
+
+      if (cache.have_gyro && (fresh_gyro || send_stale)) {
+        float gx = cache.gyro[0];
+        float gy = cache.gyro[1];
+        cache.gyro[0] = gx * cos_y - gy * sin_y;
+        cache.gyro[1] = gx * sin_y + gy * cos_y;
+      }
     }
 
     const auto source = sensor.source();
