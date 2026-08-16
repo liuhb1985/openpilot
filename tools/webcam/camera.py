@@ -73,7 +73,16 @@ class CameraMJPG:
         except ValueError:
             pass
 
-        self.cap = cv2.VideoCapture(camera_id)
+        self.camera_id = camera_id
+        self.cam_type_state = cam_type_state
+        self.stream_type = stream_type
+
+        # 显式使用 V4L2 后端，避免 GStreamer 探测在 Ubuntu 24.04 下死锁 busy-wait
+        try:
+            self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
+        except Exception:
+            self.cap = cv2.VideoCapture(self.camera_id)
+
         if not self.cap.isOpened():
             raise OSError(f"无法打开摄像头设备 {camera_id}")
 
@@ -87,8 +96,6 @@ class CameraMJPG:
         self.W = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.H = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.cur_frame_id = 0
-        self.cam_type_state = cam_type_state
-        self.stream_type = stream_type
         self.current_format = actual_format
 
         # 重构：使用单个高效的后台线程执行顺序读取与转码，彻底消除多线程 GIL 争抢与 CPU 忙等
@@ -111,20 +118,45 @@ class CameraMJPG:
         return ''.join([chr((fourcc_code >> 8 * i) & 0xFF) for i in range(4)])
 
     def _frame_pipeline(self):
-        """高效单线程视频流处理管线"""
+        """高效单线程视频流处理管线 (支持防死锁自动重连)"""
         consecutive_failures = 0
         while not self.stop_event.is_set():
-            ret, frame = self.cap.read()
+            ret = False
+            frame = None
+            try:
+                ret, frame = self.cap.read()
+            except Exception as e:
+                print(f"[ERROR] VideoCapture read exception: {e}")
+                ret = False
+
             if not ret:
                 consecutive_failures += 1
-                if consecutive_failures % 10 == 0:
+                if consecutive_failures % 5 == 0:
                     print(f"[WARN] Camera {self.cam_type_state} read failed ({consecutive_failures} times consecutively)")
-                if consecutive_failures > 50:
-                    print(f"[ERROR] Camera {self.cam_type_state} read failed 50 times consecutively. Stopping.")
-                    self.stop_event.set()
-                    break
-                self.stop_event.wait(0.05)
+                
+                # 连续失败达到 5 次，释放 cap 连接进入静默等待，以保护内核 uvcvideo 驱动防 CPU 飙升死锁
+                if consecutive_failures >= 5:
+                    print(f"[RECOVER] Camera {self.cam_type_state} resetting connection to prevent CPU busy-wait...")
+                    try:
+                        self.cap.release()
+                    except Exception:
+                        pass
+                    
+                    # 静默等待 2 秒以释放系统资源
+                    self.stop_event.wait(2.0)
+                    
+                    try:
+                        try:
+                            self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
+                        except Exception:
+                            self.cap = cv2.VideoCapture(self.camera_id)
+                        self._configure_camera_format("MJPG", self.W, self.H)
+                    except Exception as err:
+                        print(f"[RECOVER] Re-initializing camera failed: {err}")
+                else:
+                    self.stop_event.wait(0.2)
                 continue
+
             consecutive_failures = 0
 
             # 校验数据形状
