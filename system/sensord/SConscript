@@ -3,4 +3,3 @@ Import('env', 'messaging', 'common')
 libs = [messaging, 'pthread', common, 'dl']
 env.Program('ch347t', 'ch347t.cc', LIBS=libs)
 env.Program('ubuntu347t', 'ubuntu347t.cc', LIBS=libs)
-env.Program('uch347t', 'uch347t.cc', LIBS=libs)

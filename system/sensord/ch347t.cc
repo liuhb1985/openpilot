@@ -830,6 +830,7 @@ static void sensor_read_loop(
   int consecutive_errors = 0;
   int reinit_attempts = 0;
   bool send_stale = false;
+  uint64_t last_log_t = 0;
 
   while (!do_exit) {
     rk.keepTime();
@@ -900,6 +901,12 @@ static void sensor_read_loop(
         // Temperature is non-critical.
       }
 
+      if (consecutive_errors > 0) {
+        fprintf(stderr, "system/sensord/ch347t.cc: %s: I2C recovered after %d errors\n",
+                backend_name.c_str(), consecutive_errors);
+        fflush(stderr);
+      }
+
       consecutive_errors = 0;
       reinit_attempts = 0;
 
@@ -915,6 +922,10 @@ static void sensor_read_loop(
                    backend_name.c_str(),
                    consecutive_errors,
                    REINIT_ERROR_THRESHOLD);
+
+        fprintf(stderr, "system/sensord/ch347t.cc: %s: I2C error, sending stale data (%d/%d)\n",
+                backend_name.c_str(), consecutive_errors, REINIT_ERROR_THRESHOLD);
+        fflush(stderr);
       }
 
       if (consecutive_errors >= REINIT_ERROR_THRESHOLD) {
@@ -980,6 +991,18 @@ static void sensor_read_loop(
     }
 
     send_stale = false;
+
+    uint64_t now = nanos_since_boot();
+    if (now - last_log_t > 1e9) {
+      if (cache.have_acc && cache.have_gyro) {
+        fprintf(stderr, "[ch347t] ACC: [%9.4f, %9.4f, %9.4f] m/s2\n",
+                cache.acc[0], cache.acc[1], cache.acc[2]);
+        fprintf(stderr, "[ch347t] GYRO: [%9.5f, %9.5f, %9.5f] rad/s\n",
+                cache.gyro[0], cache.gyro[1], cache.gyro[2]);
+        fflush(stderr);
+      }
+      last_log_t = now;
+    }
   }
 
   try {
