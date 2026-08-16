@@ -856,32 +856,43 @@ class CarrotMan:
       try:
         socks = dict(poller.poll(100))
 
+        received_req = False
         if socket in socks and socks[socket] == zmq.POLLIN:
           message = socket.recv(zmq.NOBLOCK)
           print(f"收到 7710 请求: {message}")
-          json_obj = json.loads(message.decode())
+          try:
+            json_obj = json.loads(message.decode())
+            received_req = True
+          except Exception as e:
+            json_obj = None
+            received_req = False
+            # 发送解析失败回复以重置 REP 状态机
+            echo = json.dumps({"error": f"JSON decode error: {str(e)}"})
+            socket.send(echo.encode())
         else:
           json_obj = None
 
         if json_obj is None:
-          isOnroadCount = isOnroadCount + 1 if self.params.get_bool("IsOnroad") else 0
-          if isOnroadCount == 0:
-            is_tmux_sent = False
-          if isOnroadCount == 1:
-            self.show_panda_debug = True
+          # 仅在没有收到任何网络请求（poll超时）时，才运行 periodic timer 逻辑
+          if not received_req:
+            isOnroadCount = isOnroadCount + 1 if self.params.get_bool("IsOnroad") else 0
+            if isOnroadCount == 0:
+              is_tmux_sent = False
+            if isOnroadCount == 1:
+              self.show_panda_debug = True
 
-          network_type = self.sm['deviceState'].networkType # if not force_wifi else NetworkType.wifi
-          networkConnected = False if network_type == NetworkType.none else True
+            network_type = self.sm['deviceState'].networkType # if not force_wifi else NetworkType.wifi
+            networkConnected = False if network_type == NetworkType.none else True
 
-          if isOnroadCount == 500:
-            self.make_tmux_data()
-          if isOnroadCount > 500 and not is_tmux_sent and networkConnected:
-            self.send_tmux("Ekdrmsvkdlffjt7710", "onroad", send_settings = True)
-            is_tmux_sent = True
-          if self.params.get_bool("CarrotException") and networkConnected:
-            self.params.put_bool("CarrotException", False)
-            self.make_tmux_data()
-            self.send_tmux("Ekdrmsvkdlffjt7710", "exception")
+            if isOnroadCount == 500:
+              self.make_tmux_data()
+            if isOnroadCount > 500 and not is_tmux_sent and networkConnected:
+              self.send_tmux("Ekdrmsvkdlffjt7710", "onroad", send_settings = True)
+              is_tmux_sent = True
+            if self.params.get_bool("CarrotException") and networkConnected:
+              self.params.put_bool("CarrotException", False)
+              self.make_tmux_data()
+              self.send_tmux("Ekdrmsvkdlffjt7710", "exception")
         elif 'echo_cmd' in json_obj:
           try:
             result = subprocess.run(json_obj['echo_cmd'], shell=True, capture_output=True, text=False)
@@ -902,6 +913,10 @@ class CarrotMan:
           self.make_tmux_data()
           self.send_tmux(json_obj['tmux_send'], "tmux_send")
           echo = json.dumps({"tmux_send": json_obj['tmux_send'], "result": "success"})
+          socket.send(echo.encode())
+        else:
+          # 收到不受支持的有效 JSON 请求，回复以重置 REP 状态机，防止死锁
+          echo = json.dumps({"error": "unsupported command", "result": "ignored"})
           socket.send(echo.encode())
       except Exception as e:
         print(f"carrot_cmd_zmq 错误: {e}")

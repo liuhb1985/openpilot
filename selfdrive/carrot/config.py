@@ -109,15 +109,28 @@ class UnifiedParams:
             self._match_system_param()
 
     def _save_nav_data(self):
-        """保存自定义参数到文件"""
+        """保存自定义参数到文件 (非阻塞异步写入)"""
         try:
-            nav_dir = os.path.dirname(self.nav_json_file)
-            if not os.path.exists(nav_dir):
-                os.makedirs(nav_dir)
-            with open(self.nav_json_file, 'w', encoding='utf-8') as f:
-                json.dump(self.nav_data, f, indent=2, ensure_ascii=False)
-        except (OSError, IOError) as e:
-            print(f"❌ 保存自定义参数失败: {e}")
+            # 在主线程中先序列化为 JSON 字符串，避免多线程修改字典冲突
+            data_str = json.dumps(self.nav_data, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ 序列化自定义参数失败: {e}")
+            return
+
+        import threading
+        def save_thread(content):
+            try:
+                nav_dir = os.path.dirname(self.nav_json_file)
+                if not os.path.exists(nav_dir):
+                    os.makedirs(nav_dir)
+                temp_file = self.nav_json_file + ".tmp"
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                os.replace(temp_file, self.nav_json_file)
+            except (OSError, IOError) as e:
+                print(f"❌ 写入自定义参数文件失败: {e}")
+
+        threading.Thread(target=save_thread, args=(data_str,), name="SaveNavParamsThread", daemon=True).start()
 
     def _get_default_nav_data(self):
         """获取最优默认自定义参数数据"""

@@ -988,7 +988,9 @@ static void sensor_read_loop(
       float norm = std::sqrt(ax * ax + ay * ay);
 
       if (std::fabs(gz) < 0.02f && norm > 1.0f && norm < 4.0f) {
-        yaw_samples.push_back({ax, ay});
+        // 解决加速与减速方向混淆Bug：通过投影将所有向量对齐到同一正半平面（ax >= 0）
+        float sign = (ax >= 0.0f) ? 1.0f : -1.0f;
+        yaw_samples.push_back({ax * sign, ay * sign});
         if (yaw_samples.size() >= 150) {
           float sum_x = 0, sum_y = 0;
           for (const auto& s : yaw_samples) {
@@ -997,6 +999,7 @@ static void sensor_read_loop(
           }
           float avg_x = sum_x / yaw_samples.size();
           float avg_y = sum_y / yaw_samples.size();
+          // avg_x对应的是减速方向，取相反方向计算车辆正向的偏航角
           yaw_offset = std::atan2(-avg_y, -avg_x);
           yaw_calibrated = true;
 
