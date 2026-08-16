@@ -997,27 +997,7 @@ static void sensor_read_loop(
 //   return bool
 // -----------------------------------------------------------------------------
 
-static bool wait_for_ch347(std::string &dev_path,
-                           std::string &lib_path) {
-  cloudlog_e(INFO, "system/sensord/ch347t.cc", 0,
-             "wait_for_ch347",
-             "Waiting up to %ds for CH347 device...",
-             CH347_WAIT_SECONDS);
 
-  for (int sec = 0; sec < CH347_WAIT_SECONDS; ++sec) {
-    if (detect_ch347_backend(dev_path, lib_path)) {
-      cloudlog_e(INFO, "system/sensord/ch347t.cc", 0,
-                 "wait_for_ch347",
-                 "CH347 device detected after %ds", sec);
-      return true;
-    }
-
-    if (do_exit) return false;
-    sleep(1);
-  }
-
-  return false;
-}
 
 // -----------------------------------------------------------------------------
 // main
