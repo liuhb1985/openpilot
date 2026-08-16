@@ -3,6 +3,25 @@
 # 设置终端窗口标题为 "Log Window" 以便 wmctrl 精准定位
 echo -ne "\033]0;Log Window\007"
 
+# -----------------------------------------------------------------------------
+# 系统级性能终极优化 (超低延迟、防卡死、高性能模式)
+# -----------------------------------------------------------------------------
+echo "正在注入系统级极客优化..."
+# 1. 强锁 CPU 高性能模式
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+# 2. 降低 Swappiness 阻断内存颠簸换出
+sudo sysctl -w vm.swappiness=10 >/dev/null 2>&1
+# 3. 调大本地套接字内核缓冲区以防 VisionIPC 视频流丢包绿屏
+sudo sysctl -w net.core.rmem_max=26214400 >/dev/null 2>&1
+sudo sysctl -w net.core.wmem_max=26214400 >/dev/null 2>&1
+# 4. 配置 OpenCL / GPU 推理持久化编译缓存
+export TI_WITH_OPENCL=1
+export PYOPENCL_COMPILER_OUTPUT=0
+export SYCL_CACHE_DIR=$(pwd)/.cl_cache
+mkdir -p "$SYCL_CACHE_DIR"
+echo "系统级优化注入完毕 ✓"
+# -----------------------------------------------------------------------------
+
 # 设置 USB 权限
 sudo chmod -R 777 /dev/bus/usb/*
 sudo chmod 666 /dev/i2c-*
