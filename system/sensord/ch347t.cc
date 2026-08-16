@@ -80,7 +80,6 @@ static constexpr int DEFAULT_I2C_BUS = 19;
 // The ELF contains these exact strings/thresholds.
 static constexpr int REINIT_ERROR_THRESHOLD = 4;
 static constexpr int MAX_REINIT_ATTEMPTS = 2;
-static constexpr int CH347_WAIT_SECONDS = 50;
 
 // -----------------------------------------------------------------------------
 // Abstract LSM6DS3 interface
