@@ -13,6 +13,8 @@
 //   some control-flow details are inferred.
 // =============================================================================
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -981,9 +983,9 @@ static void sensor_read_loop(
       float gz = cache.gyro[2];
       float ax = cache.acc[0];
       float ay = cache.acc[1];
-      float norm = sqrt(ax * ax + ay * ay);
+      float norm = std::sqrt(ax * ax + ay * ay);
 
-      if (fabs(gz) < 0.05f && norm > 0.8f && norm < 4.0f) {
+      if (std::fabs(gz) < 0.05f && norm > 0.8f && norm < 4.0f) {
         yaw_samples.push_back({ax, ay});
         if (yaw_samples.size() >= 150) {
           float sum_x = 0, sum_y = 0;
@@ -993,7 +995,7 @@ static void sensor_read_loop(
           }
           float avg_x = sum_x / yaw_samples.size();
           float avg_y = sum_y / yaw_samples.size();
-          yaw_offset = atan2(-avg_y, -avg_x);
+          yaw_offset = std::atan2(-avg_y, -avg_x);
           yaw_calibrated = true;
 
           std::ofstream out_file(yaw_param_path);
@@ -1013,8 +1015,8 @@ static void sensor_read_loop(
 
     // 应用自适应 XY 旋转
     if (yaw_calibrated) {
-      float cos_y = cos(yaw_offset);
-      float sin_y = sin(yaw_offset);
+      float cos_y = std::cos(yaw_offset);
+      float sin_y = std::sin(yaw_offset);
 
       if (cache.have_acc && (fresh_acc || send_stale)) {
         float rx = cache.acc[0];
