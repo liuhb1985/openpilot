@@ -833,6 +833,8 @@ static void sensor_read_loop(
   int reinit_attempts = 0;
   bool send_stale = false;
   uint64_t last_log_t = 0;
+  float last_printed_acc[3] = {0};
+  float last_printed_gyro[3] = {0};
 
   float yaw_offset = 0.0f;
   bool yaw_calibrated = false;
@@ -1069,7 +1071,23 @@ static void sensor_read_loop(
     send_stale = false;
 
     uint64_t now = nanos_since_boot();
-    if (now - last_log_t > 5e9) {
+    float diff_acc = 0.0f;
+    float diff_gyro = 0.0f;
+    if (cache.have_acc) {
+      diff_acc = std::max({std::fabs(cache.acc[0] - last_printed_acc[0]),
+                           std::fabs(cache.acc[1] - last_printed_acc[1]),
+                           std::fabs(cache.acc[2] - last_printed_acc[2])});
+    }
+    if (cache.have_gyro) {
+      diff_gyro = std::max({std::fabs(cache.gyro[0] - last_printed_gyro[0]),
+                            std::fabs(cache.gyro[1] - last_printed_gyro[1]),
+                            std::fabs(cache.gyro[2] - last_printed_gyro[2])});
+    }
+
+    bool big_change = (diff_acc > 0.5f) || (diff_gyro > 0.05f);
+    uint64_t print_interval = big_change ? 1e9 : 10e9; // 变化大时1s，变化小时10s
+
+    if (now - last_log_t > print_interval) {
       if (cache.have_acc && cache.have_gyro) {
         fprintf(stderr, "[ch347t] ACC: [%9.4f, %9.4f, %9.4f] m/s2\n",
                 cache.acc[0], cache.acc[1], cache.acc[2]);
@@ -1078,6 +1096,12 @@ static void sensor_read_loop(
         fflush(stderr);
       }
       last_log_t = now;
+      if (cache.have_acc) {
+        memcpy(last_printed_acc, cache.acc, sizeof(last_printed_acc));
+      }
+      if (cache.have_gyro) {
+        memcpy(last_printed_gyro, cache.gyro, sizeof(last_printed_gyro));
+      }
     }
   }
 

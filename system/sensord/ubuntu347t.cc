@@ -662,6 +662,8 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
   uint64_t last_log_t = 0;
   uint64_t stale_log_t = 0;
   uint64_t freeze_log_t = 0;
+  float last_printed_acc[3] = {0};
+  float last_printed_gyro[3] = {0};
 
   auto source = state.sensor.sensor_source();
 
@@ -942,7 +944,23 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
     // 8. 控制台调试日志
     {
       uint64_t now = nanos_since_boot();
-      if (now - last_log_t > 5e9) {
+      float diff_acc = 0.0f;
+      float diff_gyro = 0.0f;
+      if (state.has_acc_raw) {
+        diff_acc = std::max({std::fabs(state.last_acc_v[0] - last_printed_acc[0]),
+                             std::fabs(state.last_acc_v[1] - last_printed_acc[1]),
+                             std::fabs(state.last_acc_v[2] - last_printed_acc[2])});
+      }
+      if (state.has_gyro_raw) {
+        diff_gyro = std::max({std::fabs(state.last_gyro_v[0] - last_printed_gyro[0]),
+                              std::fabs(state.last_gyro_v[1] - last_printed_gyro[1]),
+                              std::fabs(state.last_gyro_v[2] - last_printed_gyro[2])});
+      }
+
+      bool big_change = (diff_acc > 0.5f) || (diff_gyro > 0.05f);
+      uint64_t print_interval = big_change ? 1e9 : 10e9; // 变化大时1s，变化小时10s
+
+      if (now - last_log_t > print_interval) {
         if (serious_frozen) {
           uint8_t who = 0;
           bool who_ok = false;
@@ -963,6 +981,12 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
         }
         fflush(stderr);
         last_log_t = now;
+        if (state.has_acc_raw) {
+          memcpy(last_printed_acc, state.last_acc_v, sizeof(last_printed_acc));
+        }
+        if (state.has_gyro_raw) {
+          memcpy(last_printed_gyro, state.last_gyro_v, sizeof(last_printed_gyro));
+        }
       }
     }
 
