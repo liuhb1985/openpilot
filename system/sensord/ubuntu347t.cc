@@ -941,7 +941,7 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
     // 8. 控制台调试日志
     {
       uint64_t now = nanos_since_boot();
-      if (now - last_log_t > 1e9) {
+      if (now - last_log_t > 5e9) {
         if (serious_frozen) {
           uint8_t who = 0;
           bool who_ok = false;

@@ -1068,7 +1068,7 @@ static void sensor_read_loop(
     send_stale = false;
 
     uint64_t now = nanos_since_boot();
-    if (now - last_log_t > 1e9) {
+    if (now - last_log_t > 5e9) {
       if (cache.have_acc && cache.have_gyro) {
         fprintf(stderr, "[ch347t] ACC: [%9.4f, %9.4f, %9.4f] m/s2\n",
                 cache.acc[0], cache.acc[1], cache.acc[2]);
