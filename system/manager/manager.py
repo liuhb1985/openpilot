@@ -151,12 +151,12 @@ def get_default_params():
     ("LaneChangeBsd", "1"),  # 变道盲区监测开关
     ("MaxAngleFrames", "89"),  # 大转角保持最大允许帧数
     ("LateralTorqueCustom", "1"),  # 启用自定义扭矩控制参数 (忽略预设)
-    ("LateralTorqueAccelFactor", "2800"),  # 侧向扭矩加速度增益系数
-    ("LateralTorqueFriction", "100"),  # 侧向扭矩摩擦力静态补偿
-    ("LateralTorqueKpV", "65"),  # 侧向扭矩 P 比例增益
+    ("LateralTorqueAccelFactor", "2900"),  # 侧向扭矩加速度增益系数
+    ("LateralTorqueFriction", "110"),  # 侧向扭矩摩擦力静态补偿
+    ("LateralTorqueKpV", "80"),  # 侧向扭矩 P 比例增益
     ("LateralTorqueKiV", "5"),  # 侧向扭矩 I 积分增益
     ("LateralTorqueKf", "90"),  # 侧向扭矩 FF 前馈增益
-    ("LateralTorqueKd", "5"),  # 侧向扭矩 D 微分增益
+    ("LateralTorqueKd", "0"),  # 侧向扭矩 D 微分增益
     ("LatMpcPathCost", "200"),  # 侧向 MPC 控制路径代价
     ("LatMpcMotionCost", "7"),  # 侧向 MPC 控制运动代价
     ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数 (放宽限制以保住弯道)
@@ -183,7 +183,7 @@ def get_default_params():
     ("AutoPandaUpdate", "0"),  # 默认开启 Panda 固件自动更新
     ("HotspotOnBoot", "0"),  # 开机自动开启 WiFi 热点
     ("SoftwareMenu", "1"),  # 开启软件菜单显示
-    ("CustomSR", "145"),  # 自定义转向比 (14.5)
+    ("CustomSR", "158"),  # 自定义转向比 (15.8)
     ("SteerRatioRate", "100"),  # 动态转向比调节速率
     ("NNFF", "1"),  # 启用神经网络前馈控制 (NNFF)
     ("NNFFLite", "0"),  # 启用轻量级神经网络前馈
@@ -233,6 +233,19 @@ def manager_init() -> None:
   for k, v in default_params:
     if params.get(k) is None:
       params.put(k, v)
+
+  # 自动迁移：首次启动强制升级为最稳定的胜达横向黄金参数
+  if not params.get_bool("SantaFeParamsTuned3"):
+    params.put("CustomSR", "158")
+    params.put("LateralTorqueAccelFactor", "2900")
+    params.put("LateralTorqueFriction", "110")
+    params.put("LateralTorqueKpV", "80")
+    params.put("LateralTorqueKiV", "5")
+    params.put("LateralTorqueKd", "0")
+    params.put("SteerActuatorDelay", "15")
+    params.put_bool("SantaFeParamsTuned3", True)
+    print("[Migration] Successfully updated lateral parameters to Santa Fe golden values!")
+
 
   # Create folders needed for msgq
   try:
