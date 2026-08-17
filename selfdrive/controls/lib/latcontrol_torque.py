@@ -190,11 +190,14 @@ class LatControlTorque(LatControl):
           actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo
         actual_curvature_raw = np.interp(CS.vEgo, [3.0, 8.0], [actual_curvature_vm, actual_curvature_llk])
         
-        # 针对低速/路口细碎波动优化：引入随车速动态变化的 EMA 滤波，低速强平滑，高速无滞后
+        # 针对低速/路口细碎波动优化：引入随车速与期望曲率动态变化的 EMA 滤波
+        # 低速下保持强滤波防止方向盘碎步调整；高速直道上（曲率极小）同样加强滤波，抑制被车速平方（v_ego^2）放大的 IMU 陀螺仪高频噪声；弯道中放开滤波保证响应
         if self.actual_curvature_ema == 0.0:
           self.actual_curvature_ema = actual_curvature_raw
         
-        alpha = np.interp(CS.vEgo, [3.0, 10.0], [0.15, 1.0])
+        base_alpha = np.interp(CS.vEgo, [3.0, 15.0], [0.15, 0.4])
+        curve_factor = np.interp(abs(desired_curvature), [0.0002, 0.0015], [0.0, 0.6])
+        alpha = np.clip(base_alpha + curve_factor, 0.1, 1.0)
         self.actual_curvature_ema = alpha * actual_curvature_raw + (1.0 - alpha) * self.actual_curvature_ema
         actual_curvature = self.actual_curvature_ema
         
@@ -296,6 +299,12 @@ class LatControlTorque(LatControl):
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
+      # 引入动态反馈误差死区，抑制直道微抖动与低速锯齿/画龙调整
+      error_deadzone = np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003])
+      if abs(pid_log.error) < error_deadzone:
+        pid_log.error = 0.0
+      else:
+        pid_log.error = pid_log.error - sign(pid_log.error) * error_deadzone
 
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
       output_torque = self.pid.update(pid_log.error,
