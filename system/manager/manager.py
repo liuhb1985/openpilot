@@ -152,16 +152,16 @@ def get_default_params():
     ("MaxAngleFrames", "89"),  # 大转角保持最大允许帧数
     ("LateralTorqueCustom", "1"),  # 启用自定义扭矩控制参数 (忽略预设)
     ("LateralTorqueAccelFactor", "2900"),  # 侧向扭矩加速度增益系数
-    ("LateralTorqueFriction", "110"),  # 侧向扭矩摩擦力静态补偿
-    ("LateralTorqueKpV", "80"),  # 侧向扭矩 P 比例增益
+    ("LateralTorqueFriction", "180"),  # 侧向扭矩摩擦力静态补偿
+    ("LateralTorqueKpV", "50"),  # 侧向扭矩 P 比例增益
     ("LateralTorqueKiV", "5"),  # 侧向扭矩 I 积分增益
     ("LateralTorqueKf", "90"),  # 侧向扭矩 FF 前馈增益
     ("LateralTorqueKd", "0"),  # 侧向扭矩 D 微分增益
     ("LatMpcPathCost", "200"),  # 侧向 MPC 控制路径代价
     ("LatMpcMotionCost", "7"),  # 侧向 MPC 控制运动代价
     ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数 (放宽限制以保住弯道)
-    ("LatMpcJerkCost", "4"),  # 侧向 MPC Jerk 代价系数
-    ("LatMpcSteeringRateCost", "7"),  # 侧向 MPC 转向速率代价系数 (回退至平衡点 800)
+    ("LatMpcJerkCost", "8"),  # 侧向 MPC Jerk 代价系数
+    ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数 (回退至平衡点 800)
     ("LateralTorqueFilter", "0"),  # 横向扭矩低通滤波 (默认关闭)
     ("LatMpcInputOffset", "4"),  # 侧向 MPC 路径输入偏置
     ("CustomSteerMax", "0"),  # 自定义最大转向扭矩上限
@@ -171,7 +171,7 @@ def get_default_params():
     ("CustomSteerDeltaDownLC", "0"),  # 变道时自定义最大减扭速率
     ("SpeedFromPCM", "2"),  # 巡航速度来源 (1: 车辆仪表, 2: openpilot)
     ("SteerActuatorDelay", "15"),  # 转向执行延迟补偿时间 (优化为 0.15s)
-    ("LatSmoothSec", "13"),  # 横向平滑处理时长系数 (降低延迟)
+    ("LatSmoothSec", "22"),  # 横向平滑处理时长系数 (降低延迟)
     ("MaxTimeOffroadMin", "60"),  # 无操作后最大休眠前运行时长 (分)
     ("DisableDM", "1"),  # 禁用驾驶员监控（慎用）
     ("EnableConnect", "0"),  # 启用系统联网连接
@@ -238,8 +238,8 @@ def manager_init() -> None:
   if not params.get_bool("SantaFeParamsTuned3"):
     params.put("CustomSR", "158")
     params.put("LateralTorqueAccelFactor", "2900")
-    params.put("LateralTorqueFriction", "110")
-    params.put("LateralTorqueKpV", "80")
+    params.put("LateralTorqueFriction", "180")
+    params.put("LateralTorqueKpV", "50")
     params.put("LateralTorqueKiV", "5")
     params.put("LateralTorqueKd", "0")
     params.put("SteerActuatorDelay", "15")
