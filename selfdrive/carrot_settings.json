@@ -173,14 +173,14 @@
     {
       "group": "조향튜닝",
       "name": "LatMpcSteeringRateCost",
-      "title": "*LATMPC.SteerRateCost(7)",
+      "title": "*LATMPC.SteerRateCost(800)",
       "descr": "(레인모드) 조향변화율제한 \n 낮추면 조향이 적극적",
       "egroup": "LAT",
-      "etitle": "*LATMPC.SteerRateCost(7)",
+      "etitle": "*LATMPC.SteerRateCost(800)",
       "edescr": "(LaneMode) Steering Rate Limit — Lower values make steering more aggressive",
       "min": 0,
       "max": 2000,
-      "default": 7,
+      "default": 800,
       "unit": 100
     },
     {
