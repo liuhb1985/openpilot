@@ -622,7 +622,7 @@
       "edescr": "Higher value: more speed down",
       "min": 50,
       "max": 300,
-      "default": 10,
+      "default": 100,
       "unit": 1
     },
     {
@@ -791,7 +791,7 @@
       "edescr": "Button Mode User 3, Stepwise Speed, 0: Road Speed Limit + Auto Speed Increase Offset",
       "min": 0,
       "max": 160,
-      "default": 10,
+      "default": 30,
       "unit": 10
     },
     {
@@ -804,7 +804,7 @@
       "edescr": "Button Mode User 3, Second Speed",
       "min": 1,
       "max": 160,
-      "default": 10,
+      "default": 50,
       "unit": 10
     },
     {
@@ -817,7 +817,7 @@
       "edescr": "Button Mode User 3, Third Speed",
       "min": 1,
       "max": 160,
-      "default": 10,
+      "default": 80,
       "unit": 10
     },
     {
@@ -830,7 +830,7 @@
       "edescr": "Button Mode User 3, Fourth Speed",
       "min": 1,
       "max": 160,
-      "default": 10,
+      "default": 110,
       "unit": 10
     },
     {
@@ -843,7 +843,7 @@
       "edescr": "Button Mode User 3, Fifth Speed",
       "min": 1,
       "max": 160,
-      "default": 10,
+      "default": 130,
       "unit": 10
     },
     {
@@ -1507,20 +1507,20 @@
       "edescr": "",
       "min": 5,
       "max": 200,
-      "default": 0,
+      "default": 100,
       "unit": 5
     },
     {
       "group": "시작",
       "name": "SoundVolumeAdjustEngage",
-      "title": "사운드볼륨조절, 인게이지 볼륨(10%)",
+      "title": "사운드볼륨조절, <span>인게이지 볼륨(10%)</span>",
       "descr": "",
       "egroup": "START",
       "etitle": "Sound Volume adjust,Engage(10%)",
       "edescr": "",
       "min": 5,
       "max": 200,
-      "default": 0,
+      "default": 10,
       "unit": 5
     },
     {

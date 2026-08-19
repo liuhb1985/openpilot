@@ -139,6 +139,7 @@ def get_default_params():
     ("DynamicTFollow", "1"),  # 开启动态跟车距离调整
     ("AChangeCostStarting", "10"),  # 起步时的加速度变化代价 (平顺度限制)
     ("TrafficStopDistanceAdjust", "400"),  # 红绿灯前停止距离偏置
+    ("ComfortBrake", "240"),  # 舒适制动参数 (x0.01)
     ("DynamicTFollowLC", "100"),  # 变道时的动态跟车系数
     ("HapticFeedbackWhenSpeedCamera", "0"),  # 测速相机报警时开启震动反馈
     ("UseLaneLineSpeed", "0"),  # 参考车道线曲率调节车速

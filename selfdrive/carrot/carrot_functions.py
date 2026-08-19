@@ -160,8 +160,10 @@ class CarrotPlanner:
       self.j_lead_factor = self.params.get_float("JLeadFactor3") / 100.
       self.eco_over_speed = self.params.get_int("CruiseEcoControl")
       self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
-      self.aChangeCostStaring = self.params.get_float("AChangeCostStarting")
+      self.aChangeCostStarting = self.params.get_float("AChangeCostStarting")
       self.trafficStopDistanceAdjust = self.params.get_float("TrafficStopDistanceAdjust") / 100.
+      comfort_brake_val = self.params.get_float("ComfortBrake")
+      self.comfortBrake = comfort_brake_val / 100. if comfort_brake_val > 0 else 2.4
     elif self.params_count >= 100:
       self.params_count = 0
 
