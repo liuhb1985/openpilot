@@ -43,15 +43,15 @@
     {
       "group": "조향튜닝",
       "name": "LateralTorqueKd",
-      "title": "_LateralTorqueKd*0.01(800)",
+      "title": "_LateralTorqueKd*0.01(0)",
       "descr": "",
       "egroup": "LAT",
-      "etitle": "_LateralTorqueKd*0.01(800)",
+      "etitle": "_LateralTorqueKd*0.01(0)",
       "edescr": "",
       "min": 0,
-      "max": 10000,
-      "default": 100,
-      "unit": 10
+      "max": 150,
+      "default": 0,
+      "unit": 1
     },
     {
       "group": "조향튜닝",
@@ -76,7 +76,7 @@
       "edescr": "",
       "min": 0,
       "max": 500,
-      "default": 1,
+      "default": 200,
       "unit": 10
     },
     {
@@ -89,7 +89,7 @@
       "edescr": "",
       "min": 0,
       "max": 500,
-      "default": 1,
+      "default": 120,
       "unit": 10
     },
     {
@@ -102,7 +102,7 @@
       "edescr": "",
       "min": 0,
       "max": 200,
-      "default": 1,
+      "default": 8,
       "unit": 1
     },
     {
@@ -232,7 +232,7 @@
       "edescr": "LiveSteerRatio Apply Ratio",
       "min": 30,
       "max": 200,
-      "default": 0,
+      "default": 100,
       "unit": 1
     },
     {

@@ -915,10 +915,11 @@ static void sensor_read_loop(
       try {
         auto b = sensor.read_block(0x20, 2);
         if (b.size() >= 2) {
-          temp_ticks = static_cast<int16_t>(
+          int16_t raw_temp = static_cast<int16_t>(
               static_cast<uint16_t>(b[0]) |
               (static_cast<uint16_t>(b[1]) << 8));
-          cache.temperature = TEMP_OFFSET + temp_ticks * TEMP_SCALE;
+          float t_scale = (sensor.source() == cereal::SensorEventData::SensorSource::LSM6DS3) ? 16.0f : 256.0f;
+          cache.temperature = TEMP_OFFSET + raw_temp / t_scale;
           cache.have_temperature = true;
         }
       } catch (...) {
