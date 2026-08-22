@@ -11,7 +11,8 @@ FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 USBCAM = os.getenv("USE_USBCAM") is not None
-JY62 = int(os.getenv("JY62","2"))
+# IMU Selection: 0 = LSM6DS3, 1 = Original Car IMU, 2 = JY62
+IMU_SEL = int(os.getenv("IMU_SEL", "1"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
@@ -120,9 +121,11 @@ procs = [
   #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
   PythonProcess("sensord", "system.sensord.sensord", only_onroad, enabled=not PC),
   # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
-  NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=PC),
+  # NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad, enabled=PC),
+  NativeProcess("sensord_ch347", "system/sensord", ["./ch347t"], always_run, enabled=PC and (IMU_SEL == 0), watchdog_max_dt=3),
+  PythonProcess("sensord_jy62", "selfdrive.sensord.sensors.jy62_sensor", only_onroad, enabled=PC and (IMU_SEL == 2)),
+  PythonProcess("native_imu_d", "selfdrive.carrot.native_imu_d", only_onroad, enabled=PC and (IMU_SEL == 1)),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
-  NativeProcess("sensord_ch347", "system/sensord", ["./ch347t"], always_run, enabled=PC, watchdog_max_dt=3),
     # NativeProcess("ubuntu347t", "system/sensord", ["./ubuntu347t"], always_run, enabled=PC,watchdog_max_dt=3),
   # NativeProcess("sensord_jy62", "system/sensord", ["./sensord_jy62"], only_onroad, enabled=PC),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
