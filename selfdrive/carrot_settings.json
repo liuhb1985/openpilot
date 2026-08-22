@@ -154,20 +154,20 @@
       "edescr": "(LaneMode) Lateral Acceleration Limit — Lower values increase agility but reduce stability",
       "min": 0,
       "max": 500,
-      "default": 100,
+      "default": 120,
       "unit": 10
     },
     {
       "group": "조향튜닝",
       "name": "LatMpcJerkCost",
-      "title": "*LATMPC.JerkCost(4)",
+      "title": "*LATMPC.JerkCost(8)",
       "descr": "(레인모드) 낮추면 빠른조향허용 \n 부드러움 감소",
       "egroup": "LAT",
-      "etitle": "*LATMPC.JerkCost(4)",
+      "etitle": "*LATMPC.JerkCost(8)",
       "edescr": "(LaneMode) Lower values allow quicker steering — reduces smoothness",
       "min": 0,
       "max": 200,
-      "default": 1,
+      "default": 8,
       "unit": 1
     },
     {
