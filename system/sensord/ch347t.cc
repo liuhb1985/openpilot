@@ -256,8 +256,11 @@ bool CH347LSM6::open() {
 
   for (int attempt = 0; attempt < 8; ++attempt) {
     for (uint8_t addr : {LSM6_ADDR_A, LSM6_ADDR_B}) {
-      uint8_t reg = WHO_AM_I_REG;
-      auto b = stream_read(&reg, 1, 1);
+      uint8_t write_buf[2] = {
+        static_cast<uint8_t>(addr << 1),
+        WHO_AM_I_REG
+      };
+      auto b = stream_read(write_buf, 2, 1);
       if (b.empty()) continue;
 
       uint8_t who = b[0];
@@ -325,11 +328,16 @@ bool CH347LSM6::shutdown() {
 }
 
 uint8_t CH347LSM6::read_u8(uint8_t reg) {
-  auto b = stream_read(&reg, 1, 1);
-  if (b.empty()) {
-    throw std::runtime_error("CH347 I2C read failed");
+  uint8_t write_buf[2] = {
+    static_cast<uint8_t>(addr_ << 1),
+    reg
+  };
+  uint8_t val = 0;
+  int ret_len = 0;
+  if (!stream_i2c_ret_ack_(fd_, 2, write_buf, 1, &val, &ret_len)) {
+    throw std::runtime_error("CH347 I2C read_u8 failed");
   }
-  return b[0];
+  return val;
 }
 
 void CH347LSM6::write_u8(uint8_t reg, uint8_t value) {
@@ -345,23 +353,17 @@ void CH347LSM6::write_u8(uint8_t reg, uint8_t value) {
 }
 
 std::vector<uint8_t> CH347LSM6::read_block(uint8_t reg, int len) {
-  uint8_t addr_w = static_cast<uint8_t>(addr_ << 1);
-
-  int ret_len = 0;
-  std::vector<uint8_t> out;
   if (len < 0) throw std::length_error("CH347 I2C read length");
 
-  out.resize(static_cast<size_t>(len));
-
-  if (!stream_i2c_ret_ack_(fd_, 2, &addr_w, 0, nullptr, &ret_len)) {
-    throw std::runtime_error("CH347 I2C block write address failed");
+  uint8_t write_buf[2] = {
+    static_cast<uint8_t>(addr_ << 1),
+    reg
+  };
+  std::vector<uint8_t> out(static_cast<size_t>(len));
+  int ret_len = 0;
+  if (!stream_i2c_ret_ack_(fd_, 2, write_buf, len, out.data(), &ret_len)) {
+    throw std::runtime_error("CH347 I2C read_block failed");
   }
-
-  uint8_t reg_buf[1] = {reg};
-  if (!stream_i2c_ret_ack_(fd_, 1, reg_buf, len, out.data(), &ret_len)) {
-    throw std::runtime_error("CH347 I2C block read data failed");
-  }
-
   return out;
 }
 
@@ -1019,7 +1021,7 @@ static void sensor_read_loop(
       }
     }
 
-    // 应用自适应 XY 旋转
+    // 应用自适应 XY 旋转 (使用逆旋转矩阵 -yaw_offset 将传感器坐标系转换到车辆坐标系)
     if (yaw_calibrated) {
       float cos_y = std::cos(yaw_offset);
       float sin_y = std::sin(yaw_offset);
@@ -1027,15 +1029,15 @@ static void sensor_read_loop(
       if (cache.have_acc && (fresh_acc || send_stale)) {
         float rx = cache.acc[0];
         float ry = cache.acc[1];
-        cache.acc[0] = rx * cos_y - ry * sin_y;
-        cache.acc[1] = rx * sin_y + ry * cos_y;
+        cache.acc[0] = rx * cos_y + ry * sin_y;
+        cache.acc[1] = -rx * sin_y + ry * cos_y;
       }
 
       if (cache.have_gyro && (fresh_gyro || send_stale)) {
         float gx = cache.gyro[0];
         float gy = cache.gyro[1];
-        cache.gyro[0] = gx * cos_y - gy * sin_y;
-        cache.gyro[1] = gx * sin_y + gy * cos_y;
+        cache.gyro[0] = gx * cos_y + gy * sin_y;
+        cache.gyro[1] = -gx * sin_y + gy * cos_y;
       }
     }
 

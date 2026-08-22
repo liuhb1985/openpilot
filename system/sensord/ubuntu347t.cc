@@ -483,8 +483,8 @@ static void calibrate_imu_mounting(LinuxI2CLSM6& sensor, float R[9]) {
         float z = (int16_t)((uint16_t)b[5] << 8 | b[4]);
         float scale = 9.81f * 2.0f / (1 << 15);
         std::array<float, 3> s;
-        s[0] = y * scale;
-        s[1] = -x * scale;
+        s[0] = -y * scale;
+        s[1] = x * scale;
         s[2] = z * scale;
         samples.push_back(s);
       }
@@ -529,7 +529,7 @@ static void calibrate_imu_mounting(LinuxI2CLSM6& sensor, float R[9]) {
     return;
   }
 
-  float target[3] = {ACCEL_CALIB_GRAVITY, 0.0f, 0.0f};
+  float target[3] = {0.0f, 0.0f, ACCEL_CALIB_GRAVITY};
   rotation_matrix_align(g_meas, target, R);
 
   LOGW("IMU mounting calib: done. g_meas=[%.4f,%.4f,%.4f] var=[%.4f,%.4f,%.4f]",
@@ -748,7 +748,7 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
       }
     }
 
-    // 应用自适应 XY 旋转
+    // 应用自适应 XY 旋转 (使用逆旋转矩阵 -yaw_offset 将传感器坐标系转换到车辆坐标系)
     if (yaw_calibrated) {
       float cos_y = std::cos(yaw_offset);
       float sin_y = std::sin(yaw_offset);
@@ -756,16 +756,16 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
       if (fresh_acc_valid) {
         float rx = fresh_acc[0];
         float ry = fresh_acc[1];
-        fresh_acc[0] = rx * cos_y - ry * sin_y;
-        fresh_acc[1] = rx * sin_y + ry * cos_y;
+        fresh_acc[0] = rx * cos_y + ry * sin_y;
+        fresh_acc[1] = -rx * sin_y + ry * cos_y;
         memcpy(state.last_acc_v, fresh_acc, sizeof(fresh_acc));
       }
 
       if (fresh_gyro_valid) {
         float gx = fresh_gyro[0];
         float gy = fresh_gyro[1];
-        fresh_gyro[0] = gx * cos_y - gy * sin_y;
-        fresh_gyro[1] = gx * sin_y + gy * cos_y;
+        fresh_gyro[0] = gx * cos_y + gy * sin_y;
+        fresh_gyro[1] = -gx * sin_y + gy * cos_y;
         memcpy(state.last_gyro_v, fresh_gyro, sizeof(fresh_gyro));
       }
     }
