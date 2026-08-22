@@ -193,7 +193,7 @@ procs = [
   # c3x lite
   PythonProcess("beep", "selfdrive.controls.beep", c3x_lite, enabled=TICI),
   NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
-  PythonProcess("amap_navi", "selfdrive.carrot.amap_navi", always_run),
+  PythonProcess("amap_navi", "selfdrive.carrot.amap_navi", only_onroad),
   PythonProcess("lane", "selfdrive.carrot.lane", only_onroad),
 ]
 

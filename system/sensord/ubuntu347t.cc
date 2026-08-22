@@ -676,42 +676,34 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
     uint8_t fresh_acc_raw[6] = {0};
     uint8_t fresh_gyro_raw[6] = {0};
 
-    // 1. STATUS_REG (0x1E)
-    uint8_t status = 0;
-    if (!state.sensor.read_u8(0x1E, status)) {
+    // 一次性读取 12 字节连续寄存器（0x22 OUTX_L_G 到 0x2D OUTZ_H_XL）
+    uint8_t raw_data[12] = {0};
+    if (state.sensor.read_block(0x22, raw_data, 12)) {
+      // 提取原始字节以维持冷冻检测和缓存
+      memcpy(fresh_gyro_raw, &raw_data[0], 6);
+      memcpy(fresh_acc_raw, &raw_data[6], 6);
+
+      // 解析加速度计 (0x28 - 0x2D) -> raw_data[6..11]
+      float ax = (int16_t)((uint16_t)fresh_acc_raw[1] << 8 | fresh_acc_raw[0]);
+      float ay = (int16_t)((uint16_t)fresh_acc_raw[3] << 8 | fresh_acc_raw[2]);
+      float az = (int16_t)((uint16_t)fresh_acc_raw[5] << 8 | fresh_acc_raw[4]);
+      float acc_scale = 9.81f * 2.0f / (1 << 15);
+      float acc_raw[3] = {-ay * acc_scale, ax * acc_scale, az * acc_scale};
+      mat3_mul_vec3(state.imu_calib_R, acc_raw, fresh_acc);
+      fresh_acc_valid = true;
+      memcpy(state.last_acc_v, fresh_acc, sizeof(fresh_acc));
+
+      // 解析陀螺仪 (0x22 - 0x27) -> raw_data[0..5]
+      float gx = (int16_t)((uint16_t)fresh_gyro_raw[1] << 8 | fresh_gyro_raw[0]);
+      float gy = (int16_t)((uint16_t)fresh_gyro_raw[3] << 8 | fresh_gyro_raw[2]);
+      float gz = (int16_t)((uint16_t)fresh_gyro_raw[5] << 8 | fresh_gyro_raw[4]);
+      float gyro_scale = (8.75f / 1000.0f) * (M_PI / 180.0f);
+      float gyro_raw[3] = {-gy * gyro_scale, gx * gyro_scale, gz * gyro_scale};
+      mat3_mul_vec3(state.imu_calib_R, gyro_raw, fresh_gyro);
+      fresh_gyro_valid = true;
+      memcpy(state.last_gyro_v, fresh_gyro, sizeof(fresh_gyro));
+    } else {
       i2c_error = true;
-    }
-
-    // 2. 加速度计
-    if (status & 0x01) {
-      if (state.sensor.read_block(0x28, fresh_acc_raw, 6)) {
-        float x = (int16_t)((uint16_t)fresh_acc_raw[1] << 8 | fresh_acc_raw[0]);
-        float y = (int16_t)((uint16_t)fresh_acc_raw[3] << 8 | fresh_acc_raw[2]);
-        float z = (int16_t)((uint16_t)fresh_acc_raw[5] << 8 | fresh_acc_raw[4]);
-        float scale = 9.81f * 2.0f / (1 << 15);
-        float raw[3] = {-y * scale, x * scale, z * scale};
-        mat3_mul_vec3(state.imu_calib_R, raw, fresh_acc);
-        fresh_acc_valid = true;
-        memcpy(state.last_acc_v, fresh_acc, sizeof(fresh_acc));
-      } else {
-        i2c_error = true;
-      }
-    }
-
-    // 3. 陀螺仪
-    if (status & 0x02) {
-      if (state.sensor.read_block(0x22, fresh_gyro_raw, 6)) {
-        float x = (int16_t)((uint16_t)fresh_gyro_raw[1] << 8 | fresh_gyro_raw[0]);
-        float y = (int16_t)((uint16_t)fresh_gyro_raw[3] << 8 | fresh_gyro_raw[2]);
-        float z = (int16_t)((uint16_t)fresh_gyro_raw[5] << 8 | fresh_gyro_raw[4]);
-        float scale = (8.75f / 1000.0f) * (M_PI / 180.0f);
-        float raw[3] = {-y * scale, x * scale, z * scale};
-        mat3_mul_vec3(state.imu_calib_R, raw, fresh_gyro);
-        fresh_gyro_valid = true;
-        memcpy(state.last_gyro_v, fresh_gyro, sizeof(fresh_gyro));
-      } else {
-        i2c_error = true;
-      }
     }
     // 自动 XY 偏航角自适应标定
     if (!yaw_calibrated && fresh_acc_valid && fresh_gyro_valid) {
@@ -990,9 +982,9 @@ static void i2c_loop(int bus_num, PubMaster& pm) {
       }
     }
 
-    // 9. 温度读取（每10帧）
+    // 9. 温度读取（每100帧）
     temp_ticks++;
-    if (temp_ticks >= 10) {
+    if (temp_ticks >= 100) {
       temp_ticks = 0;
       uint8_t tb[2];
       if (state.sensor.read_block(0x20, tb, 2)) {

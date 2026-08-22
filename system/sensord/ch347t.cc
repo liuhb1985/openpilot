@@ -837,6 +837,7 @@ static void sensor_read_loop(
   uint64_t last_log_t = 0;
   float last_printed_acc[3] = {0};
   float last_printed_gyro[3] = {0};
+  int temp_ticks = 0;
 
   float yaw_offset = 0.0f;
   bool yaw_calibrated = false;
@@ -862,68 +863,62 @@ static void sensor_read_loop(
     bool fresh_acc = false;
     bool fresh_gyro = false;
 
-    uint8_t status = 0;
-
     try {
-      // Binary calls virtual read_u8 with register 0x1E.
-      status = sensor.read_u8(0x1E);
+      // 一次性读取 12 字节连续寄存器（0x22 OUTX_L_G 到 0x2D OUTZ_H_XL）
+      auto b = sensor.read_block(0x22, 12);
+      if (b.size() >= 12) {
+        // 陀螺仪 (0x22 - 0x27)
+        int16_t gx = static_cast<int16_t>(
+            static_cast<uint16_t>(b[0]) |
+            (static_cast<uint16_t>(b[1]) << 8));
+        int16_t gy = static_cast<int16_t>(
+            static_cast<uint16_t>(b[2]) |
+            (static_cast<uint16_t>(b[3]) << 8));
+        int16_t gz = static_cast<int16_t>(
+            static_cast<uint16_t>(b[4]) |
+            (static_cast<uint16_t>(b[5]) << 8));
 
-      if (status & 0x01) {
-        auto b = sensor.read_block(0x28, 6);
-        if (b.size() >= 6) {
-          int16_t x = static_cast<int16_t>(
-              static_cast<uint16_t>(b[0]) |
-              (static_cast<uint16_t>(b[1]) << 8));
-          int16_t y = static_cast<int16_t>(
-              static_cast<uint16_t>(b[2]) |
-              (static_cast<uint16_t>(b[3]) << 8));
-          int16_t z = static_cast<int16_t>(
-              static_cast<uint16_t>(b[4]) |
-              (static_cast<uint16_t>(b[5]) << 8));
+        cache.gyro[0] = -gy * GYRO_SCALE;
+        cache.gyro[1] = gx * GYRO_SCALE;
+        cache.gyro[2] = gz * GYRO_SCALE;
+        cache.have_gyro = true;
+        fresh_gyro = true;
 
-          cache.acc[0] = -y * ACCEL_SCALE;
-          cache.acc[1] = x * ACCEL_SCALE;
-          cache.acc[2] = z * ACCEL_SCALE;
-          cache.have_acc = true;
-          fresh_acc = true;
-        }
+        // 加速度计 (0x28 - 0x2D)
+        int16_t ax = static_cast<int16_t>(
+            static_cast<uint16_t>(b[6]) |
+            (static_cast<uint16_t>(b[7]) << 8));
+        int16_t ay = static_cast<int16_t>(
+            static_cast<uint16_t>(b[8]) |
+            (static_cast<uint16_t>(b[9]) << 8));
+        int16_t az = static_cast<int16_t>(
+            static_cast<uint16_t>(b[10]) |
+            (static_cast<uint16_t>(b[11]) << 8));
+
+        cache.acc[0] = -ay * ACCEL_SCALE;
+        cache.acc[1] = ax * ACCEL_SCALE;
+        cache.acc[2] = az * ACCEL_SCALE;
+        cache.have_acc = true;
+        fresh_acc = true;
       }
 
-      if (status & 0x02) {
-        auto b = sensor.read_block(0x22, 6);
-        if (b.size() >= 6) {
-          int16_t x = static_cast<int16_t>(
-              static_cast<uint16_t>(b[0]) |
-              (static_cast<uint16_t>(b[1]) << 8));
-          int16_t y = static_cast<int16_t>(
-              static_cast<uint16_t>(b[2]) |
-              (static_cast<uint16_t>(b[3]) << 8));
-          int16_t z = static_cast<int16_t>(
-              static_cast<uint16_t>(b[4]) |
-              (static_cast<uint16_t>(b[5]) << 8));
-
-          cache.gyro[0] = -y * GYRO_SCALE;
-          cache.gyro[1] = x * GYRO_SCALE;
-          cache.gyro[2] = z * GYRO_SCALE;
-          cache.have_gyro = true;
-          fresh_gyro = true;
+      // 温度传感器读取：降频为每 100 帧（约 1 秒）读取一次
+      temp_ticks++;
+      if (temp_ticks >= 100) {
+        temp_ticks = 0;
+        try {
+          auto tb = sensor.read_block(0x20, 2);
+          if (tb.size() >= 2) {
+            int16_t raw_temp = static_cast<int16_t>(
+                static_cast<uint16_t>(tb[0]) |
+                (static_cast<uint16_t>(tb[1]) << 8));
+            float t_scale = (sensor.source() == cereal::SensorEventData::SensorSource::LSM6DS3) ? 16.0f : 256.0f;
+            cache.temperature = TEMP_OFFSET + raw_temp / t_scale;
+            cache.have_temperature = true;
+          }
+        } catch (...) {
+          // Temperature is non-critical.
         }
-      }
-
-      // Temperature output is at 0x20/0x21 on LSM6DS3.
-      // The original binary has temp_ticks and publish_temperature().
-      try {
-        auto b = sensor.read_block(0x20, 2);
-        if (b.size() >= 2) {
-          int16_t raw_temp = static_cast<int16_t>(
-              static_cast<uint16_t>(b[0]) |
-              (static_cast<uint16_t>(b[1]) << 8));
-          float t_scale = (sensor.source() == cereal::SensorEventData::SensorSource::LSM6DS3) ? 16.0f : 256.0f;
-          cache.temperature = TEMP_OFFSET + raw_temp / t_scale;
-          cache.have_temperature = true;
-        }
-      } catch (...) {
-        // Temperature is non-critical.
       }
 
       if (consecutive_errors > 0) {
