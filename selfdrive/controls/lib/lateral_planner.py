@@ -150,7 +150,13 @@ class LateralPlanner:
     self.LP.lanefull_mode = self.useLaneLineMode
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
-    self.LP.curvature = measured_curvature
+    # 结合当前实际测量曲率与模型未来曲率（约1.0秒前瞻），使弯道外偏补偿具备预判性，防止进弯切弯
+    model_curvature = 0.0
+    if model_active and v_ego_car > 3.0:
+      idx_1s = next((i for i, t in enumerate(self.t_idxs) if t >= 1.0), 10)
+      if idx_1s < len(self.plan_yaw_rate):
+        model_curvature = self.plan_yaw_rate[idx_1s] / v_ego_car
+    self.LP.curvature = model_curvature if abs(model_curvature) > abs(measured_curvature) else measured_curvature
     self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], v_ego_car, self.t_idxs, self.path_xyz, self.curve_speed, self.adjustLaneOffset, self.adjustCurveOffset, sm['radarState'])
 
     if self.lanelines_active:

@@ -186,7 +186,7 @@ class LatControlTorque(LatControl):
       else:
         # Use CC.angularVelocity[2] for ported IMU data on PC, with safety check
         actual_curvature_llk = 0.0
-        if len(CC.angularVelocity) > 2:
+        if len(CC.angularVelocity) > 2 and CS.vEgo > 0.01:
           actual_curvature_llk = CC.angularVelocity[2] / CS.vEgo
         actual_curvature_raw = np.interp(CS.vEgo, [3.0, 8.0], [actual_curvature_vm, actual_curvature_llk])
         
