@@ -305,14 +305,6 @@ maintain_layout() {
         elapsed=$((elapsed + 1))
     done
 
-    # 释放堆叠顺序，确保完美交互
-    sleep 1.0
-    for win in "$ui_win" "$cam_win" "$active_term_id"; do
-        if [ ! -z "$win" ]; then
-            wmctrl -i -r "$win" -b remove,below,above
-            wmctrl -i -a "$win"
-        fi
-    done
     echo "Layout guardian daemon finished."
 }
 
