@@ -74,7 +74,6 @@ static constexpr uint8_t LSM6TRC_WHO_AM_I = 0x6A;
 
 static constexpr float ACCEL_SCALE = 0.0005987549084238708f;
 static constexpr float GYRO_SCALE  = 0.00015271631127689034f;
-static constexpr float TEMP_SCALE  = 1.0f / 16.0f;
 static constexpr float TEMP_OFFSET = 25.0f;
 
 static constexpr int DEFAULT_I2C_BUS = 19;
