@@ -380,9 +380,19 @@ void capture_from_camera(const std::string& device, int cam_id) {
                 continue;
             }
 
+            auto last_frame_time = std::chrono::steady_clock::now();
             while (running) {
                 VisionBuf *buf = client.recv();
-                if (buf == nullptr) continue;
+                if (buf == nullptr) {
+                    auto now = std::chrono::steady_clock::now();
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_frame_time).count() > 2000) {
+                        std::cout << "[cam_blindspot] VisionIPC recv returned null for 2s, connection broken. Reconnecting..." << std::endl;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
+                }
+                last_frame_time = std::chrono::steady_clock::now();
 
                 // static int frame_cnt = 0;
                 // if (frame_cnt++ % 200 == 0) {

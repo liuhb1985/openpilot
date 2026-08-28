@@ -14,11 +14,15 @@ LSM6DS3_Accel::LSM6DS3_Accel(I2CBus *bus, int gpio_nr, bool shared_gpio) :
 void LSM6DS3_Accel::wait_for_data_ready() {
   uint8_t drdy = 0;
   uint8_t buffer[6];
+  int retry = 0;
 
   do {
     read_register(LSM6DS3_ACCEL_I2C_REG_STAT_REG, &drdy, sizeof(drdy));
     drdy &= LSM6DS3_ACCEL_DRDY_XLDA;
-  } while (drdy == 0);
+    if (drdy == 0) {
+      util::sleep_for(1);
+    }
+  } while (drdy == 0 && ++retry < 100);
 
   read_register(LSM6DS3_ACCEL_I2C_REG_OUTX_L_XL, buffer, sizeof(buffer));
 }
@@ -33,10 +37,14 @@ void LSM6DS3_Accel::read_and_avg_data(float* out_buf) {
   }
 
   for (int i = 0; i < 5; i++) {
+    int retry = 0;
     do {
       read_register(LSM6DS3_ACCEL_I2C_REG_STAT_REG, &drdy, sizeof(drdy));
       drdy &= LSM6DS3_ACCEL_DRDY_XLDA;
-    } while (drdy == 0);
+      if (drdy == 0) {
+        util::sleep_for(1);
+      }
+    } while (drdy == 0 && ++retry < 100);
 
     int len = read_register(LSM6DS3_ACCEL_I2C_REG_OUTX_L_XL, buffer, sizeof(buffer));
     assert(len == sizeof(buffer));
