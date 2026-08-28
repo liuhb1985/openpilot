@@ -837,7 +837,6 @@ static void sensor_read_loop(
   uint64_t last_log_t = 0;
   float last_printed_acc[3] = {0};
   float last_printed_gyro[3] = {0};
-  int temp_ticks = 0;
 
   float yaw_offset = 0.0f;
   bool yaw_calibrated = false;
