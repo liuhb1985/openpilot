@@ -169,7 +169,7 @@ export USE_VISION_IPC=1
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
 # 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
-USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 IMU_SEL=1 USE_CAMPATH=0 system/manager/manager.py &
+USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 IMU_SEL=0 USE_CAMPATH=0 system/manager/manager.py &
 
 MANAGER_PID=$!
 
