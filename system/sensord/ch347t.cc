@@ -517,7 +517,7 @@ static std::string get_ch347_lib_path() {
   std::filesystem::path project_root = exe_path.parent_path();
 
   // sensord/ch347t -> project root
-  for (int i = 0; i < 3 && !project_root.empty(); ++i) {
+  for (int i = 0; i < 2 && !project_root.empty(); ++i) {
     project_root = project_root.parent_path();
   }
 
@@ -687,8 +687,51 @@ static int detect_imu_i2c_bus(uint8_t &addr) {
 }
 
 // -----------------------------------------------------------------------------
-// Reinitialization helper
-// -----------------------------------------------------------------------------
+static std::string find_ch347_usb_device() {
+  DIR* dir = opendir("/sys/bus/usb/drivers/usb");
+  if (!dir) return "";
+  struct dirent* entry;
+  while ((entry = readdir(dir)) != nullptr) {
+    if (entry->d_name[0] == '.') continue;
+    char vid_path[256], pid_path[256];
+    snprintf(vid_path, sizeof(vid_path), "/sys/bus/usb/drivers/usb/%s/idVendor", entry->d_name);
+    snprintf(pid_path, sizeof(pid_path), "/sys/bus/usb/drivers/usb/%s/idProduct", entry->d_name);
+
+    std::ifstream vid_f(vid_path), pid_f(pid_path);
+    std::string vid, pid;
+    if (vid_f.is_open()) std::getline(vid_f, vid);
+    if (pid_f.is_open()) std::getline(pid_f, pid);
+
+    // VID for QinHeng Electronics CH347 is typically 1a86
+    if (vid == "1a86" && (pid == "55db" || pid == "55dd")) {
+      closedir(dir);
+      return entry->d_name;
+    }
+  }
+  closedir(dir);
+  return "";
+}
+
+static bool usb_rebind_ch347(const std::string& usb_dev) {
+  char unbind_path[256], bind_path[256];
+  snprintf(unbind_path, sizeof(unbind_path), "/sys/bus/usb/drivers/usb/unbind");
+  snprintf(bind_path, sizeof(bind_path), "/sys/bus/usb/drivers/usb/bind");
+
+  {
+    std::ofstream f(unbind_path);
+    if (f.is_open()) f << usb_dev;
+  }
+  usleep(100000);
+
+  {
+    std::ofstream f(bind_path);
+    if (f.is_open()) f << usb_dev;
+  }
+  usleep(1000000);
+
+  uint8_t dummy_addr = 0;
+  return detect_imu_i2c_bus(dummy_addr) >= 0;
+}
 
 static bool reinit_sensor(LSM6DS3 &sensor, const std::string &name) {
   cloudlog_e(INFO, "system/sensord/ch347t.cc", 0,
@@ -696,6 +739,20 @@ static bool reinit_sensor(LSM6DS3 &sensor, const std::string &name) {
 
   try {
     sensor.shutdown();
+
+    // Perform USB rebind if we are using the I2C backend to recover from frozen hardware
+    if (name == "I2C") {
+      std::string usb_dev = find_ch347_usb_device();
+      if (!usb_dev.empty()) {
+        cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
+                   "reinit_sensor", "%s: Attempting USB rebind for dev=%s", name.c_str(), usb_dev.c_str());
+        usb_rebind_ch347(usb_dev);
+      } else {
+        cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
+                   "reinit_sensor", "%s: CH347 USB device not found, skipping rebind", name.c_str());
+      }
+    }
+
     sensor.open();
     sensor.init_sensor();
 
