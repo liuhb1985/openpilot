@@ -23,15 +23,15 @@ from openpilot.system.hardware.hw import Paths
 def get_default_params():
   default_params : list[tuple[str, str | bytes]] = [
     # kans
-    ("LongPitch", "1"),  # 纵向俯仰补偿
-    ("EVTable", "1"),  # 电动车加速响应表
+    ("LongPitch", "0"),  # 纵向俯仰补偿 (恢复备份值 0)
+    ("EVTable", "0"),  # 电动车加速响应表 (恢复备份值 0)
     ("CompletedTrainingVersion", "0"),  # 已完成训练版本
     ("DisengageOnAccelerator", "0"),  # 踩油门时是否退出巡航
     ("GsmMetered", "1"),  # GSM 流量计费开启
     ("HasAcceptedTerms", "0"),  # 已接受用户协议
     ("LanguageSetting", "main_zh-CHS"),  # 语言设置 (简体中文)
     ("OpenpilotEnabledToggle", "1"),  # 启用 openpilot
-    ("LongitudinalPersonality", str(log.LongitudinalPersonality.standard)),  # 纵向个性化 (跟车距离模式)
+    ("LongitudinalPersonality", "0"),  # 纵向个性化 (恢复备份值 0)
     ("IsMetric", "1"),  # 使用公制单位 (km/h)
     ("RecordAudio", "1"),  # 开启录音
 
@@ -39,7 +39,7 @@ def get_default_params():
     ("GMapKey", "0"),  # Google 地图 API 密钥
     ("MapboxStyle", "0"),  # Mapbox 样式设置
 
-    ("LongitudinalPersonalityMax", "3"),  # 纵向个性化最大档位
+    ("LongitudinalPersonalityMax", "4"),  # 纵向个性化最大档位 (恢复备份值 4)
     ("ShowDebugUI", "0"),  # 显示 UI 调试信息
     ("ShowTpms", "1"),  # 显示胎压监测
     ("ShowDateTime", "1"),  # 显示当前日期和时间
@@ -55,7 +55,7 @@ def get_default_params():
     ("ShowPathModeLane", "0"),  # 车道线路径模式
     ("ShowPathColorLane", "13"),  # 车道线路径颜色
     ("ShowPlotMode", "7"),  # 默认显示转向角波形图 (Y:Actual, G:Target, O:Offset)
-    ("AutoCruiseControl", "1"),  # 自动巡航控制开关
+    ("AutoCruiseControl", "0"),  # 自动巡航控制开关 (恢复备份值 0)
     ("CruiseEcoControl", "0"),  # 巡航节能模式
     ("CarrotCruiseDecel", "-1"),  # Carrot 模式减速量
     ("CarrotCruiseAtcDecel", "-1"),  # Carrot ATC 减速量
@@ -66,8 +66,8 @@ def get_default_params():
     ("DisableMinSteerSpeed", "0"),  # 禁用最低转向速度限制 (允许 0 速转向)
     ("SoftHoldMode", "0"),  # 自动驻车保持模式
 
-    ("AutoSpeedUptoRoadSpeedLimit", "0"),  # 自动调节至路段限速
-    ("AutoRoadSpeedAdjust", "50"),  # 公路速度自动调节偏置
+    ("AutoSpeedUptoRoadSpeedLimit", "100"),  # 自动调节至路段限速 (恢复备份值 100)
+    ("AutoRoadSpeedAdjust", "100"),  # 公路速度自动调节偏置 (恢复备份值 100)
     ("AutoCurveSpeedLowerLimit", "30"),  # 弯道降速下限速度
     ("AutoCurveSpeedFactor", "120"),  # 弯道降速灵敏度系数
     ("AutoCurveSpeedAggressiveness", "100"),  # 弯道降速激进程度
@@ -78,44 +78,44 @@ def get_default_params():
     ("AutoTurnMapChange", "0"),  # 转弯时地图渲染切换
 
     ("AutoNaviSpeedCtrlEnd", "7"),  # 导航限速控制结束提前量
-    ("AutoNaviSpeedCtrlMode", "2"),  # 导航限速控制模式
+    ("AutoNaviSpeedCtrlMode", "3"),  # 导航限速控制模式 (恢复备份值 3)
     ("AutoNaviSpeedBumpTime", "1"),  # 减速带提前减速时间
     ("AutoNaviSpeedBumpSpeed", "35"),  # 减速带目标通过速度
     ("AutoNaviSpeedSafetyFactor", "105"),  # 导航限速安全偏置系数
     ("AutoNaviSpeedDecelRate", "120"),  # 导航限速减速率
-    ("AutoRoadSpeedLimitOffset", "-1"),  # 路段限速偏置
+    ("AutoRoadSpeedLimitOffset", "0"),  # 路段限速偏置 (恢复备份值 0)
     ("AutoNaviCountDownMode", "2"),  # 导航限速倒计时模式
-    ("TurnSpeedControlMode", "1"),  # 转向速度控制模式 (0: 关闭, 1: 开启)
+    ("TurnSpeedControlMode", "2"),  # 转向速度控制模式 (恢复备份值 2)
     ("CarrotSmartSpeedControl", "0"),  # Carrot 智能速度控制
     ("MapTurnSpeedFactor", "90"),  # 地图转弯速度补偿系数
     ("ModelTurnSpeedFactor", "0"),  # 模型转弯速度补偿系数
-    ("StoppingAccel", "0"),  # 停止时的加速度限制
-    ("StopDistanceCarrot", "550"),  # Carrot 停止距离设置
-    ("JLeadFactor3", "100"),  # 跟车距离补偿系数 (前车相关)
+    ("StoppingAccel", "-50"),  # 停止时的加速度限制 (恢复备份值 -50)
+    ("StopDistanceCarrot", "450"),  # Carrot 停止距离设置 (恢复备份值 450)
+    ("JLeadFactor3", "0"),  # 跟车距离补偿系数 (前车相关) (恢复备份值 0)
     ("CruiseButtonMode", "0"),  # 巡航按钮操作模式
     ("CancelButtonMode", "0"),  # 取消按钮操作模式
     ("LfaButtonMode", "0"),  # LFA 按钮操作模式
     ("CruiseButtonTest1", "8"),  # 巡航按钮测试参数 1
     ("CruiseButtonTest2", "30"),  # 巡航按钮测试参数 2
     ("CruiseButtonTest3", "1"),  # 巡航按钮测试参数 3
-    ("CruiseSpeedUnit", "10"),  # 巡航速度增量单位
-    ("CruiseSpeedUnitBasic", "1"),  # 巡航步进基础单位
+    ("CruiseSpeedUnit", "1"),  # 巡航速度增量单位 (恢复备份值 1)
+    ("CruiseSpeedUnitBasic", "5"),  # 巡航步进基础单位 (恢复备份值 5)
     ("CruiseSpeed1", "30"),  # 巡航记忆速度 1
     ("CruiseSpeed2", "50"),  # 巡航记忆速度 2
     ("CruiseSpeed3", "80"),  # 巡航记忆速度 3
     ("CruiseSpeed4", "110"),  # 巡航记忆速度 4
     ("CruiseSpeed5", "130"),  # 巡航记忆速度 5
     ("PaddleMode", "0"),  # 方向盘拨片操作模式
-    ("MyDrivingMode", "3"),  # 个人驾驶习惯模式 (1: 舒适, 2: 标准, 3: 激进)
+    ("MyDrivingMode", "1"),  # 个人驾驶习惯模式 (恢复备份值 1: 舒适)
     ("MyDrivingModeAuto", "0"),  # 自动切换驱动模式
     ("TrafficLightDetectMode", "2"),  # 红绿灯检测与响应模式
-    ("CruiseMaxVals0", "160"),  # 巡航最大设定值 - 段 0
-    ("CruiseMaxVals1", "200"),  # 巡航最大设定值 - 段 1
-    ("CruiseMaxVals2", "160"),  # 巡航最大设定值 - 段 2
-    ("CruiseMaxVals3", "130"),  # 巡航最大设定值 - 段 3
-    ("CruiseMaxVals4", "110"),  # 巡航最大设定值 - 段 4
-    ("CruiseMaxVals5", "95"),  # 巡航最大设定值 - 段 5
-    ("CruiseMaxVals6", "80"),  # 巡航最大设定值 - 段 6
+    ("CruiseMaxVals0", "140"),  # 巡航最大设定值 - 段 0 (恢复备份值 140)
+    ("CruiseMaxVals1", "160"),  # 巡航最大设定值 - 段 1 (恢复备份值 160)
+    ("CruiseMaxVals2", "140"),  # 巡航最大设定值 - 段 2 (恢复备份值 140)
+    ("CruiseMaxVals3", "100"),  # 巡航最大设定值 - 段 3 (恢复备份值 100)
+    ("CruiseMaxVals4", "60"),  # 巡航最大设定值 - 段 4 (恢复备份值 60)
+    ("CruiseMaxVals5", "50"),  # 巡航最大设定值 - 段 5 (恢复备份值 50)
+    ("CruiseMaxVals6", "50"),  # 巡航最大设定值 - 段 6 (恢复备份值 50)
     ("LongTuningKpV", "100"),  # 纵向调优 P 增益 (百分比)
     ("LongTuningKiV", "0"),  # 纵向调优 I 增益 (百分比)
     ("LongTuningKf", "100"),  # 纵向调优 F 增益 (百分比)
@@ -136,9 +136,9 @@ def get_default_params():
     ("TFollowGap2", "120"),  # 二档跟车距离设置 (秒 x 100)
     ("TFollowGap3", "140"),  # 三档跟车距离设置 (秒 x 100)
     ("TFollowGap4", "160"),  # 四档跟车距离设置 (秒 x 100)
-    ("DynamicTFollow", "1"),  # 开启动态跟车距离调整
+    ("DynamicTFollow", "0"),  # 开启动态跟车距离调整 (恢复备份值 0)
     ("AChangeCostStarting", "10"),  # 起步时的加速度变化代价 (平顺度限制)
-    ("TrafficStopDistanceAdjust", "400"),  # 红绿灯前停止距离偏置
+    ("TrafficStopDistanceAdjust", "-150"),  # 红绿灯前停止距离偏置 (恢复备份值 -150)
     ("ComfortBrake", "240"),  # 舒适制动参数 (x0.01)
     ("DynamicTFollowLC", "100"),  # 变道时的动态跟车系数
     ("HapticFeedbackWhenSpeedCamera", "0"),  # 测速相机报警时开启震动反馈
@@ -151,28 +151,28 @@ def get_default_params():
     ("LaneChangeDelay", "0"),  # 自动换道前的延迟确认时间
     ("LaneChangeBsd", "1"),  # 变道盲区监测开关
     ("MaxAngleFrames", "89"),  # 大转角保持最大允许帧数
-    ("LateralTorqueCustom", "1"),  # 启用自定义扭矩控制参数 (忽略预设)
-    ("LateralTorqueAccelFactor", "2900"),  # 侧向扭矩加速度增益系数
-    ("LateralTorqueFriction", "180"),  # 侧向扭矩摩擦力静态补偿
-    ("LateralTorqueKpV", "50"),  # 侧向扭矩 P 比例增益
-    ("LateralTorqueKiV", "5"),  # 侧向扭矩 I 积分增益
-    ("LateralTorqueKf", "90"),  # 侧向扭矩 FF 前馈增益
+    ("LateralTorqueCustom", "0"),  # 启用自定义扭矩控制参数 (恢复备份值 0)
+    ("LateralTorqueAccelFactor", "2500"),  # 侧向扭矩加速度增益系数 (恢复备份值 2500)
+    ("LateralTorqueFriction", "100"),  # 侧向扭矩摩擦力静态补偿 (恢复备份值 100)
+    ("LateralTorqueKpV", "100"),  # 侧向扭矩 P 比例增益 (恢复备份值 100)
+    ("LateralTorqueKiV", "10"),  # 侧向扭矩 I 积分增益 (恢复备份值 10)
+    ("LateralTorqueKf", "100"),  # 侧向扭矩 FF 前馈增益 (恢复备份值 100)
     ("LateralTorqueKd", "0"),  # 侧向扭矩 D 微分增益
     ("LatMpcPathCost", "200"),  # 侧向 MPC 控制路径代价
     ("LatMpcMotionCost", "7"),  # 侧向 MPC 控制运动代价
-    ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数 (放宽限制以保住弯道)
-    ("LatMpcJerkCost", "8"),  # 侧向 MPC Jerk 代价系数
-    ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数 (回退至平衡点 800)
+    ("LatMpcAccelCost", "120"),  # 侧向 MPC 加速度代价系数
+    ("LatMpcJerkCost", "4"),  # 侧向 MPC Jerk 代价系数 (恢复备份值 4)
+    ("LatMpcSteeringRateCost", "800"),  # 侧向 MPC 转向速率代价系数 (保持防摇晃平衡值 800)
     ("LateralTorqueFilter", "0"),  # 横向扭矩低通滤波 (默认关闭)
     ("LatMpcInputOffset", "4"),  # 侧向 MPC 路径输入偏置
     ("CustomSteerMax", "0"),  # 自定义最大转向扭矩上限
-    ("CustomSteerDeltaUp", "5"),  # 自定义最大增扭速率
-    ("CustomSteerDeltaDown", "15"),  # 自定义最大减扭速率
+    ("CustomSteerDeltaUp", "0"),  # 自定义最大增扭速率 (恢复备份值 0)
+    ("CustomSteerDeltaDown", "0"),  # 自定义最大减扭速率 (恢复备份值 0)
     ("CustomSteerDeltaUpLC", "0"),  # 变道时自定义最大增扭速率
     ("CustomSteerDeltaDownLC", "0"),  # 变道时自定义最大减扭速率
     ("SpeedFromPCM", "2"),  # 巡航速度来源 (1: 车辆仪表, 2: openpilot)
-    ("SteerActuatorDelay", "15"),  # 转向执行延迟补偿时间 (优化为 0.15s)
-    ("LatSmoothSec", "22"),  # 横向平滑处理时长系数 (降低延迟)
+    ("SteerActuatorDelay", "0"),  # 转向执行延迟补偿时间 (恢复备份值 0)
+    ("LatSmoothSec", "13"),  # 横向平滑处理时长系数 (恢复备份值 13)
     ("MaxTimeOffroadMin", "60"),  # 无操作后最大休眠前运行时长 (分)
     ("DisableDM", "1"),  # 禁用驾驶员监控（慎用）
     ("EnableConnect", "0"),  # 启用系统联网连接
@@ -184,7 +184,7 @@ def get_default_params():
     ("AutoPandaUpdate", "0"),  # 默认开启 Panda 固件自动更新
     ("HotspotOnBoot", "0"),  # 开机自动开启 WiFi 热点
     ("SoftwareMenu", "1"),  # 开启软件菜单显示
-    ("CustomSR", "158"),  # 自定义转向比 (15.8)
+    ("CustomSR", "0"),  # 自定义转向比 (恢复备份值 0)
     ("SteerRatioRate", "100"),  # 动态转向比调节速率
     ("NNFF", "1"),  # 启用神经网络前馈控制 (NNFF)
     ("NNFFLite", "0"),  # 启用轻量级神经网络前馈
@@ -235,17 +235,17 @@ def manager_init() -> None:
     if params.get(k) is None:
       params.put(k, v)
 
-  # 自动迁移：首次启动强制升级为最稳定的胜达横向黄金参数
-  if not params.get_bool("SantaFeParamsTuned3"):
-    params.put("CustomSR", "158")
-    params.put("LateralTorqueAccelFactor", "2900")
-    params.put("LateralTorqueFriction", "180")
-    params.put("LateralTorqueKpV", "50")
-    params.put("LateralTorqueKiV", "5")
-    params.put("LateralTorqueKd", "0")
-    params.put("SteerActuatorDelay", "15")
-    params.put_bool("SantaFeParamsTuned3", True)
-    print("[Migration] Successfully updated lateral parameters to Santa Fe golden values!")
+  # 自动迁移强覆盖逻辑已停用，遵循 params_backup_20260831.json 的横向控制配置
+  # if not params.get_bool("SantaFeParamsTuned3"):
+  #   params.put("CustomSR", "158")
+  #   params.put("LateralTorqueAccelFactor", "2900")
+  #   params.put("LateralTorqueFriction", "180")
+  #   params.put("LateralTorqueKpV", "50")
+  #   params.put("LateralTorqueKiV", "5")
+  #   params.put("LateralTorqueKd", "0")
+  #   params.put("SteerActuatorDelay", "15")
+  #   params.put_bool("SantaFeParamsTuned3", True)
+
 
 
   # Create folders needed for msgq
