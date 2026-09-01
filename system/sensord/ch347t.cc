@@ -908,6 +908,9 @@ static void sensor_read_loop(
     if (yaw_file >> yaw_offset) {
       yaw_calibrated = true;
       cloudlog_e(INFO, "system/sensord/ch347t.cc", 0, "sensor_read_loop", "Loaded saved ImuYawOffset: %.4f rad", yaw_offset);
+      fprintf(stderr, "system/sensord/ch347t.cc: [IMU] Loaded saved ImuYawOffset=%.4f rad (%.2f deg) from %s\n",
+              yaw_offset, yaw_offset * 180.0f / M_PI, load_path.c_str());
+      fflush(stderr);
     }
     yaw_file.close();
   }
@@ -1065,6 +1068,9 @@ static void sensor_read_loop(
           if (out_file.is_open()) {
             out_file << yaw_offset;
             out_file.close();
+            fprintf(stderr, "system/sensord/ch347t.cc: [IMU] Auto-calibrated and saved ImuYawOffset=%.4f rad (%.2f deg) to %s\n",
+                    yaw_offset, yaw_offset * 180.0f / M_PI, save_path.c_str());
+            fflush(stderr);
           }
           cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0, "sensor_read_loop",
                      "IMU Yaw auto-calibrated: %.4f rad (%.2f deg)", yaw_offset, yaw_offset * 180.0f / M_PI);
