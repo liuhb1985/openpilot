@@ -1007,29 +1007,29 @@ static void sensor_read_loop(
       }
 
       if (consecutive_errors >= REINIT_ERROR_THRESHOLD) {
-        if (reinit_attempts < MAX_REINIT_ATTEMPTS) {
-          ++reinit_attempts;
+        ++reinit_attempts;
+        cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
+                   "sensor_read_loop",
+                   "%s: %d consecutive errors, attempting auto-rebind (attempt %d)",
+                   backend_name.c_str(),
+                   consecutive_errors,
+                   reinit_attempts);
 
-          cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
-                     "sensor_read_loop",
-                     "%s: %d consecutive errors, reinit (%d/%d)",
-                     backend_name.c_str(),
-                     consecutive_errors,
-                     reinit_attempts,
-                     MAX_REINIT_ATTEMPTS);
+        fprintf(stderr, "system/sensord/ch347t.cc: %s: IMU disconnected/unstable, attempting auto-rebind & bus rescan (attempt %d)...\n",
+                backend_name.c_str(), reinit_attempts);
+        fflush(stderr);
 
-          if (reinit_sensor(sensor, backend_name)) {
-            consecutive_errors = 0;
-            continue;
-          }
+        if (reinit_sensor(sensor, backend_name)) {
+          consecutive_errors = 0;
+          reinit_attempts = 0;
+          fprintf(stderr, "system/sensord/ch347t.cc: %s: ✓ IMU auto-rebound and reconnected successfully!\n",
+                  backend_name.c_str());
+          fflush(stderr);
+          continue;
         } else {
-          cloudlog_e(ERROR, "system/sensord/ch347t.cc", 0,
-                     "sensor_read_loop",
-                     "%s: reinit failed after %d attempts, giving up",
-                     backend_name.c_str(), reinit_attempts);
-
-          switch_backend.store(true);
-          break;
+          // 设备断开状态下避免高频 CPU 占用，暂停 1 秒后继续重试，保持 sensord 守护进程常驻
+          usleep(1000000);
+          continue;
         }
       }
 
