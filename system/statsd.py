@@ -163,15 +163,25 @@ def main() -> NoReturn:
         samples.clear()
         last_flush_time = time.monotonic()
 
-        # check that we aren't filling up the drive
-        if len(os.listdir(STATS_DIR)) < STATS_DIR_FILE_LIMIT:
-          if len(result) > 0:
-            stats_path = os.path.join(STATS_DIR, f"{boot_uid}_{idx}")
-            with atomic_write_in_dir(stats_path) as f:
-              f.write(result)
-            idx += 1
-        else:
-          cloudlog.error("stats dir full")
+        # 检查文件数量并实现自动循环覆盖 (FIFO 滚动清理，上限 5000)
+        files = os.listdir(STATS_DIR)
+        if len(files) >= 5000:
+          try:
+            full_paths = [os.path.join(STATS_DIR, f) for f in files]
+            full_paths.sort(key=lambda x: os.path.getmtime(x))
+            for old_file in full_paths[:len(files) - 4900]:
+              try:
+                os.remove(old_file)
+              except Exception:
+                pass
+          except Exception:
+            pass
+
+        if len(result) > 0:
+          stats_path = os.path.join(STATS_DIR, f"{boot_uid}_{idx}")
+          with atomic_write_in_dir(stats_path) as f:
+            f.write(result)
+          idx += 1
   finally:
     sock.close()
     ctx.term()
