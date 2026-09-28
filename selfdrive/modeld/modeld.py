@@ -180,13 +180,9 @@ class ModelState:
 
     with open(VISION_PKL_PATH, "rb") as f:
       self.vision_run = pickle.load(f)
-      if hasattr(self.vision_run, 'device'):
-        self.vision_run.device = 'GPU'
 
     with open(POLICY_PKL_PATH, "rb") as f:
       self.policy_run = pickle.load(f)
-      if hasattr(self.policy_run, 'device'):
-        self.policy_run.device = 'GPU'
 
   def slice_outputs(self, model_outputs: np.ndarray, output_slices: dict[str, slice]) -> dict[str, np.ndarray]:
     parsed_model_outputs = {k: model_outputs[np.newaxis, v] for k,v in output_slices.items()}
