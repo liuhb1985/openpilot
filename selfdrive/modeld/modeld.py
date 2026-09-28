@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import os
 from openpilot.system.hardware import TICI
-os.environ['DEV'] = 'QCOM' if TICI else 'GPU'
 USBGPU = "USBGPU" in os.environ
 if USBGPU:
-  os.environ['DEV'] = 'GPU'
   os.environ['AMD_IFACE'] = 'USB'
+# pin tinygrad default device (tinygrad only reads GPU/AMD/QCOM/CPU=1, not DEV)
+# so the runtime device always matches the device the pkl was captured on
+if TICI:
+  os.environ.setdefault('QCOM', '1')
+else:
+  os.environ.setdefault('GPU', '1')
 from tinygrad.tensor import Tensor
 from tinygrad.dtype import dtypes
 import time

@@ -50,10 +50,10 @@ def tg_compile(flags, model_name):
 # Compile small models
 for model_name in ['driving_vision', 'driving_policy', 'dmonitoring_model']:
   flags = {
-    'larch64': 'DEV=QCOM FLOAT16=1 NOLOCALS=1 IMAGE=2 JIT_BATCH_SIZE=0',
-    'Darwin': f'DEV=CPU HOME={os.path.expanduser("~")}', # tinygrad calls brew which needs a $HOME in the env
+    'larch64': 'QCOM=1 FLOAT16=1 NOLOCALS=1 IMAGE=2 JIT_BATCH_SIZE=0',
+    'Darwin': f'CPU=1 HOME={os.path.expanduser("~")}', # tinygrad calls brew which needs a $HOME in the env
     'x86_64': 'GPU=1 IMAGE=0',
-  }.get(arch, 'DEV=AMD AMD_IFACE=USB GPU_LLVM=1 NOLOCALS=0 BEAM=0 IMAGE=0')
+  }.get(arch, 'AMD=1 AMD_IFACE=USB GPU_LLVM=1 NOLOCALS=0 BEAM=0 IMAGE=0')
   tg_compile(flags, model_name)
 
 # Compile BIG model if USB GPU is available
@@ -63,7 +63,7 @@ if "USBGPU" in os.environ:
   devs = subprocess.check_output('python3 -c "from tinygrad import Device; print(list(Device.get_available_devices()))"', shell=True, cwd=env.Dir('#').abspath)
   if b"AMD" in devs:
     print("USB GPU detected... building")
-    flags = "DEV=GPU AMD_LLVM=1 NOLOCALS=0 IMAGE=0"
+    flags = "GPU=1 AMD_LLVM=1 NOLOCALS=0 IMAGE=0"
     bp = tg_compile(flags, "big_driving_policy")
     bv = tg_compile(flags, "big_driving_vision")
     lenv.SideEffect('lock', [bp, bv])  # tg doesn't support multi-process so build serially
