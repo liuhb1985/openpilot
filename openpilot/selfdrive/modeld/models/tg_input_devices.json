@@ -1,0 +1,1 @@
+{"openpilot.selfdrive.modeld.modeld": {"default": {"WARP_DEV": "AMD", "QUEUE_DEV": "AMD"}, "usbgpu": {"WARP_DEV": "AMD", "QUEUE_DEV": "AMD"}}, "openpilot.selfdrive.modeld.dmonitoringmodeld": {"default": {"DEV": "AMD"}}}
