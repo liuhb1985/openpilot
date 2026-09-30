@@ -42,6 +42,13 @@ from openpilot.selfdrive.modeld.runners.tinygrad_helpers import qcom_tensor_from
 PROCESS_NAME = "selfdrive.modeld.modeld"
 SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 
+# --- 夜间广角兜底：长焦极端过暗（源头增益也无法挽救）时，广角接管模型主输入 ---
+# 双阈值迟滞 + 连续帧计数，防止来回闪烁；可用 NIGHT_WIDE_SWITCH=0 关闭
+NIGHT_WIDE_SWITCH = os.getenv("NIGHT_WIDE_SWITCH", "1") == "1"
+NIGHT_DARK_Y = float(os.getenv("NIGHT_DARK_Y", "48"))       # 平均亮度低于此值判定过暗
+NIGHT_BRIGHT_Y = float(os.getenv("NIGHT_BRIGHT_Y", "60"))   # 平均亮度高于此值判定恢复
+NIGHT_SWITCH_FRAMES = int(os.getenv("NIGHT_SWITCH_FRAMES", "20"))  # 连续帧数(20帧≈1s)
+
 VISION_PKL_PATH = Path(__file__).parent / 'models/driving_vision_tinygrad.pkl'
 POLICY_PKL_PATH = Path(__file__).parent / 'models/driving_policy_tinygrad.pkl'
 VISION_METADATA_PATH = Path(__file__).parent / 'models/driving_vision_metadata.pkl'
@@ -50,6 +57,19 @@ POLICY_METADATA_PATH = Path(__file__).parent / 'models/driving_policy_metadata.p
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
 MIN_LAT_CONTROL_SPEED = 0.3
+
+
+def frame_mean_luminance(buf) -> float:
+  """采样估计一帧的平均亮度（Y 平面，约 8k 采样点），开销可忽略"""
+  try:
+    y = buf.data  # 完整 YUV 缓冲，前 height*stride 字节为 Y 平面
+    y_plane_len = buf.height * buf.stride
+    if y_plane_len <= 0 or len(y) < y_plane_len:
+      return 255.0
+    step = max(1, y_plane_len // 8192)
+    return float(y[:y_plane_len:step].mean())
+  except Exception:
+    return 255.0
 
 
 def get_action_from_model(model_output: dict[str, np.ndarray], prev_action: log.ModelDataV2.Action,
@@ -273,9 +293,17 @@ def main(demo=False):
   if use_extra_client:
     cloudlog.warning(f"connected extra cam with buffer size: {vipc_client_extra.buffer_len} ({vipc_client_extra.width} x {vipc_client_extra.height})")
 
+  # 夜间广角兜底切换状态（仅在长焦+广角双流同时存在时启用）
+  night_switch_enabled = NIGHT_WIDE_SWITCH and use_extra_client and not main_wide_camera
+  night_wide_mode = False
+  night_dark_cnt = 0
+  night_bright_cnt = 0
+  if night_switch_enabled:
+    cloudlog.warning(f"night wide-cam fallback enabled (dark<{NIGHT_DARK_Y:.0f}, bright>{NIGHT_BRIGHT_Y:.0f}, {NIGHT_SWITCH_FRAMES} frames)")
+
   # messaging
   pm = PubMaster(["modelV2", "drivingModelData", "cameraOdometry"])
-  sm = SubMaster(["deviceState", "carState", "roadCameraState", "liveCalibration", "driverMonitoringState", "carControl", "liveDelay", "carrotMan", "radarState"])
+  sm = SubMaster(["deviceState", "carState", "roadCameraState", "wideRoadCameraState", "liveCalibration", "driverMonitoringState", "carControl", "liveDelay", "carrotMan", "radarState"])
 
   publish_state = PublishState()
   params = UnifiedParams()
@@ -357,16 +385,48 @@ def main(demo=False):
       buf_extra = buf_main
       meta_extra = meta_main
 
+    # --- 夜间兜底：长焦极端过暗时，广角接管模型主输入（迟滞防闪烁）---
+    if night_switch_enabled:
+      # buf_main 此时始终是长焦（ROAD 流）帧，用于亮度监测
+      road_mean_y = frame_mean_luminance(buf_main)
+      if not night_wide_mode:
+        if road_mean_y < NIGHT_DARK_Y:
+          night_dark_cnt += 1
+        else:
+          night_dark_cnt = 0
+        if night_dark_cnt >= NIGHT_SWITCH_FRAMES:
+          night_wide_mode = True
+          night_bright_cnt = 0
+          msg = f"road cam too dark (meanY={road_mean_y:.1f} < {NIGHT_DARK_Y:.0f} for {NIGHT_SWITCH_FRAMES}f), wide cam takes over main input"
+          cloudlog.warning(msg)
+          print(f"[NIGHT-WIDE] {msg}")
+      else:
+        if road_mean_y > NIGHT_BRIGHT_Y:
+          night_bright_cnt += 1
+        else:
+          night_bright_cnt = 0
+        if night_bright_cnt >= NIGHT_SWITCH_FRAMES:
+          night_wide_mode = False
+          night_dark_cnt = 0
+          msg = f"road cam recovered (meanY={road_mean_y:.1f} > {NIGHT_BRIGHT_Y:.0f} for {NIGHT_SWITCH_FRAMES}f), switching back to road cam"
+          cloudlog.warning(msg)
+          print(f"[NIGHT-WIDE] {msg}")
+
+      if night_wide_mode:
+        # 广角作为主输入；big 输入同为广角（与单广角相机模式一致）
+        buf_main, meta_main = buf_extra, meta_extra
+        buf_extra, meta_extra = buf_main, meta_main
+
     sm.update(0)
     desire = DH.desire
     is_rhd = sm["driverMonitoringState"].isRHD
-    frame_id = sm["roadCameraState"].frameId
+    frame_id = sm["wideRoadCameraState"].frameId if night_wide_mode else sm["roadCameraState"].frameId
     v_ego = max(sm["carState"].vEgo, 0.)
     #lateral_control_params = np.array([v_ego, lat_delay], dtype=np.float32)
     if sm.updated["liveCalibration"] and sm.seen['roadCameraState'] and sm.seen['deviceState']:
       device_from_calib_euler = np.array(sm["liveCalibration"].rpyCalib, dtype=np.float32)
       dc = DEVICE_CAMERAS[(str(sm['deviceState'].deviceType), str(sm['roadCameraState'].sensor))]
-      model_transform_main = get_warp_matrix(device_from_calib_euler, dc.ecam.intrinsics if main_wide_camera else dc.fcam.intrinsics, False).astype(np.float32)
+      model_transform_main = get_warp_matrix(device_from_calib_euler, dc.ecam.intrinsics if (main_wide_camera or night_wide_mode) else dc.fcam.intrinsics, False).astype(np.float32)
       model_transform_extra = get_warp_matrix(device_from_calib_euler, dc.ecam.intrinsics, True).astype(np.float32)
       live_calib_seen = True
 
