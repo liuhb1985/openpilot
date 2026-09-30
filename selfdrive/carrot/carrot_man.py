@@ -914,6 +914,35 @@ class CarrotMan:
           self.send_tmux(json_obj['tmux_send'], "tmux_send")
           echo = json.dumps({"tmux_send": json_obj['tmux_send'], "result": "success"})
           socket.send(echo.encode())
+        elif any(k in json_obj for k in ('cmd', 'command', 'overtake', 'lanechange')):
+          # 控制命令通道（Navipilot 超车/变道/调速/红绿灯检测指令）
+          # 兼容多种消息格式：{"cmd":"LANECHANGE","arg":"LEFT"} / {"command":"OVERTAKE","direction":"RIGHT"}
+          # / {"lanechange":"LEFT"} / {"overtake":"RIGHT"} / {"cmd":"SPEED","arg":"UP"}
+          # 注入 carrot_serv 命令字段后，由 desire_helper.py(变道)、cruise.py(调速/巡航)、
+          # carrot_serv._update_cmd(红绿灯 DETECT) 消费，与 UDP 7706 carrotCmd 通道等价
+          try:
+            if 'cmd' in json_obj or 'command' in json_obj:
+              cmd = str(json_obj.get('cmd') or json_obj.get('command') or '').upper()
+            elif 'overtake' in json_obj:
+              cmd = "OVERTAKE"
+            else:
+              cmd = "LANECHANGE"
+            arg = str(json_obj.get('arg') or json_obj.get('direction') or
+                      json_obj.get('overtake') or json_obj.get('lanechange') or '').upper()
+            valid_cmds = ("LANECHANGE", "OVERTAKE", "SPEED", "CRUISE", "DETECT")
+            if cmd in valid_cmds and arg:
+              self.carrot_serv.carrotCmd = cmd
+              self.carrot_serv.carrotArg = arg
+              # carrotCmdIndex 取自递增计数器，确保与 carrotCmdIndex_last 不同以触发消费方
+              self._zmq_cmd_seq = getattr(self, '_zmq_cmd_seq', 0) + 1
+              self.carrot_serv.carrotCmdIndex = 1000000 + self._zmq_cmd_seq
+              echo = json.dumps({"cmd": cmd, "arg": arg, "result": "success"})
+              print(f"[ZMQ-7710] 控制命令已注入: {cmd} {arg}")
+            else:
+              echo = json.dumps({"error": f"invalid command: {cmd} {arg}", "result": "ignored"})
+          except Exception as e:
+            echo = json.dumps({"error": f"command error: {str(e)}", "result": "ignored"})
+          socket.send(echo.encode())
         else:
           # 收到不受支持的有效 JSON 请求，回复以重置 REP 状态机，防止死锁
           echo = json.dumps({"error": "unsupported command", "result": "ignored"})

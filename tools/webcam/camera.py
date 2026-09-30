@@ -14,10 +14,32 @@ cv2.setNumThreads(1)
 HAS_DIRECT_NV12 = hasattr(cv2, 'COLOR_BGR2YUV_NV12')
 
 # --- 夜间自适应增益（防止长焦相机夜间画面过暗导致模型置信度低/车道线丢失）---
-# 仅放大亮度（Y 平面），不影响色度；可用环境变量覆盖默认值
+# 仅放大亮度（Y 平面），不影响色度
+# 配置来源优先级：环境变量 > Params 参数(NightGainEnable/NightGainTargetY/NightGainMax，可在设备设置界面开关) > 默认值
 NIGHT_GAIN_ENABLE = os.getenv("NIGHT_GAIN_ENABLE", "1") == "1"
 NIGHT_TARGET_Y = float(os.getenv("NIGHT_TARGET_Y", "90"))    # 目标平均亮度 (0~255)
 NIGHT_MAX_GAIN = float(os.getenv("NIGHT_MAX_GAIN", "2.0"))   # 最大增益倍数
+NIGHT_GAIN_ENV = any(k in os.environ for k in ("NIGHT_GAIN_ENABLE", "NIGHT_TARGET_Y", "NIGHT_MAX_GAIN"))
+
+def get_night_gain_params():
+  """从 Params 读取夜间增益配置（设备设置界面可实时修改）；环境变量显式设置时优先环境变量"""
+  enable, target_y, max_gain = NIGHT_GAIN_ENABLE, NIGHT_TARGET_Y, NIGHT_MAX_GAIN
+  if not NIGHT_GAIN_ENV:
+    try:
+      from openpilot.common.params import Params
+      params = Params()
+      v = params.get("NightGainEnable")
+      if v is not None and v in (b"0", b"1", "0", "1"):
+        enable = v in (b"1", "1")
+      v = params.get_int("NightGainTargetY")
+      if 20 <= v <= 200:
+        target_y = float(v)
+      v = params.get_int("NightGainMax")
+      if 10 <= v <= 40:   # UI 步进 0.1，存储为 10~40
+        max_gain = v / 10.0
+    except Exception:
+      pass
+  return enable, target_y, max_gain
 
 def bgr_to_nv12(bgr):
     """Convert a BGR ndarray to NV12 ndarray of shape (h*3//2, w).
@@ -107,8 +129,8 @@ class CameraMJPG:
         self.cur_frame_id = 0
         self.current_format = actual_format
 
-        # 夜间自适应增益状态
-        self.night_gain_en = NIGHT_GAIN_ENABLE
+        # 夜间自适应增益状态（配置来自 Params/环境变量，每 5s 刷新一次）
+        self.night_gain_en, self.night_target_y, self.night_max_gain = get_night_gain_params()
         self.night_gain = 1.0
         self._gain_lut = None
         self._gain_lut_val = -1.0
@@ -135,6 +157,13 @@ class CameraMJPG:
 
     def _apply_night_gain(self, yuv, bgr):
         """夜间低光检测 + Y 平面自适应增益（LUT 加速，仅调亮度不动色度）"""
+        now = time.time()
+        if now - getattr(self, '_gain_last_refresh', 0.0) > 5.0:
+            # 每 5s 刷新一次配置（设备设置界面改开关/阈值后无需重启即生效）
+            self.night_gain_en, self.night_target_y, self.night_max_gain = get_night_gain_params()
+            self._gain_last_refresh = now
+        if not self.night_gain_en:
+            return yuv
         try:
             small = cv2.resize(bgr, (64, 36), interpolation=cv2.INTER_AREA)
             mean_y = float(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY).mean())
@@ -143,10 +172,10 @@ class CameraMJPG:
         if mean_y < 1.0:
             return yuv
 
-        target_gain = min(NIGHT_TARGET_Y / mean_y, NIGHT_MAX_GAIN)
+        target_gain = min(self.night_target_y / mean_y, self.night_max_gain)
         # 平滑逼近目标增益，避免画面亮度突跳
         self.night_gain += (target_gain - self.night_gain) * 0.1
-        self.night_gain = max(1.0, min(self.night_gain, NIGHT_MAX_GAIN))
+        self.night_gain = max(1.0, min(self.night_gain, self.night_max_gain))
 
         if self.night_gain <= 1.01:
             return yuv
@@ -160,8 +189,7 @@ class CameraMJPG:
         h = yuv.shape[0] * 2 // 3
         yuv[:h, :] = cv2.LUT(yuv[:h, :], self._gain_lut)
 
-        now = time.time()
-        if now - self._gain_last_log > 5.0:
+        if now - self._gain_last_log > 4.0:
             self._gain_last_log = now
             print(f"[NIGHT-GAIN] {self.cam_type_state} meanY={mean_y:.1f} gain={self.night_gain:.2f}")
 

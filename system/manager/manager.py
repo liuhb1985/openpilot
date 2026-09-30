@@ -77,6 +77,13 @@ def get_default_params():
     ("AutoTurnControlTurnEnd", "6"),  # 转弯提前结束距离
     ("AutoTurnMapChange", "0"),  # 转弯时地图渲染切换
 
+    ("NightGainEnable", "1"),  # 夜间自适应增益开关 (0:关闭, 1:开启)
+    ("NightGainTargetY", "90"),  # 夜间增益目标亮度 (20~200)
+    ("NightGainMax", "20"),  # 夜间增益最大倍数 x10 (10~40, 即 1.0~4.0 倍)
+    ("NightWideSwitch", "1"),  # 夜间广角兜底切换开关 (0:关闭, 1:开启)
+    ("NightWideDarkY", "48"),  # 广角接管阈值：长焦平均亮度低于此值 (10~120)
+    ("NightWideBrightY", "60"),  # 切回长焦阈值：长焦平均亮度高于此值 (20~160)
+
     ("AutoNaviSpeedCtrlEnd", "7"),  # 导航限速控制结束提前量
     ("AutoNaviSpeedCtrlMode", "3"),  # 导航限速控制模式 (恢复备份值 3)
     ("AutoNaviSpeedBumpTime", "1"),  # 减速带提前减速时间
