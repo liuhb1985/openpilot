@@ -300,7 +300,7 @@ class LatControlTorque(LatControl):
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
       # 引入动态反馈误差死区，抑制直道微抖动与低速锯齿/画龙调整
-      error_deadzone = np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003])
+      error_deadzone = float(np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003]))
       if abs(pid_log.error) < error_deadzone:
         pid_log.error = 0.0
       else:
