@@ -440,9 +440,10 @@ stop_old_stack() {
   fi
 
   # 旧 manager 被强杀（如终端关闭 SIGHUP 只打到 relay）时，其子服务会变孤儿继续
-  # 占端口。按“工作目录在本仓库内”识别遗留服务进程，一并 SIGINT。
+  # 占端口/摄像头。按“工作目录在本仓库内”识别遗留服务进程（含 openpilot.tools.*
+  # 的 webcamerad），一并 SIGINT。
   local pid cwd
-  for pid in $(pgrep -u "$(id -u)" -f "openpilot\.(selfdrive|system)\." 2>/dev/null); do
+  for pid in $(pgrep -u "$(id -u)" -f "openpilot\.(selfdrive|system|tools)\." 2>/dev/null); do
     [ -d "/proc/$pid" ] || continue
     cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
     case "$cwd" in

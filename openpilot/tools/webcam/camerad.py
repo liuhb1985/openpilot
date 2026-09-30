@@ -14,15 +14,22 @@ ROAD_CAM = os.getenv("ROAD_CAM", "0")
 WIDE_CAM = os.getenv("WIDE_CAM")
 DRIVER_CAM = os.getenv("DRIVER_CAM")
 
-CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id"])
+CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id", "formats"])
+
+# Cameras usually share one USB 2.0 bus (~53 MB/s). The road camera feeds the
+# driving model, so it gets the full-quality YUYV stream; secondary cameras use
+# compressed MJPEG so everything fits on the bus. Tried in order; the first
+# format that delivers a frame wins.
+ROAD_CAM_FORMATS = ((None, 1280, 720), ('MJPG', 640, 480))          # YUYV first for quality
+SECONDARY_CAM_FORMATS = (('MJPG', 640, 480), ('MJPG', 1280, 720), (None, 1280, 720))
 
 CAMERAS = [
-  CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, ROAD_CAM)
+  CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, ROAD_CAM, ROAD_CAM_FORMATS),
 ]
 if WIDE_CAM:
-  CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, WIDE_CAM))
+  CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, WIDE_CAM, SECONDARY_CAM_FORMATS))
 if DRIVER_CAM:
-  CAMERAS.append(CameraType("driverCameraState", VisionStreamType.VISION_STREAM_DRIVER, DRIVER_CAM))
+  CAMERAS.append(CameraType("driverCameraState", VisionStreamType.VISION_STREAM_DRIVER, DRIVER_CAM, SECONDARY_CAM_FORMATS))
 
 class Camerad:
   def __init__(self):
@@ -31,8 +38,15 @@ class Camerad:
 
     self.cameras = []
     for c in CAMERAS:
-      cam_device = f"/dev/video{c.cam_id}" if platform.system() != "Darwin" else c.cam_id
-      cam = Camera(c.msg_name, c.stream_type, cam_device)
+      # cam_id is either a numeric index (/dev/videoN) or an explicit device
+      # path (e.g. /dev/v4l/by-id/... bound by the launcher); don't prepend
+      # /dev/video to an already-absolute path.
+      cam_id = str(c.cam_id)
+      if platform.system() == "Darwin" or cam_id.startswith("/"):
+        cam_device = cam_id
+      else:
+        cam_device = f"/dev/video{cam_id}"
+      cam = Camera(c.msg_name, c.stream_type, cam_device, c.formats)
       self.cameras.append(cam)
       self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
 
