@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <dlfcn.h>
 #include <dirent.h>
 #include <errno.h>
@@ -506,19 +507,20 @@ std::vector<uint8_t> I2CLSM6::read_block(uint8_t reg, int len) {
 //   /third_party/ch347/lib/x64/dynamic/libch347.so
 // -----------------------------------------------------------------------------
 
-static std::string get_ch347_lib_path() {
+static std::vector<std::string> get_ch347_lib_candidates() {
+  std::vector<std::string> cands;
+
+  std::filesystem::path project_root;
   char exe_buf[4096] = {};
   ssize_t n = ::readlink("/proc/self/exe", exe_buf, sizeof(exe_buf) - 1);
-  if (n <= 0) return "";
+  if (n > 0) {
+    exe_buf[n] = '\0';
+    project_root = std::filesystem::path(exe_buf).parent_path();
 
-  exe_buf[n] = '\0';
-
-  std::filesystem::path exe_path(exe_buf);
-  std::filesystem::path project_root = exe_path.parent_path();
-
-  // sensord/ch347t -> project root
-  for (int i = 0; i < 2 && !project_root.empty(); ++i) {
-    project_root = project_root.parent_path();
+    // sensord/ch347t -> project root
+    for (int i = 0; i < 2 && !project_root.empty(); ++i) {
+      project_root = project_root.parent_path();
+    }
   }
 
 #if defined(__x86_64__)
@@ -531,17 +533,37 @@ static std::string get_ch347_lib_path() {
   const char *arch_dir = "x64";
 #endif
 
-  std::filesystem::path p =
-      project_root / "third_party" / "ch347" / "lib" /
-      arch_dir / "dynamic" / "libch347.so";
+  if (!project_root.empty()) {
+    cands.push_back((project_root / "third_party" / "ch347" / "lib" /
+                     arch_dir / "dynamic" / "libch347.so").string());
 
-  if (std::filesystem::exists(p)) return p.string();
+    // Original binary also contains the x86_64 path literally.
+    cands.push_back((project_root / "third_party" / "ch347" / "lib" /
+                     "x64" / "dynamic" / "libch347.so").string());
+  }
 
-  // Original binary also contains the x86_64 path literally.
-  p = project_root / "third_party" / "ch347" / "lib" /
-      "x64" / "dynamic" / "libch347.so";
+  // 系统安装位置：install_ch347.sh 会把库装到 /usr/local/lib
+  cands.push_back("/usr/local/lib/libch347.so");
+  cands.push_back("/usr/lib/libch347.so");
+  cands.push_back("/usr/lib/x86_64-linux-gnu/libch347.so");
 
-  return p.string();
+  // 裸库名交由 dlopen/ldconfig 解析（无路径时不做存在性检查）
+  cands.push_back("libch347.so");
+
+  return cands;
+}
+
+static std::string get_ch347_lib_path() {
+  std::vector<std::string> cands = get_ch347_lib_candidates();
+
+  for (const std::string &p : cands) {
+    // 裸库名无法用文件系统判断，直接交给 dlopen 搜索 ldconfig 缓存
+    if (p.find('/') == std::string::npos) return p;
+    if (std::filesystem::exists(p)) return p;
+  }
+
+  // 全部缺失时返回首选路径，仅用于生成可读的错误日志
+  return cands.empty() ? std::string("libch347.so") : cands.front();
 }
 
 // -----------------------------------------------------------------------------
@@ -582,10 +604,21 @@ static bool detect_ch347_backend(std::string &dev_path,
     return false;
   }
 
-  if (!std::filesystem::exists(lib_path)) {
-    cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
-               "detect_ch347_backend",
-               "CH347 lib does not exist: %s", lib_path.c_str());
+  // 裸库名由动态链接器解析，无需文件系统存在性检查
+  if (lib_path.find('/') != std::string::npos &&
+      !std::filesystem::exists(lib_path)) {
+    // 检测每 2s 重试一次，这里做节流，避免日志被同一条告警刷屏
+    static std::string last_missing;
+    static time_t last_warn = 0;
+    time_t now = time(nullptr);
+    if (lib_path != last_missing || now - last_warn > 60) {
+      last_missing = lib_path;
+      last_warn = now;
+      cloudlog_e(WARNING, "system/sensord/ch347t.cc", 0,
+                 "detect_ch347_backend",
+                 "CH347 lib does not exist: %s (install via install_ch347.sh "
+                 "or set SENSORD_CH347_LIB)", lib_path.c_str());
+    }
     return false;
   }
 

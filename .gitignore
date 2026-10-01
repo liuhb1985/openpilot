@@ -51,6 +51,12 @@ tools/sim.org
 # Exceptions for libyuv libraries
 !third_party/libyuv/*/lib/*.a
 !third_party/libyuv/*/lib/*.so
+
+# Exceptions for CH347 USB-I2C libraries (sensord_ch347 运行时 dlopen 依赖)
+!third_party/ch347/lib/**/libch347.so
+!third_party/ch347/lib/**/*.a
+!third_party/ch347_vcp/lib/**/libch347.so
+!third_party/ch347_vcp/lib/**/*.a
 *.clb
 *.class
 *.pyxbldc

@@ -247,6 +247,10 @@ maintain_layout() {
                 xprop -id "$ui_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
             fi
             wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
+            # 主界面置顶：始终浮在日志窗口/盲区窗口之上，并激活一次聚焦
+            wmctrl -i -r "$ui_win" -b add,above
+            wmctrl -i -a "$ui_win"
+            echo "✓ UI window aligned and kept on top."
             aligned_ui="$ui_win"
         fi
 
