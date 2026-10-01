@@ -203,16 +203,6 @@ LOG_WINDOW_WIDTH=1408
 LOG_WINDOW_HEIGHT=456
 
 # -----------------------------------------------------------------------------
-# 布局守护进程行为开关
-# -----------------------------------------------------------------------------
-# 是否把主界面置顶并激活(始终浮在其他窗口之上)
-UI_ON_TOP=${UI_ON_TOP:-1}
-# 是否强行改写盲区窗口尺寸。默认关闭：cam_blindspot 自己按图像分辨率调用
-# cv::resizeWindow 并保持宽高比(WINDOW_NORMAL + WINDOW_KEEPRATIO)，外部强制
-# 缩放到固定的 640x360 会把画面拉伸变形 / 尺寸与我们设定的不一致。
-RESIZE_CAMERA_WINDOW=${RESIZE_CAMERA_WINDOW:-0}
-
-# -----------------------------------------------------------------------------
 # 终极自适应窗口布局分配守护进程 (高频高可靠持续对齐拼接，打败延迟启动与抢占)
 # -----------------------------------------------------------------------------
 maintain_layout() {
@@ -245,25 +235,18 @@ maintain_layout() {
     local aligned_ui=""
     local aligned_cam=""
     local aligned_term=""
-    local aligned_all=""
 
     # 持续维护 30 秒布局，以 0.5 秒为间隔
     while [ $elapsed -lt 60 ]; do
         # 1. 布局 UI 窗口
         local ui_win=$(wmctrl -l | grep -Ei "openpilot|MainWindow|\bui\b|^ui$" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$ui_win" ]; then
+        if [ ! -z "$ui_win" ] && [ "$ui_win" != "$aligned_ui" ]; then
             wmctrl -i -r "$ui_win" -b remove,fullscreen,maximized_horz,maximized_vert
             wmctrl -i -r "$ui_win" -b remove,decorations
             if command -v xprop >/dev/null 2>&1; then
                 xprop -id "$ui_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
             fi
             wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-            if [ "$UI_ON_TOP" = "1" ]; then
-                # 主界面置顶；仅首次激活聚焦，避免反复抢占输入焦点
-                wmctrl -i -r "$ui_win" -b add,above
-                [ -z "$aligned_ui" ] && wmctrl -i -a "$ui_win"
-            fi
-            [ -z "$aligned_ui" ] && echo "✓ UI window aligned${UI_ON_TOP:+ (on top)}."
             aligned_ui="$ui_win"
         fi
 
@@ -282,19 +265,13 @@ maintain_layout() {
 
         # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式，顶部使用动态计算的 target_y 进行完美对齐)
         local cam_win=$(wmctrl -l | grep -Ei "All Cameras|camera|cameras|Camera 0" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$cam_win" ]; then
+        if [ ! -z "$cam_win" ] && [ "$cam_win" != "$aligned_cam" ]; then
             wmctrl -i -r "$cam_win" -b remove,fullscreen,maximized_horz,maximized_vert
-            if [ "$RESIZE_CAMERA_WINDOW" = "1" ]; then
-                wmctrl -i -r "$cam_win" -b remove,decorations
-                if command -v xprop >/dev/null 2>&1; then
-                    xprop -id "$cam_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
-                fi
-                wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
-            else
-                # 只搬位置、不改尺寸(-1 保留当前宽高)，画面比例由程序自身维护，不会被拉伸
-                wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,-1,-1
+            wmctrl -i -r "$cam_win" -b remove,decorations
+            if command -v xprop >/dev/null 2>&1; then
+                xprop -id "$cam_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
             fi
-            [ -z "$aligned_cam" ] && echo "✓ Blindspot window positioned (size untouched)."
+            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
             aligned_cam="$cam_win"
         fi
 
@@ -318,11 +295,10 @@ maintain_layout() {
             aligned_term="$active_term_id"
         fi
 
-        # 三个窗口均已出现时不立即退出：继续维持位置若干秒，压制程序自身在
-        # 首帧时的 cv::moveWindow / 重建窗口带来的跳动（30 秒后自行结束）
-        if [ -z "$aligned_all" ] && [ ! -z "$aligned_ui" ] && [ ! -z "$aligned_cam" ] && [ ! -z "$aligned_term" ]; then
-            echo "✓ All windows successfully aligned. Layout daemon keeping them in place."
-            aligned_all=1
+        # 如果三个窗口均已对齐，则提前优雅退出守护进程
+        if [ ! -z "$aligned_ui" ] && [ ! -z "$aligned_cam" ] && [ ! -z "$aligned_term" ]; then
+            echo "✓ All windows successfully aligned. Layout daemon exiting early."
+            break
         fi
 
         sleep 0.5
