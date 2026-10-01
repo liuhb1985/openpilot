@@ -1062,6 +1062,15 @@ void display_loop() {
                         cv::resizeWindow("All Cameras", combined.cols, combined.rows);
                         last_cols = combined.cols;
                         last_rows = combined.rows;
+                    } else {
+                        // 每 2 秒重申一次窗口尺寸：外部窗口管理器(wmctrl 等)改动过窗口后，
+                        // OpenCV 的画布与窗口尺寸会失配，画面被缩放/留黑边，这里主动纠正回来
+                        static auto last_reassert = std::chrono::steady_clock::now();
+                        auto now_tp = std::chrono::steady_clock::now();
+                        if (std::chrono::duration_cast<std::chrono::milliseconds>(now_tp - last_reassert).count() > 2000) {
+                            last_reassert = now_tp;
+                            cv::resizeWindow("All Cameras", combined.cols, combined.rows);
+                        }
                     }
                     cv::imshow("All Cameras", combined);
 
