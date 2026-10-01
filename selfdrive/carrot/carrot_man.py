@@ -762,55 +762,74 @@ class CarrotMan:
       print(f"TMUX 创建错误: {e}")
       return
 
-  def send_tmux(self, ftp_password, tmux_why, send_settings=False):
+  @staticmethod
+  def _param_str(key, default="none"):
+    """安全读取 Params 字符串（未设置/解码失败时回退默认值，避免抛异常）"""
+    try:
+      v = Params().get(key)
+      if v is None:
+        return default
+      return v.decode('utf-8') if isinstance(v, bytes) else str(v)
+    except Exception:
+      return default
 
+  def send_tmux(self, ftp_password, tmux_why, send_settings=False):
+    # 遥测上传是可选的：任何异常都不得向外抛出，
+    # 否则调用方(carrot_cmd_zmq)会 close/rebind 7710 命令套接字，导致命令通道闪断
     ftp_server = "shind0.synology.me"
     ftp_port = 8021
     ftp_username = "carrotpilot"
-    ftp = FTP()
-    ftp.connect(ftp_server, ftp_port)
-    ftp.login(ftp_username, ftp_password)
-    car_selected = Params().get("CarName")
-    if car_selected is None:
-      car_selected = "none"
-    else:
-      car_selected = car_selected.decode('utf-8')
-
-    git_branch = Params().get("GitBranch").decode('utf-8')
+    ftp = None
     try:
-      ftp.mkd(git_branch)
-    except Exception as e:
-      if "550" not in str(e):
-        print(f"目录创建失败: {e}")
-    ftp.cwd(git_branch)
+      ftp = FTP()
+      ftp.connect(ftp_server, ftp_port, timeout=5)
+      ftp.login(ftp_username, ftp_password)
+      car_selected = self._param_str("CarName", "none")
+      git_branch = self._param_str("GitBranch", "unknown")
 
-    directory = car_selected + " " + Params().get("DongleId").decode('utf-8')
-    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = tmux_why + "-" + current_time + "-" + git_branch + ".txt"
-
-    try:
-      ftp.mkd(directory)
-    except Exception as e:
-      if "550" not in str(e):
-        print(f"目录创建失败: {e}")
-    ftp.cwd(directory)
-
-    try:
-      with open(os.path.join(DATA_PATH, "media/tmux.log"), "rb") as file:
-        ftp.storbinary(f'STOR {filename}', file)
-    except Exception as e:
-      print(f"FTP 发送错误...: {e}")
-
-    if send_settings:
-      self.save_toggle_values()
       try:
-        #with open("/data/backup_params.json", "rb") as file:
-        with open(os.path.join(DATA_PATH, "toggle_values.json"), "rb") as file:
-          ftp.storbinary(f'STOR toggles-{current_time}.json', file)
+        ftp.mkd(git_branch)
       except Exception as e:
-        print(f"FTP 参数发送错误...: {e}")
+        if "550" not in str(e):
+          print(f"目录创建失败: {e}")
+      ftp.cwd(git_branch)
 
-    ftp.quit()
+      directory = car_selected + " " + self._param_str("DongleId", "unknown")
+      current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+      filename = tmux_why + "-" + current_time + "-" + git_branch + ".txt"
+
+      try:
+        ftp.mkd(directory)
+      except Exception as e:
+        if "550" not in str(e):
+          print(f"目录创建失败: {e}")
+      ftp.cwd(directory)
+
+      try:
+        with open(os.path.join(DATA_PATH, "media/tmux.log"), "rb") as file:
+          ftp.storbinary(f'STOR {filename}', file)
+      except Exception as e:
+        print(f"FTP 发送错误...: {e}")
+
+      if send_settings:
+        self.save_toggle_values()
+        try:
+          with open(os.path.join(DATA_PATH, "toggle_values.json"), "rb") as file:
+            ftp.storbinary(f'STOR toggles-{current_time}.json', file)
+        except Exception as e:
+          print(f"FTP 参数发送错误...: {e}")
+
+      ftp.quit()
+      ftp = None
+      print(f"send_tmux 上传完成: {tmux_why}")
+    except Exception as e:
+      print(f"send_tmux 上传失败({tmux_why}, 不影响 7710 命令通道): {e}")
+    finally:
+      if ftp is not None:
+        try:
+          ftp.close()
+        except Exception:
+          pass
 
   def carrot_panda_debug(self):
     #time.sleep(2)
@@ -949,9 +968,17 @@ class CarrotMan:
           socket.send(echo.encode())
       except Exception as e:
         print(f"carrot_cmd_zmq 错误: {e}")
-        socket.close()
+        try:
+          socket.close()
+        except Exception:
+          pass
         time.sleep(1)
-        socket, poller = setup_socket()
+        try:
+          socket, poller = setup_socket()
+        except Exception as e2:
+          # 重建失败(端口未释放等)时线程不得退出，退避后下一轮继续重试
+          print(f"carrot_cmd_zmq 重建 7710 套接字失败: {e2}")
+          time.sleep(2)
 
   def recvall(self, sock, n):
     """循环接收数据直到接收到 n 个字节"""
