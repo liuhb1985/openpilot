@@ -275,6 +275,13 @@ class CameraMJPG:
             self.cap.release()
 
     def __del__(self):
-        self.stop_event.set()
-        if hasattr(self, 'cap') and self.cap.isOpened():
-            self.cap.release()
+      # 打开失败时 __init__ 可能提前中断(stop_event 尚未创建)，此处必须做属性兜底
+      stop_event = getattr(self, 'stop_event', None)
+      if stop_event is not None:
+        stop_event.set()
+      try:
+        cap = getattr(self, 'cap', None)
+        if cap is not None and cap.isOpened():
+          cap.release()
+      except Exception:
+        pass
