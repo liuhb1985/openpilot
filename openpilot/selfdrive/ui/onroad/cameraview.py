@@ -1,4 +1,3 @@
-import platform
 import numpy as np
 import pyray as rl
 
@@ -12,17 +11,15 @@ from openpilot.selfdrive.ui.ui_state import ui_state
 
 CONNECTION_RETRY_INTERVAL = 0.2  # seconds between connection attempts
 
-VERSION = """
+ESSL3_VERSION = """
 #version 300 es
 precision mediump float;
 """
-if platform.system() == "Darwin":
-  VERSION = """
-    #version 330 core
-  """
+DESKTOP_GL_VERSION = """
+#version 330 core
+"""
 
-
-VERTEX_SHADER = VERSION + """
+VERTEX_SOURCE = """
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 in vec3 vertexNormal;
@@ -39,8 +36,7 @@ void main() {
 
 # Choose fragment shader based on platform capabilities
 if TICI:
-  FRAME_FRAGMENT_SHADER = """
-    #version 300 es
+  FRAME_FRAGMENT_SOURCE = """
     #extension GL_OES_EGL_image_external_essl3 : enable
     precision mediump float;
     in vec2 fragTexCoord;
@@ -52,7 +48,7 @@ if TICI:
     }
     """
 else:
-  FRAME_FRAGMENT_SHADER = VERSION + """
+  FRAME_FRAGMENT_SOURCE = """
     in vec2 fragTexCoord;
     uniform sampler2D texture0;
     uniform sampler2D texture1;
@@ -63,6 +59,20 @@ else:
       fragColor = vec4(y + 1.402*uv.y, y - 0.344*uv.x - 0.714*uv.y, y + 1.772*uv.x, 1.0);
     }
     """
+
+# raylib gives PCs (Linux/macOS) a desktop OpenGL 3.3 core context, where ESSL 3.00
+# only compiles if the driver exposes GL_ARB_ES3_compatibility. Accept either so a
+# failed compile can't silently leave the camera view black.
+VERSION_CANDIDATES = (ESSL3_VERSION, ) if TICI else (DESKTOP_GL_VERSION, ESSL3_VERSION)
+
+
+def load_frame_shader() -> rl.Shader:
+  """Compile the frame shader, falling back to the alternative GLSL version."""
+  for version in VERSION_CANDIDATES:
+    shader = rl.load_shader_from_memory(version + VERTEX_SOURCE, version + FRAME_FRAGMENT_SOURCE)
+    if shader is not None and shader.id:
+      return shader
+  raise RuntimeError("Failed to compile frame shader for any supported GLSL version")
 
 
 class CameraView(Widget):
@@ -81,7 +91,7 @@ class CameraView(Widget):
 
     self._texture_needs_update = True
     self.last_connection_attempt: float = 0.0
-    self.shader = rl.load_shader_from_memory(VERTEX_SHADER, FRAME_FRAGMENT_SHADER)
+    self.shader = load_frame_shader()
     self._texture1_loc: int = rl.get_shader_location(self.shader, "texture1") if not TICI else -1
 
     self.frame: VisionBuf | None = None

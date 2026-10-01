@@ -7,7 +7,7 @@ from collections import namedtuple
 from msgq.visionipc import VisionIpcServer, VisionStreamType
 from openpilot.cereal import messaging
 
-from openpilot.tools.webcam.camera import Camera
+from openpilot.tools.webcam.camera import Camera, CAMERA_FPS
 from openpilot.common.realtime import Ratekeeper
 
 ROAD_CAM = os.getenv("ROAD_CAM", "0")
@@ -15,6 +15,22 @@ WIDE_CAM = os.getenv("WIDE_CAM")
 DRIVER_CAM = os.getenv("DRIVER_CAM")
 
 CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id"])
+
+
+def resolve_camera_device(cam_id: str):
+  """Turn a ROAD_CAM/WIDE_CAM/DRIVER_CAM value into something OpenCV can open.
+
+  Accepted values:
+    - plain index:  "0" -> /dev/video0 (documented in README)
+    - full path:    "/dev/video2", "/dev/v4l/by-id/usb-...-video-index0"
+  The PC launcher binds cameras through /dev/v4l/by-id so a USB port change can't
+  reshuffle indices, so we must not blindly prefix those with /dev/video.
+  """
+  # on macOS, AVFoundation wants the index itself
+  if platform.system() == "Darwin":
+    return cam_id
+  return cam_id if cam_id.startswith("/") else f"/dev/video{cam_id}"
+
 
 CAMERAS = [
   CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, ROAD_CAM)
@@ -31,8 +47,7 @@ class Camerad:
 
     self.cameras = []
     for c in CAMERAS:
-      cam_device = f"/dev/video{c.cam_id}" if platform.system() != "Darwin" else c.cam_id
-      cam = Camera(c.msg_name, c.stream_type, cam_device)
+      cam = Camera(c.msg_name, c.stream_type, resolve_camera_device(c.cam_id))
       self.cameras.append(cam)
       self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
 
@@ -52,7 +67,7 @@ class Camerad:
     self.pm.send(pub_type, dat)
 
   def camera_runner(self, cam):
-    rk = Ratekeeper(20, None)
+    rk = Ratekeeper(CAMERA_FPS, None)
     for yuv in cam.read_frames():
       self._send_yuv(yuv, cam.cur_frame_id, cam.cam_type_state, cam.stream_type)
       cam.cur_frame_id += 1

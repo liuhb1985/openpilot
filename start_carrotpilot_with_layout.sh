@@ -29,6 +29,10 @@
 #   ROAD_CAM_ID_PATTERN   主摄（长焦）by-id 匹配串（默认 RYS_RGB）
 #   WIDE_CAM_ID_PATTERN   广角 by-id 匹配串（默认 LRCP_500W）
 #   ROAD_CAM / WIDE_CAM   显式指定设备路径或编号时优先使用
+#   WEBCAM_ROTATE180      设为 1 恢复 180° 旋转（摄像头倒装时使用；默认不旋转）
+#   WEBCAM_FPS            采集帧率（默认 20）
+#   WEBCAM_FOURCC         采集像素格式（Linux 默认 MJPG，避免 YUYV 把 720p 压到个位数帧率）
+#   FPS                   UI 渲染帧率（默认 20；GPU 够快可设 60）
 #   NO_LAYOUT             设为 1 禁用启动后的窗口布局守护
 #   LAYOUT_UI_PERCENT     UI 主窗口占屏高百分比（默认 70）
 #   CAMERA_WINDOW_WIDTH / CAMERA_WINDOW_HEIGHT  盲区摄像头窗口尺寸（默认 640x360）
@@ -161,6 +165,9 @@ sys_tune
 # WEBCAM 模式下 webcamerad 需要 /dev/videoN；先等设备枚举稳定（最多 10s），
 # 再用 /dev/v4l/by-id 按 USB 序列号绑定主/广角摄像头，插拔换口后编号不再漂移。
 # 仅提示不阻断——没有摄像头时其他进程照常启动。
+if [ -z "${USE_WEBCAM:-}" ]; then
+  echo "[camera] NOTE: USE_WEBCAM is unset; webcamerad stays disabled (use 'USE_WEBCAM=1 $0')"
+fi
 if [ -n "${USE_WEBCAM:-}" ]; then
   cam_wait=0
   cam_count=0
