@@ -163,8 +163,10 @@ wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (Wide-angle)"
 # 设置动态库路径，使相关进程能找到 libonnxruntime
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
 
-# 深度优化：开启 VisionIPC 模式，让盲区监测共享模型摄像头数据，消除硬件占用冲突
-export USE_VISION_IPC=1
+# 盲区检测已停用（广角仅供模型使用），无需再让盲区共享 VisionIPC 流。
+# 若恢复 cam_blindspot 进程(process_config.py)，必须重新打开下面这行，否则它会直接
+# 打开物理 V4L2 设备与 webcamerad 抢占广角，导致 "Failed to open camera ..." 报错
+#export USE_VISION_IPC=1
 
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
@@ -267,16 +269,15 @@ maintain_layout() {
             fi
         fi
 
-        # 2. 定位 All Cameras 盲区检测窗口
-        #    注意：只搬位置，绝不改写尺寸/去边框。cam_blindspot 自身按画布尺寸调用
-        #    cv::resizeWindow(combined.cols, combined.rows)（单摄 960x540），外部强行缩放
-        #    会让 OpenCV 的画布与窗口尺寸不一致，表现为画面偏小 + 右侧多出一块黑边。
-        local cam_win=$(wmctrl -l | grep -Ei "All Cameras" | head -n 1 | cut -d' ' -f1)
-        if [ ! -z "$cam_win" ]; then
+        # 2. 布局 All Cameras 盲区检测窗口 (兼容单/多窗口模式，顶部使用动态计算的 target_y 进行完美对齐)
+        local cam_win=$(wmctrl -l | grep -Ei "All Cameras|camera|cameras|Camera 0" | grep -vEi "code|chrome|firefox" | head -n 1 | cut -d' ' -f1)
+        if [ ! -z "$cam_win" ] && [ "$cam_win" != "$aligned_cam" ]; then
             wmctrl -i -r "$cam_win" -b remove,fullscreen,maximized_horz,maximized_vert
-            # -1 表示保持当前宽高：仅移动到主界面下方
-            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,-1,-1
-            [ -z "$aligned_cam" ] && echo "✓ Blindspot window positioned (size kept as-is)."
+            wmctrl -i -r "$cam_win" -b remove,decorations
+            if command -v xprop >/dev/null 2>&1; then
+                xprop -id "$cam_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
+            fi
+            wmctrl -i -r "$cam_win" -e 0,$CAMERA_0_X,$target_y,$CAMERA_WINDOW_WIDTH,$CAMERA_WINDOW_HEIGHT
             aligned_cam="$cam_win"
         fi
 
