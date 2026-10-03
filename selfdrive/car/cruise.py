@@ -378,8 +378,9 @@ class VCruiseCarrot:
     button_type = 0
     buttonEvents = CS.buttonEvents
 
-    SPEED_UP_UNIT = self._cruise_speed_unit_basic
-    SPEED_DOWN_UNIT = self._cruise_speed_unit if self._cruise_button_mode in [1, 2, 3] else self._cruise_speed_unit_basic
+    # 单次点击固定 ±1（公制 1km/h，英制 1mph）；长按每步 ±10
+    SPEED_UP_UNIT = 1.0
+    SPEED_DOWN_UNIT = 1.0
     V_CRUISE_DELTA = 10
     is_metric = self.is_metric
 
@@ -417,10 +418,10 @@ class VCruiseCarrot:
         elif not self.long_pressed:
           if self.button_prev == ButtonType.accelCruise:
             unit = SPEED_UP_UNIT if is_metric else SPEED_UP_UNIT * CV.MPH_TO_KPH
-            button_kph = math.ceil((button_kph + 0.01) / unit) * unit
+            button_kph += unit
           elif self.button_prev == ButtonType.decelCruise:
             unit = SPEED_DOWN_UNIT if is_metric else SPEED_DOWN_UNIT * CV.MPH_TO_KPH
-            button_kph = math.floor((button_kph - 0.01) / unit) * unit
+            button_kph -= unit
           button_type = self.button_prev
         self.long_pressed = False
         self.button_cnt = 0
@@ -431,11 +432,9 @@ class VCruiseCarrot:
       bt = self.button_prev
 
       if bt in [ButtonType.accelCruise, ButtonType.decelCruise]:
-        mod = button_kph % V_CRUISE_DELTA
-        if bt == ButtonType.accelCruise:
-          button_kph += V_CRUISE_DELTA - mod
-        else:
-          button_kph -= V_CRUISE_DELTA - (-mod % V_CRUISE_DELTA)
+        # 长按：固定 ±10（公制 km/h / 英制 mph 换算），不再吸附到 10 的整数倍
+        step = V_CRUISE_DELTA if is_metric else V_CRUISE_DELTA * CV.MPH_TO_KPH
+        button_kph += step if bt == ButtonType.accelCruise else -step
         button_type = bt
         self.button_cnt %= self.button_long_time
       else: 
@@ -523,7 +522,8 @@ class VCruiseCarrot:
         elif self._cruise_button_mode == 0:
           v_cruise_kph = button_kph
         else:
-          v_cruise_kph = self._v_cruise_desired(CS, v_cruise_kph)
+          # 单次点击固定 +1（不再吸附到 10 的整数倍）
+          v_cruise_kph = button_kph
         self.carrot_cruise_active = False
 
       elif button_type == ButtonType.decelCruise:
@@ -539,7 +539,7 @@ class VCruiseCarrot:
           v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
         elif self.v_ego_kph_set > v_cruise_kph + 2 and self._cruise_button_mode in [2, 3]:
           v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)
-        elif self._cruise_button_mode in [0, 1]:
+        elif self._cruise_button_mode in [0, 1, 2, 3]:
           v_cruise_kph = button_kph
         elif self.v_ego_kph_set < 1.0:
           self.carrot_cruise_active = True
