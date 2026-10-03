@@ -27,8 +27,10 @@ CAPTURE_HEIGHT = int(os.getenv("WEBCAM_HEIGHT") or 1080)
 # (see selfdrive/modeld/compile_modeld.py --camera-resolutions). Every camera
 # must publish the SAME resolution: modeld derives its NV12 geometry for both
 # 'img' and 'big_img' from the road camera size (selfdrive/modeld/modeld.py).
-# 1920x1080 capture is rescaled to whichever of these is available.
-SUPPORTED_CAM_RESOLUTIONS = ((1928, 1208), (1344, 760))
+# 1920x1080 capture is rescaled only when the loaded model has no warp for it.
+# Keep in sync with openpilot/common/transformations/camera.py, which drives the
+# resolutions modeld compiles (modeld/SConscript CAMERA_CONFIGS).
+SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080), (1344, 760))
 
 # Optional environment override for the capture pixel format (e.g. YUYV).
 FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
