@@ -35,12 +35,21 @@ SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080), (1344, 760))
 # Optional environment override for the capture pixel format (e.g. YUYV).
 FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
 
-# Auto exposure trades frame rate for brightness: in a dim room it stretches the
-# exposure time and the camera drops to ~18 fps (and ~12 fps per camera once
-# both share the bus). Setting a fixed exposure restores ~28 fps, but it cannot
-# adapt to tunnel/night lighting, so it stays opt-in for bench use.
-EXPOSURE_OVERRIDE = os.getenv("WEBCAM_EXPOSURE")
-AUTO_EXPOSURE_MODE = os.getenv("WEBCAM_AUTO_EXPOSURE")
+# Auto exposure trades frame rate for brightness: in the dark it stretches the
+# exposure time and the camera drops to ~13-18 fps. A fixed exposure can keep
+# ~28 fps, but a value tuned in daylight leaves the image almost black at night,
+# and some UVC cameras silently ignore manual exposure/gain in MJPEG mode.
+# Everything below is therefore opt-in, and a too-dark manual setting falls back
+# to auto exposure automatically.
+def _env_for(cam_type_state: str, suffix: str):
+  role = "ROAD" if cam_type_state == "roadCameraState" else ("WIDE" if cam_type_state == "wideRoadCameraState" else "DRIVER")
+  return os.getenv(f"WEBCAM_{suffix}_{role}") or os.getenv(f"WEBCAM_{suffix}")
+
+AUTO_EXPOSURE_AUTO = 3.0
+AUTO_EXPOSURE_MANUAL = 1.0
+# Below this average luma a frame is considered "black"; auto exposure is
+# restored when a manual setting produces it.
+BRIGHTNESS_FLOOR = float(os.getenv("WEBCAM_MIN_BRIGHTNESS") or 20.0)
 
 
 def pick_output_resolution(cap_w: int, cap_h: int) -> tuple[int, int]:
@@ -77,6 +86,56 @@ class Camera:
 
     # Published size; camerad aligns every camera on the road camera's size.
     self.W, self.H = self.cap_w, self.cap_h
+
+    self._apply_image_controls()
+
+  def _apply_image_controls(self) -> None:
+    """Exposure/gain are optional. A manual setting that leaves the image black
+    (night, or a camera that ignores manual controls) falls back to auto."""
+    exposure = _env_for(self.cam_type_state, "EXPOSURE")
+    gain = _env_for(self.cam_type_state, "GAIN")
+    if exposure is None and gain is None:
+      return
+
+    mode = _env_for(self.cam_type_state, "AUTO_EXPOSURE")
+    try:
+      self.cap.set(cv.CAP_PROP_AUTO_EXPOSURE, float(mode) if mode else
+                   (AUTO_EXPOSURE_MANUAL if exposure is not None else AUTO_EXPOSURE_AUTO))
+      if exposure is not None:
+        self.cap.set(cv.CAP_PROP_EXPOSURE, float(exposure))
+      if gain is not None:
+        self.cap.set(cv.CAP_PROP_GAIN, float(gain))
+    except Exception:
+      print(f"Warning: couldn't set exposure/gain for {self.cam_type_state}")
+      return
+
+    # Let the sensor settle, then verify the result instead of trusting it.
+    time.sleep(0.5)
+    brightness = self._measure_brightness()
+    if brightness is None:
+      return
+    print(f"  {self.cam_type_state}: exposure={exposure or 'auto'} gain={gain or 'default'} "
+          f"-> luma {brightness:.1f}")
+    if exposure is not None and brightness < BRIGHTNESS_FLOOR:
+      print(f"  {self.cam_type_state}: manual exposure leaves the image almost black "
+            f"(luma {brightness:.1f} < {BRIGHTNESS_FLOOR}); switching back to auto exposure")
+      try:
+        self.cap.set(cv.CAP_PROP_AUTO_EXPOSURE, AUTO_EXPOSURE_AUTO)
+      except Exception:
+        pass
+      time.sleep(0.5)
+      brightness = self._measure_brightness()
+      if brightness is not None:
+        print(f"  {self.cam_type_state}: auto exposure -> luma {brightness:.1f}")
+
+  def _measure_brightness(self):
+    """Average luma of the next frame, or None if no frame arrives."""
+    for _ in range(10):
+      ret, frame = self.cap.read()
+      if ret and frame is not None and frame.size:
+        return float(cv.cvtColor(frame, cv.COLOR_BGR2GRAY).mean())
+      time.sleep(0.05)
+    return None
 
   def set_output_size(self, width: int, height: int) -> None:
     if (width, height) != (self.cap_w, self.cap_h):
@@ -118,18 +177,11 @@ class Camera:
         # grab() proves the negotiated format really streams; a second camera
         # on a saturated USB bus opens fine but never delivers a frame.
         if cap.grab():
-          if EXPOSURE_OVERRIDE is not None:
-            try:
-              cap.set(cv.CAP_PROP_AUTO_EXPOSURE, float(AUTO_EXPOSURE_MODE or 1.0))
-              cap.set(cv.CAP_PROP_EXPOSURE, float(EXPOSURE_OVERRIDE))
-            except Exception:
-              print(f"Warning: couldn't set exposure {EXPOSURE_OVERRIDE} for {camera_id}")
           fmt = int(cap.get(cv.CAP_PROP_FOURCC))
           fmt_name = ''.join(chr((fmt >> 8 * i) & 0xFF) for i in range(4))
           print(f"Opened {camera_id}: {fmt_name} "
                 f"{int(cap.get(cv.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))} "
-                f"@ {cap.get(cv.CAP_PROP_FPS):.1f} fps"
-                + (f", exposure {EXPOSURE_OVERRIDE}" if EXPOSURE_OVERRIDE is not None else ""))
+                f"@ {cap.get(cv.CAP_PROP_FPS):.1f} fps")
           return cap
         cap.release()
         last_error = f"no frames from {camera_id} at {fourcc or 'default'} {w}x{h}"
