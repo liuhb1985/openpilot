@@ -2,6 +2,7 @@
 import threading
 import os
 import platform
+import time
 from collections import namedtuple
 
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -32,12 +33,12 @@ def resolve_camera_device(cam_id: str):
   return cam_id if str(cam_id).startswith("/") else f"/dev/video{cam_id}"
 
 
-# Cameras usually share one USB 2.0 bus (~53 MB/s). The road camera feeds the
-# driving model, so it asks for full-quality YUYV first; secondary cameras start
-# with a compressed, smaller stream so both fit on the bus. Tried in order; the
-# first format that actually delivers a frame wins.
-ROAD_CAM_FORMATS = ((None, 1280, 720), ('MJPG', 640, 480))
-SECONDARY_CAM_FORMATS = (('MJPG', 640, 480), ('MJPG', 1280, 720), (None, 1280, 720))
+# Both cameras capture 1920x1080, but they share one USB 2.0 bus (~53 MB/s)
+# where uncompressed 1080p (~79 MB/s) cannot fit, so MJPEG comes first for every
+# camera. Tried in order; the first format that actually delivers a frame wins.
+CAPTURE_SIZE = (1920, 1080)
+ROAD_CAM_FORMATS = (('MJPG', *CAPTURE_SIZE), (None, *CAPTURE_SIZE))
+SECONDARY_CAM_FORMATS = ROAD_CAM_FORMATS
 
 CAMERAS = [
   CameraType("roadCameraState", VisionStreamType.VISION_STREAM_ROAD, ROAD_CAM, ROAD_CAM_FORMATS),
@@ -68,8 +69,13 @@ class Camerad:
     self.vipc_server.start_listener()
 
   def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
-    eof = int(frame_id * 0.05 * 1e9)
-    self.vipc_server.send(yuv_type, yuv, frame_id, eof, eof)
+    # Timestamps must be a clock shared by every camera. Deriving them from the
+    # per-camera frame counter made the road and wide streams drift apart (the
+    # camera that started first stays seconds ahead forever), and modeld's frame
+    # sync loop waits for the road frame to lead the wide one by 25 ms -- so it
+    # never ran and no modelV2 was published.
+    ts = time.time_ns()
+    self.vipc_server.send(yuv_type, yuv, frame_id, ts, ts)
     dat = messaging.new_message(pub_type, valid=True)
     msg = {
       "frameId": frame_id,

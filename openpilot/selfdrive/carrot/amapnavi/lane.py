@@ -22,6 +22,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
 
+from openpilot.selfdrive.carrot.port_bind import bind_with_retry
+
 # 注意：不要在模块导入阶段 raise SystemExit。
 # manager 的 PythonProcess.prepare() 会 importlib.import_module() 预导入本模块，
 # 而 SystemExit 属于 BaseException，不会被它的 `except Exception` 捕获，
@@ -419,7 +421,10 @@ class LaneStreamServer:
     print(f"访问: http://{host}:{self.port}")
     print("=" * 60)
 
-    httpd = ThreadingHTTPServer((host, self.port), self.create_handler())
+    # Retry: a stale stack holding the port would otherwise kill this service
+    # for the rest of the session.
+    httpd = bind_with_retry(lambda: ThreadingHTTPServer((host, self.port), self.create_handler()),
+                            f"lane web {self.port}", log=print)
     httpd.daemon_threads = True
     try:
       httpd.serve_forever()

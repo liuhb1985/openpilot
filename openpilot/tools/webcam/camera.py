@@ -17,10 +17,17 @@ CAMERA_FPS = int(os.getenv("WEBCAM_FPS") or 20)
 # costs a full frame copy on every single frame.
 ROTATE_180 = os.getenv("WEBCAM_ROTATE180", "0") == "1"
 
+# Capture resolution. Always 1920x1080: both webcams negotiate it, and it gives
+# the driving model the sharpest available input. Override only for hardware
+# that cannot sustain 1080p.
+CAPTURE_WIDTH = int(os.getenv("WEBCAM_WIDTH") or 1920)
+CAPTURE_HEIGHT = int(os.getenv("WEBCAM_HEIGHT") or 1080)
+
 # Camera resolutions the compiled modeld warp JITs are built for
 # (see selfdrive/modeld/compile_modeld.py --camera-resolutions). Every camera
 # must publish the SAME resolution: modeld derives its NV12 geometry for both
 # 'img' and 'big_img' from the road camera size (selfdrive/modeld/modeld.py).
+# 1920x1080 capture is rescaled to whichever of these is available.
 SUPPORTED_CAM_RESOLUTIONS = ((1928, 1208), (1344, 760))
 
 # Optional environment override for the capture pixel format (e.g. YUYV).
@@ -76,7 +83,9 @@ class Camera:
     # delivers a frame. Order matters: the road camera asks for full quality
     # first, secondary cameras try a bandwidth-friendly format first.
     if not formats:
-      formats = (('MJPG', 1280, 720), (None, 1280, 720))
+      # MJPEG is mandatory here: uncompressed 1080p (~79 MB/s) alone exceeds the
+      # ~53 MB/s of a USB 2.0 bus shared by both cameras.
+      formats = (('MJPG', CAPTURE_WIDTH, CAPTURE_HEIGHT), (None, CAPTURE_WIDTH, CAPTURE_HEIGHT))
     if FOURCC_OVERRIDE:
       formats = tuple((FOURCC_OVERRIDE, w, h) for _fourcc, w, h in formats)
 
