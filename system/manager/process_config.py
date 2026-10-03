@@ -192,10 +192,8 @@ procs = [
   PythonProcess("xiaoge_data", "selfdrive.carrot.xiaoge_data", enable_xiaoge_data),
   # c3x lite
   PythonProcess("beep", "selfdrive.controls.beep", c3x_lite, enabled=TICI),
-  # 广角摄像头改为仅供模型使用(modeld 双摄 main+big 输入)，摄像头盲区检测停用：
-  # 该进程每帧在 CPU 上跑 YOLOv5s 并独占/共享广角流，是双摄丢帧与 CPU 占用的主要来源。
-  # 如需恢复摄像头盲区检测：取消下行注释，并打开启动脚本里的 USE_VISION_IPC=1
-  # NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
+  # 摄像头盲区检测：通过 VisionIPC 共享广角流(不再独占物理设备)，需配合启动脚本 USE_VISION_IPC=1
+  NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
   PythonProcess("amap_navi", "selfdrive.carrot.amap_navi", only_onroad),
   PythonProcess("lane", "selfdrive.carrot.lane", only_onroad),
 ]

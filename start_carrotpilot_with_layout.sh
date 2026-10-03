@@ -164,9 +164,9 @@ wait_for_device "/dev/video$WIDE_CAM_IDX" "Wide Camera (Wide-angle)"
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/third_party/onnxruntime/lib
 
 # 盲区检测已停用（广角仅供模型使用），无需再让盲区共享 VisionIPC 流。
-# 若恢复 cam_blindspot 进程(process_config.py)，必须重新打开下面这行，否则它会直接
-# 打开物理 V4L2 设备与 webcamerad 抢占广角，导致 "Failed to open camera ..." 报错
-#export USE_VISION_IPC=1
+# 开启 VisionIPC：cam_blindspot 改为共享 camerad 的广角流，不再直接打开物理 V4L2 设备，
+# 避免与 webcamerad 抢占广角导致 "Failed to open camera ..." 报错
+export USE_VISION_IPC=1
 
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
@@ -187,6 +187,10 @@ UI_WINDOW_X=0
 UI_WINDOW_Y=0
 UI_WINDOW_WIDTH=2048
 UI_WINDOW_HEIGHT=1080
+
+# 主界面置顶时长(秒)：启动后先置顶保证可见，到时间自动解除置顶，之后可自由手动切换窗口。
+# 设为 0 表示从不置顶；设为 -1 表示一直置顶(旧行为)。可用环境变量 UI_ON_TOP_SECONDS 覆盖。
+UI_ON_TOP_SECONDS=${UI_ON_TOP_SECONDS:-10}
 
 # 2. 盲区画面窗口 (调整为标准的 640x360，完美贴合主界面底部，不大不小正好)
 CAMERA_WINDOW_WIDTH=640
@@ -238,6 +242,9 @@ maintain_layout() {
     local aligned_cam=""
     local aligned_term=""
 
+    # UI 置顶解除的时间点(循环计数, 每次循环 0.5s)；-1 表示无需解除(未置顶或永久置顶)
+    local ui_on_top_until=-1
+
     # 持续维护 30 秒布局，以 0.5 秒为间隔
     while [ $elapsed -lt 60 ]; do
         # 1. 布局 UI 窗口
@@ -249,11 +256,28 @@ maintain_layout() {
                 xprop -id "$ui_win" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" 2>/dev/null
             fi
             wmctrl -i -r "$ui_win" -e 0,$UI_WINDOW_X,$UI_WINDOW_Y,$UI_WINDOW_WIDTH,$UI_WINDOW_HEIGHT
-            # 主界面置顶：始终浮在日志窗口/盲区窗口之上，并激活一次聚焦
-            wmctrl -i -r "$ui_win" -b add,above
-            wmctrl -i -a "$ui_win"
-            echo "✓ UI window aligned and kept on top."
+            # 主界面置顶：启动初期浮在日志窗口/盲区窗口之上，并激活一次聚焦。
+            # 仅保持 UI_ON_TOP_SECONDS 秒，到期自动解除，之后用户可自由手动切换窗口。
+            if [ "$UI_ON_TOP_SECONDS" -gt 0 ]; then
+                wmctrl -i -r "$ui_win" -b add,above
+                wmctrl -i -a "$ui_win"
+                ui_on_top_until=$((elapsed + UI_ON_TOP_SECONDS * 2))
+                echo "✓ UI window aligned and kept on top for ${UI_ON_TOP_SECONDS}s."
+            elif [ "$UI_ON_TOP_SECONDS" -lt 0 ]; then
+                wmctrl -i -r "$ui_win" -b add,above
+                wmctrl -i -a "$ui_win"
+                echo "✓ UI window aligned and kept on top (always)."
+            else
+                echo "✓ UI window aligned (on-top disabled)."
+            fi
             aligned_ui="$ui_win"
+        fi
+
+        # 置顶到期 → 自动解除，把窗口层级交还给用户手动切换
+        if [ ! -z "$aligned_ui" ] && [ "$ui_on_top_until" -ge 0 ] && [ "$elapsed" -ge "$ui_on_top_until" ]; then
+            wmctrl -i -r "$aligned_ui" -b remove,above
+            echo "✓ UI on-top released after ${UI_ON_TOP_SECONDS}s, you can switch windows manually now."
+            ui_on_top_until=-1
         fi
 
         # 核心智能对齐算法：动态检测主 UI 窗口在桌面环境中的实际底部 Y 坐标，作为下方盲区和日志窗口的起始顶部坐标 Y
@@ -301,8 +325,8 @@ maintain_layout() {
             aligned_term="$active_term_id"
         fi
 
-        # 如果三个窗口均已对齐，则提前优雅退出守护进程
-        if [ ! -z "$aligned_ui" ] && [ ! -z "$aligned_cam" ] && [ ! -z "$aligned_term" ]; then
+        # 三个窗口均已对齐、且置顶状态已处理完毕(无需再等待解除)时，提前优雅退出守护进程
+        if [ ! -z "$aligned_ui" ] && [ ! -z "$aligned_cam" ] && [ ! -z "$aligned_term" ] && [ "$ui_on_top_until" -lt 0 ]; then
             echo "✓ All windows successfully aligned. Layout daemon exiting early."
             break
         fi
@@ -310,6 +334,12 @@ maintain_layout() {
         sleep 0.5
         elapsed=$((elapsed + 1))
     done
+
+    # 兜底：循环结束时若仍处于置顶状态则解除，避免永久置顶
+    if [ ! -z "$aligned_ui" ] && [ "$ui_on_top_until" -ge 0 ]; then
+        wmctrl -i -r "$aligned_ui" -b remove,above
+        echo "✓ UI on-top released, you can switch windows manually now."
+    fi
 
     echo "Layout guardian daemon finished."
 }
