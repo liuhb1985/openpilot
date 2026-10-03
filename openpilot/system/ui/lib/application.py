@@ -21,12 +21,15 @@ from importlib.resources import as_file
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware import HARDWARE, PC
+from openpilot.system.hardware.hw import Paths
 from openpilot.system.ui.lib.multilang import multilang
 from openpilot.common.realtime import Ratekeeper
 import datetime
 
-#_DEFAULT_FPS = int(os.getenv("FPS", {'tizi': 20}.get(HARDWARE.get_device_type(), 60)))
-_DEFAULT_FPS = 20 
+# The device normally runs at 20Hz to stay off the big cores. On a PC workstation
+# the display refresh is usually 60Hz, so raise it (FPS=60) if the GPU can keep up -
+# a 20Hz cap makes the camera feed look steppy even when frames arrive faster.
+_DEFAULT_FPS = int(os.getenv("FPS") or 20)
 FPS_LOG_INTERVAL = 5  # Seconds between logging FPS drops
 FPS_DROP_THRESHOLD = 0.9  # FPS drop threshold for triggering a warning
 FPS_CRITICAL_THRESHOLD = 0.5  # Critical threshold for triggering strict actions
@@ -45,6 +48,7 @@ ABS_MT_TRACKING_ID = 0x39
 
 BIG_UI = os.getenv("BIG", "0") == "1"
 ENABLE_VSYNC = os.getenv("ENABLE_VSYNC", "0") == "1"
+DISABLE_MSAA = os.getenv("DISABLE_MSAA") == "1"
 SHOW_FPS = os.getenv("SHOW_FPS") == "1"
 SHOW_TOUCHES = os.getenv("SHOW_TOUCHES") == "1"
 STRICT_MODE = os.getenv("STRICT_MODE") == "1"
@@ -133,6 +137,17 @@ class TextAlignmentVertical(IntEnum):
   TOP = 0
   MIDDLE = 1
   BOTTOM = 2
+
+
+def _default_record_dir() -> Path:
+  """Where manual screen recordings are written.
+
+  On TICI these live next to the dashcam footage; on PC there is no /data
+  mounted (/data is not writable as a normal user), so keep them under the
+  comma home used by Paths.
+  """
+  default = str(Path(Paths.comma_home()) / "media" / "0" / "videos") if PC else "/data/media/0/videos"
+  return Path(os.environ.get("RECORD_DIR", default))
 
 
 def font_fallback(font: rl.Font) -> rl.Font:
@@ -314,7 +329,7 @@ class GuiApplication:
     self._render_profile_start_time = None
 
     self._record_enabled = False
-    self._record_dir = Path("/data/media/0/videos")
+    self._record_dir = _default_record_dir()
     self._record_max_sec = 60
     self._record_t0 = 0.0
     self._record_every_n = 3
@@ -466,7 +481,9 @@ class GuiApplication:
       signal.signal(signal.SIGINT, _close)
       atexit.register(self.close)
 
-      flags = rl.ConfigFlags.FLAG_MSAA_4X_HINT
+      # 4x MSAA on a 2160x1080 window is 4x the fragment work - the first thing to
+      # give back when a PC has to render through XWayland or llvmpipe.
+      flags = 0 if DISABLE_MSAA else rl.ConfigFlags.FLAG_MSAA_4X_HINT
       if ENABLE_VSYNC:
         flags |= rl.ConfigFlags.FLAG_VSYNC_HINT
       rl.set_config_flags(flags)

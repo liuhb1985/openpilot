@@ -27,6 +27,7 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from openpilot.selfdrive.carrot.amapnavi.config import UnifiedParams
+from openpilot.selfdrive.carrot.port_bind import bind_with_retry
 
 DEFAULT_HTTP_PORT = 8088
 
@@ -286,7 +287,11 @@ class ConfigWeb:
         """启动Web服务器"""
         try:
             handler = self.create_web_handler()
-            self.web_server = HTTPServer(('0.0.0.0', self.port), handler)
+            # Retry: a stale stack holding the port would otherwise kill the
+            # web server thread for the rest of the session.
+            self.web_server = bind_with_retry(
+                lambda: HTTPServer(('0.0.0.0', self.port), handler),
+                f"amapnavi config web {self.port}", log=print)
             self.web_server.timeout = 30
             print(f"🌐 amapnavi Web服务器启动在端口 {self.port}")
             self.web_server.serve_forever()

@@ -7,7 +7,7 @@ from collections import namedtuple
 from msgq.visionipc import VisionIpcServer, VisionStreamType
 from openpilot.cereal import messaging
 
-from openpilot.tools.webcam.camera import Camera
+from openpilot.tools.webcam.camera import Camera, CAMERA_FPS, pick_output_resolution
 from openpilot.common.realtime import Ratekeeper
 
 ROAD_CAM = os.getenv("ROAD_CAM", "0")
@@ -16,11 +16,27 @@ DRIVER_CAM = os.getenv("DRIVER_CAM")
 
 CameraType = namedtuple("CameraType", ["msg_name", "stream_type", "cam_id", "formats"])
 
+
+def resolve_camera_device(cam_id: str):
+  """Turn a ROAD_CAM/WIDE_CAM/DRIVER_CAM value into something OpenCV can open.
+
+  Accepted values:
+    - plain index:  "0" -> /dev/video0 (documented in README)
+    - full path:    "/dev/video2", "/dev/v4l/by-id/usb-...-video-index0"
+  The PC launcher binds cameras through /dev/v4l/by-id so a USB port change can't
+  reshuffle indices, so we must not blindly prefix those with /dev/video.
+  """
+  # on macOS, AVFoundation wants the index itself
+  if platform.system() == "Darwin":
+    return cam_id
+  return cam_id if str(cam_id).startswith("/") else f"/dev/video{cam_id}"
+
+
 # Cameras usually share one USB 2.0 bus (~53 MB/s). The road camera feeds the
-# driving model, so it gets the full-quality YUYV stream; secondary cameras use
-# compressed MJPEG so everything fits on the bus. Tried in order; the first
-# format that delivers a frame wins.
-ROAD_CAM_FORMATS = ((None, 1280, 720), ('MJPG', 640, 480))          # YUYV first for quality
+# driving model, so it asks for full-quality YUYV first; secondary cameras start
+# with a compressed, smaller stream so both fit on the bus. Tried in order; the
+# first format that actually delivers a frame wins.
+ROAD_CAM_FORMATS = ((None, 1280, 720), ('MJPG', 640, 480))
 SECONDARY_CAM_FORMATS = (('MJPG', 640, 480), ('MJPG', 1280, 720), (None, 1280, 720))
 
 CAMERAS = [
@@ -38,17 +54,16 @@ class Camerad:
 
     self.cameras = []
     for c in CAMERAS:
-      # cam_id is either a numeric index (/dev/videoN) or an explicit device
-      # path (e.g. /dev/v4l/by-id/... bound by the launcher); don't prepend
-      # /dev/video to an already-absolute path.
-      cam_id = str(c.cam_id)
-      if platform.system() == "Darwin" or cam_id.startswith("/"):
-        cam_device = cam_id
-      else:
-        cam_device = f"/dev/video{cam_id}"
-      cam = Camera(c.msg_name, c.stream_type, cam_device, c.formats)
+      cam = Camera(c.msg_name, c.stream_type, resolve_camera_device(c.cam_id), c.formats)
       self.cameras.append(cam)
-      self.vipc_server.create_buffers(c.stream_type, 20, cam.W, cam.H)
+
+    # modeld derives NV12 geometry for both 'img' and 'big_img' from the road
+    # camera size, so every stream is published at that same resolution.
+    out_w, out_h = pick_output_resolution(self.cameras[0].cap_w, self.cameras[0].cap_h)
+
+    for cam in self.cameras:
+      cam.set_output_size(out_w, out_h)
+      self.vipc_server.create_buffers(cam.stream_type, 20, cam.W, cam.H)
 
     self.vipc_server.start_listener()
 
@@ -66,7 +81,7 @@ class Camerad:
     self.pm.send(pub_type, dat)
 
   def camera_runner(self, cam):
-    rk = Ratekeeper(20, None)
+    rk = Ratekeeper(CAMERA_FPS, None)
     for yuv in cam.read_frames():
       self._send_yuv(yuv, cam.cur_frame_id, cam.cam_type_state, cam.stream_type)
       cam.cur_frame_id += 1

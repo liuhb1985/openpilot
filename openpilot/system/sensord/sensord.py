@@ -327,6 +327,21 @@ def ch347_loop(dev_path: str, lib_path: str, event: threading.Event) -> None:
 
 # *** Local I2C (smbus) backend ***
 
+def ch347_i2c_buses() -> list[int]:
+  """I2C bus numbers provided by the CH347 USB bridge kernel driver."""
+  buses = []
+  for node in glob.glob("/sys/bus/i2c/devices/i2c-*"):
+    try:
+      bus = int(os.path.basename(node).rsplit("-", 1)[1])
+      with open(os.path.join(node, "name")) as f:
+        name = f.read().strip()
+    except (OSError, ValueError):
+      continue
+    if "ch347" in name.lower():
+      buses.append(bus)
+  return sorted(buses)
+
+
 def detect_imu_i2c_bus() -> tuple[int, int]:
   """Returns (bus, address) of the first LSM6DS3 found."""
   bus_override = os.getenv("SENSORD_I2C_BUS")
@@ -340,6 +355,15 @@ def detect_imu_i2c_bus() -> tuple[int, int]:
       candidates.append(int(node.rsplit("-", 1)[1]))
     except ValueError:
       continue
+
+  # On a PC the IMU hangs off the CH347 USB bridge, while the other adapters are
+  # GPU/SMBus ones. Probing those first wasted seconds (a missing device can
+  # time out) and made a missing CH347 look like a stream of EIO errors, so try
+  # the CH347 adapters first.
+  ch347_buses = ch347_i2c_buses()
+  if ch347_buses:
+    cloudlog.info(f"CH347 I2C adapters detected: {ch347_buses}")
+    candidates = ch347_buses + [b for b in candidates if b not in ch347_buses]
 
   if DEFAULT_I2C_BUS_IMU not in candidates:
     candidates.insert(0, DEFAULT_I2C_BUS_IMU)
