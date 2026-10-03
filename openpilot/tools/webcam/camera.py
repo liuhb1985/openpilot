@@ -33,6 +33,13 @@ SUPPORTED_CAM_RESOLUTIONS = ((1928, 1208), (1344, 760))
 # Optional environment override for the capture pixel format (e.g. YUYV).
 FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
 
+# Auto exposure trades frame rate for brightness: in a dim room it stretches the
+# exposure time and the camera drops to ~18 fps (and ~12 fps per camera once
+# both share the bus). Setting a fixed exposure restores ~28 fps, but it cannot
+# adapt to tunnel/night lighting, so it stays opt-in for bench use.
+EXPOSURE_OVERRIDE = os.getenv("WEBCAM_EXPOSURE")
+AUTO_EXPOSURE_MODE = os.getenv("WEBCAM_AUTO_EXPOSURE")
+
 
 def pick_output_resolution(cap_w: int, cap_h: int) -> tuple[int, int]:
   """Return the published resolution shared by every camera.
@@ -109,10 +116,18 @@ class Camera:
         # grab() proves the negotiated format really streams; a second camera
         # on a saturated USB bus opens fine but never delivers a frame.
         if cap.grab():
+          if EXPOSURE_OVERRIDE is not None:
+            try:
+              cap.set(cv.CAP_PROP_AUTO_EXPOSURE, float(AUTO_EXPOSURE_MODE or 1.0))
+              cap.set(cv.CAP_PROP_EXPOSURE, float(EXPOSURE_OVERRIDE))
+            except Exception:
+              print(f"Warning: couldn't set exposure {EXPOSURE_OVERRIDE} for {camera_id}")
           fmt = int(cap.get(cv.CAP_PROP_FOURCC))
           fmt_name = ''.join(chr((fmt >> 8 * i) & 0xFF) for i in range(4))
           print(f"Opened {camera_id}: {fmt_name} "
-                f"{int(cap.get(cv.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))}")
+                f"{int(cap.get(cv.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))} "
+                f"@ {cap.get(cv.CAP_PROP_FPS):.1f} fps"
+                + (f", exposure {EXPOSURE_OVERRIDE}" if EXPOSURE_OVERRIDE is not None else ""))
           return cap
         cap.release()
         last_error = f"no frames from {camera_id} at {fourcc or 'default'} {w}x{h}"

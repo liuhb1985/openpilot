@@ -30,8 +30,12 @@
 #   WIDE_CAM_ID_PATTERN   广角 by-id 匹配串（默认 LRCP_500W）
 #   ROAD_CAM / WIDE_CAM   显式指定设备路径或编号时优先使用
 #   WEBCAM_ROTATE180      设为 1 恢复 180° 旋转（摄像头倒装时使用；默认不旋转）
-#   WEBCAM_FPS            采集帧率（默认 20）
-#   WEBCAM_FOURCC         采集像素格式（Linux 默认 MJPG，避免 YUYV 把 720p 压到个位数帧率）
+#   WEBCAM_FPS            采集帧率（默认 20；相机能出更高帧时可设 25~30）
+#   WEBCAM_FOURCC         采集像素格式（Linux 默认 MJPG，避免 YUYV 把 USB 2.0 总线占满）
+#   WEBCAM_EXPOSURE       手动曝光值（如 120）；不设则用自动曝光。自动曝光在室内会
+#                         拉长曝光时间把帧率压到约 18fps，手动曝光可回到约 28fps，
+#                         但无法适应隧道/夜间光线，行车时慎用
+#   WEBCAM_AUTO_EXPOSURE  配合上项，曝光模式（默认 1=手动；0/3=自动）
 #   FPS                   UI 渲染帧率（默认 20；GPU 够快可设 60）
 #   NO_LAYOUT             设为 1 禁用启动后的窗口布局守护
 #   LAYOUT_UI_PERCENT     UI 主窗口占屏高百分比（默认 70）
