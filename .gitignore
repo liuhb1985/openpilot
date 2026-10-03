@@ -135,3 +135,12 @@ system/sensord_wt/sensord_wt
 system/sensord_wt/wt_calibration_tool
 opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc
 /opendbc_repo/opendbc/car/byd.dp
+
+# 编译产物(本地构建生成，不纳入版本跟踪，避免仓库膨胀与跨平台冲突)
+camera/c3cam
+camera/cam_blindspot
+selfdrive/locationd/locationd
+selfdrive/locationd/locationd_jy62
+system/sensord/ch347t
+system/sensord/ubuntu347t
+tools/webcam/camerad
