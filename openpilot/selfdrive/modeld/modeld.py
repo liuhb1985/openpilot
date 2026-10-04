@@ -456,16 +456,26 @@ def main(demo=False):
 
     # tracked dropped frames
     vipc_dropped_frames = max(0, meta_main.frame_id - last_vipc_frame_id - 1)
-    frames_dropped = frame_dropped_filter.update(min(vipc_dropped_frames, 10))
+    # A PC with two independent USB webcams has no hardware frame sync, so the
+    # alignment loop above legitimately discards a few main frames. Treat a small
+    # number as sync noise (cpv9-pc-dst uses a tolerance of 5) and keep running
+    # the model; only genuine large gaps skip the eval. Otherwise modelV2 is
+    # starved every loop (UI shows stale frames) and frameDropPerc - which feeds
+    # the modeldLagging alert - stays pegged above the 20% threshold.
+    SYNC_DROP_TOLERANCE = 5
+    reported_drops = max(0, vipc_dropped_frames - SYNC_DROP_TOLERANCE)
+    frames_dropped = frame_dropped_filter.update(reported_drops)
     if run_count < 10: # let frame drops warm up
       frame_dropped_filter.x = 0.
       frames_dropped = 0.
     run_count = run_count + 1
 
     frame_drop_ratio = frames_dropped / (1 + frames_dropped)
-    prepare_only = vipc_dropped_frames > 0
-    if prepare_only:
+    prepare_only = vipc_dropped_frames > SYNC_DROP_TOLERANCE
+    if vipc_dropped_frames > SYNC_DROP_TOLERANCE:
       cloudlog.error(f"skipping model eval. Dropped {vipc_dropped_frames} frames")
+    elif vipc_dropped_frames > 0:
+      cloudlog.info(f"sync alignment skipped {vipc_dropped_frames} frame(s) (within tolerance {SYNC_DROP_TOLERANCE})")
 
     bufs = {name: buf_extra if 'big' in name else buf_main for name in model.vision_input_names}
     transforms = {name: model_transform_extra if 'big' in name else model_transform_main for name in model.vision_input_names}
