@@ -161,7 +161,15 @@ class Camera:
     last_error = None
     while True:
       for fourcc, w, h in formats:
-        cap = cv.VideoCapture(camera_id)
+        # On Linux ask for the V4L2 backend explicitly. The launcher binds cameras
+        # by USB serial (/dev/v4l/by-id/usb-...-video-index0) and OpenCV otherwise
+        # picks FFmpeg/GStreamer for a full path, which treats the device as a
+        # media file and silently ignores the FOURCC/FPS negotiation below.
+        # (mirrors the dst project)
+        if platform.system() == "Linux":
+          cap = cv.VideoCapture(camera_id, cv.CAP_V4L2)
+        else:
+          cap = cv.VideoCapture(camera_id)
         if not cap.isOpened():
           cap.release()
           continue

@@ -128,8 +128,12 @@ def enable_cluster_hud(started, params, CP: car.CarParams) -> bool:
 procs = [
   DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid"),
 
-  NativeProcess("loggerd", "openpilot/system/loggerd", ["./loggerd"], logging),
-  NativeProcess("encoderd", "openpilot/system/loggerd", ["./encoderd"], only_onroad),
+  # The PC launcher only scons' modeld/models and params_pyx.so, so these native
+  # binaries usually do not exist on a workstation: process.py would execvp
+  # "./loggerd", hit FileNotFoundError and get restarted by manager forever once
+  # onroad. The dst project comments these two lines out outright on PC.
+  NativeProcess("loggerd", "openpilot/system/loggerd", ["./loggerd"], logging, enabled=not PC),
+  NativeProcess("encoderd", "openpilot/system/loggerd", ["./encoderd"], only_onroad, enabled=not PC),
   # Preserve generic multi-camera WebRTC for notCar users. Carrot Vision on a
   # real device is road-only and remains gated by DisableDM == 2.
   NativeProcess("stream_encoderd", "openpilot/system/loggerd", ["./encoderd", "--stream"], notcar),

@@ -40,6 +40,10 @@
 #   NO_LAYOUT             设为 1 禁用启动后的窗口布局守护
 #   LAYOUT_UI_PERCENT     UI 主窗口占屏高百分比（默认 70）
 #   CAMERA_WINDOW_WIDTH / CAMERA_WINDOW_HEIGHT  盲区摄像头窗口尺寸（默认 640x360）
+#   USE_WEBCAM      缺省自动置 1（dst 启动命令即 USE_WEBCAM=1）；NO_WEBCAM=1 可显式关闭
+#   DISABLE_MSAA    缺省 1（PC 上关掉 4x MSAA，避免 UI 掉到个位数帧率）
+#   BLOCK           传给 manager.py 的进程屏蔽表；检测不到 CH347 IMU 时自动追加 sensord
+#   DRIVER_CAM      指定驾驶员摄像头时保留 DM；否则首次运行自动把 DisableDM 播种为 1
 
 set -euo pipefail
 
@@ -216,6 +220,42 @@ ensure_ch347_imu
 # 车机 deleter 的阈值在本机大容量盘上永不触发，启动前按段数/容量清理一次。
 bash "$ROOT/scripts/pc_media_cleanup.sh" || true
 
+# ---------- PC 默认开关（对齐 dst 工程的 PC 启动约定）----------
+# 1) USE_WEBCAM：dst 的启动命令里硬编码 USE_WEBCAM=1；本脚本此前只在未设置时打印一行
+#    NOTE，裸跑时 webcamerad 被禁用（process_config.py:148 enabled=WEBCAM），一个摄像头
+#    进程都没有，UI 只画占位色。这里缺省置 1；要跑无相机场景用 NO_WEBCAM=1 显式关掉
+#    （USE_WEBCAM=0 不行——process_config 判断的是 "is not None"）。
+if [ -z "${USE_WEBCAM:-}" ] && [ "${NO_WEBCAM:-0}" != "1" ]; then
+  export USE_WEBCAM=1
+  echo "[pc] USE_WEBCAM defaulted to 1 (webcamerad enabled)"
+fi
+
+# 2) UI：1822x912 开 4x MSAA 会把 UI 拖到个位数帧率，PC 上缺省关掉。
+#    （DISABLE_MSAA 是 carrot 比 dst 多出的开关，dst 硬编码 samples(16) 无法关。）
+export DISABLE_MSAA="${DISABLE_MSAA:-1}"
+
+# 3) sensord：process_config.py:156 在 PC 上被强制 enabled=True，但机器上没有 CH347
+#    USB-I2C 桥时 detect_ch347_backend() 返回 None，sensord 会直接退出、被 manager
+#    每个 tick 重启。dst 用 not PC + IMU_SEL 专用进程规避；这里改用 manager 自带的
+#    BLOCK 环境变量（manager.py:168）在没有 IMU 时屏蔽它，不改动 process_config。
+pc_has_imu() {
+  ls /dev/ch34x_pis* >/dev/null 2>&1 && return 0
+  local d
+  for d in /sys/bus/i2c/devices/i2c-*; do
+    [ -r "$d/name" ] || continue
+    grep -qi ch347 "$d/name" 2>/dev/null && return 0
+  done
+  return 1
+}
+if ! pc_has_imu; then
+  echo "[pc] no CH347 IMU detected; appending sensord to BLOCK"
+  BLOCK="${BLOCK:+$BLOCK,}sensord"
+fi
+if [ -n "${BLOCK:-}" ]; then
+  export BLOCK
+  echo "[pc] BLOCK=$BLOCK"
+fi
+
 # ---------- 摄像头就绪检测 + by-id 物理绑定（参考 start_carrotpilot_with_layout.sh:86-133）----------
 # WEBCAM 模式下 webcamerad 需要 /dev/videoN；先等设备枚举稳定（最多 10s），
 # 再用 /dev/v4l/by-id 按 USB 序列号绑定主/广角摄像头，插拔换口后编号不再漂移。
@@ -286,6 +326,23 @@ if ! bash "$ROOT/scripts/ensure_params_build.sh" >"$LOG_ROOT/params_build.log" 2
   echo "params_pyx.so build failed; see $LOG_ROOT/params_build.log" >&2
   tail -n 40 "$LOG_ROOT/params_build.log" >&2
   exit 1
+fi
+
+# ---------- PC 参数默认值 ----------
+# PC 上没有红外驾驶员摄像头，但 carrot 的 DisableDM 未设置时 get_int 返回 0（=DM 开）。
+# 一旦 USE_WEBCAM=1，就会连带启用 dmonitoringmodeld / dmonitoringd
+# （process_config.py:155,168 的 enabled=(WEBCAM or not PC)），它们会卡在等一个永远
+# 不会到来的 driver 流上，dmonitoringd 也拿不到 driverStateV2。
+# dst 的默认参数就是 DisableDM=1 且启动脚本传 NO_DM=1，这里对齐它的行为：
+# 只在参数从未设置时播种，不覆盖用户在设置界面里的选择；显式给了 DRIVER_CAM 则保留 DM。
+if [ -z "${DRIVER_CAM:-}" ]; then
+  "$PYTHON_BIN" - <<'PY' || true
+from openpilot.common.params import Params
+p = Params()
+if p.get("DisableDM") is None:
+    p.put("DisableDM", "1")
+    print("[params] DisableDM defaulted to 1 (no driver camera on PC)")
+PY
 fi
 
 # ---------- helpers 自检 ----------
