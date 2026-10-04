@@ -30,8 +30,12 @@
 #   WIDE_CAM_ID_PATTERN   广角 by-id 匹配串（默认 LRCP_500W）
 #   ROAD_CAM / WIDE_CAM   显式指定设备路径或编号时优先使用
 #   WEBCAM_ROTATE180      设为 1 恢复 180° 旋转（摄像头倒装时使用；默认不旋转）
-#   WEBCAM_FPS            采集帧率（默认 20）
-#   WEBCAM_FOURCC         采集像素格式（Linux 默认 MJPG，避免 YUYV 把 720p 压到个位数帧率）
+#   WEBCAM_FPS            采集帧率（默认 20；相机能出更高帧时可设 25~30）
+#   WEBCAM_FOURCC         采集像素格式（Linux 默认 MJPG，避免 YUYV 把 USB 2.0 总线占满）
+#   WEBCAM_EXPOSURE       手动曝光值（如 120）；不设则用自动曝光。自动曝光在室内会
+#                         拉长曝光时间把帧率压到约 18fps，手动曝光可回到约 28fps，
+#                         但无法适应隧道/夜间光线，行车时慎用
+#   WEBCAM_AUTO_EXPOSURE  配合上项，曝光模式（默认 1=手动；0/3=自动）
 #   FPS                   UI 渲染帧率（默认 20；GPU 够快可设 60）
 #   NO_LAYOUT             设为 1 禁用启动后的窗口布局守护
 #   LAYOUT_UI_PERCENT     UI 主窗口占屏高百分比（默认 70）
@@ -160,6 +164,57 @@ sys_tune() {
   [ -d /dev/bus/usb ] && sudo -n chmod -R 777 /dev/bus/usb >/dev/null 2>&1 || true
 }
 sys_tune
+
+# ---------- CH347 IMU 自愈 ----------
+# CH347（USB To UART+SPI+I2C）偶尔会进入“半挂死”状态：lsusb 能看到设备，但
+# sysfs 下没有任何接口枚举，于是 mfd/i2c-ch347 不会创建 i2c 适配器，sensord 探测
+# 不到 IMU 后回落去扫 GPU 的 /dev/i2c-*，刷屏 EIO。此时用 authorized 开关做一次
+# 软重置即可恢复（不需要拔插）。
+ensure_ch347_imu() {
+  command -v udevadm >/dev/null 2>&1 || return 0
+
+  local usb_dir name
+  for usb_dir in /sys/bus/usb/devices/*; do
+    [ -r "$usb_dir/idVendor" ] || continue
+    [ "$(cat "$usb_dir/idVendor" 2>/dev/null)" = "1a86" ] || continue
+    case "$(cat "$usb_dir/idProduct" 2>/dev/null)" in 55db|55dd) ;; *) continue ;; esac
+
+    # 适配器名字里带 ch347 说明驱动已经绑定，无需处理
+    name=""
+    for i2c_dir in /sys/bus/i2c/devices/i2c-*; do
+      [ -r "$i2c_dir/name" ] || continue
+      if grep -qi ch347 "$i2c_dir/name" 2>/dev/null; then
+        name="$(cat "$i2c_dir/name")"
+        break
+      fi
+    done
+    if [ -n "$name" ]; then
+      echo "[ch347] IMU adapter present: $name"
+      return 0
+    fi
+
+    echo "[ch347] device $(basename "$usb_dir") present but no i2c adapter; resetting USB"
+    sudo -n sh -c "echo 0 > $usb_dir/authorized" >/dev/null 2>&1 || true
+    sleep 1
+    sudo -n sh -c "echo 1 > $usb_dir/authorized" >/dev/null 2>&1 || true
+    sleep 2
+    sudo -n modprobe mfd-ch347 >/dev/null 2>&1 || true
+    for i2c_dir in /sys/bus/i2c/devices/i2c-*; do
+      [ -r "$i2c_dir/name" ] || continue
+      if grep -qi ch347 "$i2c_dir/name" 2>/dev/null; then
+        echo "[ch347] IMU adapter recovered: $(cat "$i2c_dir/name")"
+        return 0
+      fi
+    done
+    echo "[ch347] WARNING: no i2c adapter after reset; sensord will report IMU errors"
+    return 0
+  done
+}
+ensure_ch347_imu
+
+# ---------- PC 录像清理 ----------
+# 车机 deleter 的阈值在本机大容量盘上永不触发，启动前按段数/容量清理一次。
+bash "$ROOT/scripts/pc_media_cleanup.sh" || true
 
 # ---------- 摄像头就绪检测 + by-id 物理绑定（参考 start_carrotpilot_with_layout.sh:86-133）----------
 # WEBCAM 模式下 webcamerad 需要 /dev/videoN；先等设备枚举稳定（最多 10s），
@@ -447,9 +502,10 @@ stop_old_stack() {
   fi
 
   # 旧 manager 被强杀（如终端关闭 SIGHUP 只打到 relay）时，其子服务会变孤儿继续
-  # 占端口。按“工作目录在本仓库内”识别遗留服务进程，一并 SIGINT。
+  # 占端口/摄像头。按“工作目录在本仓库内”识别遗留服务进程（含 openpilot.tools.*
+  # 的 webcamerad），一并 SIGINT。
   local pid cwd
-  for pid in $(pgrep -u "$(id -u)" -f "openpilot\.(selfdrive|system)\." 2>/dev/null); do
+  for pid in $(pgrep -u "$(id -u)" -f "openpilot\.(selfdrive|system|tools)\." 2>/dev/null); do
     [ -d "/proc/$pid" ] || continue
     cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
     case "$cwd" in

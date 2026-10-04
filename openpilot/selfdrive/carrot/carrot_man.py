@@ -33,6 +33,7 @@ from openpilot.selfdrive.navd.helpers import Coordinate
 from openpilot.common.constants import CV
 
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
+from openpilot.selfdrive.carrot.port_bind import bind_with_retry
 from openpilot.selfdrive.carrot.curve_speed import VisionCurveSpeed, curve_speed
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.server.services.web_settings import read_web_settings
@@ -1127,7 +1128,9 @@ class CarrotMan:
         poller.register(socket, zmq.POLLIN)
         return socket, poller
 
-    socket, poller = setup_socket()
+    # Retry: a stale stack holding the port would otherwise kill this thread
+    # for the rest of the session while the process stays alive.
+    socket, poller = bind_with_retry(setup_socket, "carrot_cmd_zmq tcp://*:7710", log=print)
     can_sm = messaging.SubMaster(['carState', 'radarState'])
     isOnroadCount = 0
     is_tmux_sent = False
@@ -2171,10 +2174,14 @@ class CarrotMan:
         time.sleep(2)
 
   def carrot_navi_tcp_server(self, port: int = 7712):
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(("0.0.0.0", port))
-    server.listen(5)
+    def _bind_and_listen():
+      server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+      server.bind(("0.0.0.0", port))
+      server.listen(5)
+      return server
+
+    server = bind_with_retry(_bind_and_listen, f"carrot_navi TCP {port}", log=print)
     print("TCP server listening", port)
 
     while True:

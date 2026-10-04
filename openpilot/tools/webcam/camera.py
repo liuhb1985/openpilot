@@ -17,9 +17,54 @@ CAMERA_FPS = int(os.getenv("WEBCAM_FPS") or 20)
 # costs a full frame copy on every single frame.
 ROTATE_180 = os.getenv("WEBCAM_ROTATE180", "0") == "1"
 
+# Capture resolution. Always 1920x1080: both webcams negotiate it, and it gives
+# the driving model the sharpest available input. Override only for hardware
+# that cannot sustain 1080p.
+CAPTURE_WIDTH = int(os.getenv("WEBCAM_WIDTH") or 1920)
+CAPTURE_HEIGHT = int(os.getenv("WEBCAM_HEIGHT") or 1080)
+
+# Camera resolutions the compiled modeld warp JITs are built for
+# (see selfdrive/modeld/compile_modeld.py --camera-resolutions). Every camera
+# must publish the SAME resolution: modeld derives its NV12 geometry for both
+# 'img' and 'big_img' from the road camera size (selfdrive/modeld/modeld.py).
+# 1920x1080 capture is rescaled only when the loaded model has no warp for it.
+# Keep in sync with openpilot/common/transformations/camera.py, which drives the
+# resolutions modeld compiles (modeld/SConscript CAMERA_CONFIGS).
+SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080), (1344, 760))
+
+# Optional environment override for the capture pixel format (e.g. YUYV).
+FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
+
+# Auto exposure trades frame rate for brightness: in the dark it stretches the
+# exposure time and the camera drops to ~13-18 fps. A fixed exposure can keep
+# ~28 fps, but a value tuned in daylight leaves the image almost black at night,
+# and some UVC cameras silently ignore manual exposure/gain in MJPEG mode.
+# Everything below is therefore opt-in, and a too-dark manual setting falls back
+# to auto exposure automatically.
+def _env_for(cam_type_state: str, suffix: str):
+  role = "ROAD" if cam_type_state == "roadCameraState" else ("WIDE" if cam_type_state == "wideRoadCameraState" else "DRIVER")
+  return os.getenv(f"WEBCAM_{suffix}_{role}") or os.getenv(f"WEBCAM_{suffix}")
+
+AUTO_EXPOSURE_AUTO = 3.0
+AUTO_EXPOSURE_MANUAL = 1.0
+# Below this average luma a frame is considered "black"; auto exposure is
+# restored when a manual setting produces it.
+BRIGHTNESS_FLOOR = float(os.getenv("WEBCAM_MIN_BRIGHTNESS") or 20.0)
+
+
+def pick_output_resolution(cap_w: int, cap_h: int) -> tuple[int, int]:
+  """Return the published resolution shared by every camera.
+
+  Uses the capture size when the model has a compiled warp for it, otherwise the
+  supported resolution with the closest aspect ratio (frames are rescaled).
+  """
+  if (cap_w, cap_h) in SUPPORTED_CAM_RESOLUTIONS:
+    return cap_w, cap_h
+  return min(SUPPORTED_CAM_RESOLUTIONS, key=lambda r: abs(r[0] / r[1] - cap_w / cap_h))
+
 
 class Camera:
-  def __init__(self, cam_type_state, stream_type, camera_id):
+  def __init__(self, cam_type_state, stream_type, camera_id, formats=None):
     try:
       camera_id = int(camera_id)
     except ValueError: # allow strings, ex: /dev/video0 or /dev/v4l/by-id/...
@@ -31,36 +76,119 @@ class Camera:
 
     print(f"Opening {cam_type_state} at {camera_id}")
 
-    self.cap = cv.VideoCapture(camera_id)
-    deadline = time.monotonic() + OPEN_TIMEOUT_S
-    while not self.cap.isOpened() and time.monotonic() < deadline:
-      time.sleep(0.5)
-      self.cap.release()
-      self.cap.open(camera_id)
-    if not self.cap.isOpened():
-      raise RuntimeError(f"failed to open {cam_type_state} camera at {camera_id}; "
-                         "check that the device exists and is readable by this user")
+    self.cap = self._open_capture(camera_id, formats)
 
-    # V4L2 leaves most USB webcams on YUYV, which caps 720p at single digit fps and
-    # looks exactly like "very choppy video". Ask for MJPEG first (override with
-    # WEBCAM_FOURCC=YUYV ...), then negotiate resolution/rate.
-    fourcc = os.getenv("WEBCAM_FOURCC", "MJPG" if platform.system() != "Darwin" else "")
-    if fourcc:
+    self.cap_w = int(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    self.cap_h = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    if self.cap_w <= 0 or self.cap_h <= 0:
+      raise RuntimeError(f"{cam_type_state} camera at {camera_id} reports an invalid "
+                         f"{self.cap_w}x{self.cap_h} resolution")
+
+    # Published size; camerad aligns every camera on the road camera's size.
+    self.W, self.H = self.cap_w, self.cap_h
+
+    self._apply_image_controls()
+
+  def _apply_image_controls(self) -> None:
+    """Exposure/gain are optional. A manual setting that leaves the image black
+    (night, or a camera that ignores manual controls) falls back to auto."""
+    exposure = _env_for(self.cam_type_state, "EXPOSURE")
+    gain = _env_for(self.cam_type_state, "GAIN")
+    if exposure is None and gain is None:
+      return
+
+    mode = _env_for(self.cam_type_state, "AUTO_EXPOSURE")
+    try:
+      self.cap.set(cv.CAP_PROP_AUTO_EXPOSURE, float(mode) if mode else
+                   (AUTO_EXPOSURE_MANUAL if exposure is not None else AUTO_EXPOSURE_AUTO))
+      if exposure is not None:
+        self.cap.set(cv.CAP_PROP_EXPOSURE, float(exposure))
+      if gain is not None:
+        self.cap.set(cv.CAP_PROP_GAIN, float(gain))
+    except Exception:
+      print(f"Warning: couldn't set exposure/gain for {self.cam_type_state}")
+      return
+
+    # Let the sensor settle, then verify the result instead of trusting it.
+    time.sleep(0.5)
+    brightness = self._measure_brightness()
+    if brightness is None:
+      return
+    print(f"  {self.cam_type_state}: exposure={exposure or 'auto'} gain={gain or 'default'} "
+          f"-> luma {brightness:.1f}")
+    if exposure is not None and brightness < BRIGHTNESS_FLOOR:
+      print(f"  {self.cam_type_state}: manual exposure leaves the image almost black "
+            f"(luma {brightness:.1f} < {BRIGHTNESS_FLOOR}); switching back to auto exposure")
       try:
-        self.cap.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*fourcc[:4]))
+        self.cap.set(cv.CAP_PROP_AUTO_EXPOSURE, AUTO_EXPOSURE_AUTO)
       except Exception:
-        print(f"Warning: couldn't set fourcc {fourcc} for {cam_type_state}")
+        pass
+      time.sleep(0.5)
+      brightness = self._measure_brightness()
+      if brightness is not None:
+        print(f"  {self.cam_type_state}: auto exposure -> luma {brightness:.1f}")
 
-    self.cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280.0)
-    self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720.0)
-    self.cap.set(cv.CAP_PROP_FPS, float(CAMERA_FPS))
+  def _measure_brightness(self):
+    """Average luma of the next frame, or None if no frame arrives."""
+    for _ in range(10):
+      ret, frame = self.cap.read()
+      if ret and frame is not None and frame.size:
+        return float(cv.cvtColor(frame, cv.COLOR_BGR2GRAY).mean())
+      time.sleep(0.05)
+    return None
 
-    self.W = int(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
-    self.H = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-    if self.W <= 0 or self.H <= 0:
-      raise RuntimeError(f"{cam_type_state} camera at {camera_id} reports an invalid {self.W}x{self.H} resolution")
+  def set_output_size(self, width: int, height: int) -> None:
+    if (width, height) != (self.cap_w, self.cap_h):
+      print(f"Resizing {self.cam_type_state} from {self.cap_w}x{self.cap_h} to {width}x{height} "
+            f"(no compiled model warp for {self.cap_w}x{self.cap_h})")
+    self.W, self.H = width, height
 
-    print(f"Opened {cam_type_state} at {camera_id}: {self.W}x{self.H} @ {self.cap.get(cv.CAP_PROP_FPS):.1f} fps")
+  @staticmethod
+  def _open_capture(camera_id, formats=None):
+    # Both USB cameras usually share one USB 2.0 bus (~53 MB/s). An uncompressed
+    # YUYV 720p stream alone uses ~44 MB/s and starves the second camera, so
+    # each camera walks its format list and keeps the first one that really
+    # delivers a frame. Order matters: the road camera asks for full quality
+    # first, secondary cameras try a bandwidth-friendly format first.
+    if not formats:
+      # MJPEG is mandatory here: uncompressed 1080p (~79 MB/s) alone exceeds the
+      # ~53 MB/s of a USB 2.0 bus shared by both cameras.
+      formats = (('MJPG', CAPTURE_WIDTH, CAPTURE_HEIGHT), (None, CAPTURE_WIDTH, CAPTURE_HEIGHT))
+    if FOURCC_OVERRIDE:
+      formats = tuple((FOURCC_OVERRIDE, w, h) for _fourcc, w, h in formats)
+
+    deadline = time.monotonic() + OPEN_TIMEOUT_S
+    last_error = None
+    while True:
+      for fourcc, w, h in formats:
+        cap = cv.VideoCapture(camera_id)
+        if not cap.isOpened():
+          cap.release()
+          continue
+        if fourcc:
+          try:
+            cap.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*fourcc[:4]))
+          except Exception:
+            print(f"Warning: couldn't set fourcc {fourcc} for {camera_id}")
+        if w:
+          cap.set(cv.CAP_PROP_FRAME_WIDTH, float(w))
+          cap.set(cv.CAP_PROP_FRAME_HEIGHT, float(h))
+        cap.set(cv.CAP_PROP_FPS, float(CAMERA_FPS))
+        # grab() proves the negotiated format really streams; a second camera
+        # on a saturated USB bus opens fine but never delivers a frame.
+        if cap.grab():
+          fmt = int(cap.get(cv.CAP_PROP_FOURCC))
+          fmt_name = ''.join(chr((fmt >> 8 * i) & 0xFF) for i in range(4))
+          print(f"Opened {camera_id}: {fmt_name} "
+                f"{int(cap.get(cv.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))} "
+                f"@ {cap.get(cv.CAP_PROP_FPS):.1f} fps")
+          return cap
+        cap.release()
+        last_error = f"no frames from {camera_id} at {fourcc or 'default'} {w}x{h}"
+      if time.monotonic() >= deadline:
+        break
+      time.sleep(0.5)
+    raise RuntimeError(f"failed to open {camera_id}: {last_error}")
 
   @classmethod
   def bgr2nv12(self, bgr):
@@ -75,6 +203,8 @@ class Camera:
           break
         if self.rotate_180:
           frame = cv.flip(frame, -1)  # upside-down mount
+        if frame.shape[1] != self.W or frame.shape[0] != self.H:
+          frame = cv.resize(frame, (self.W, self.H))
         yuv = Camera.bgr2nv12(frame)
         yield yuv.data.tobytes()
     finally:

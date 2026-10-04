@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - 开发机(Windows)兼容
 from openpilot.common.realtime import Ratekeeper
 from openpilot.system.hardware import PC
 from openpilot.selfdrive.carrot.amapnavi.protocol import apply_timeouts_camera, apply_timeouts_lidar
+from openpilot.selfdrive.carrot.port_bind import bind_with_retry
 
 BROADCAST_PORT = 4210
 LISTEN_PORT = 4211
@@ -120,7 +121,9 @@ class UdpTransport:
   def _udp_recv_thread(self):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
       sock.settimeout(10)
-      sock.bind(('0.0.0.0', LISTEN_PORT))
+      # Retry: without it a stale stack holding the port kills this thread for
+      # the rest of the session while the process keeps running.
+      bind_with_retry(lambda: sock.bind(('0.0.0.0', LISTEN_PORT)), f"amapnavi UDP {LISTEN_PORT}", log=print)
       print("amapnavi: UDP receive thread started...")
       while True:
         try:
@@ -177,7 +180,7 @@ class UdpTransport:
   def _lane_recv_thread(self):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
       sock.settimeout(3)
-      sock.bind(('0.0.0.0', LANE_PORT))
+      bind_with_retry(lambda: sock.bind(('0.0.0.0', LANE_PORT)), f"amapnavi lane UDP {LANE_PORT}", log=print)
       print("amapnavi: lane receive thread started...")
       while True:
         try:
