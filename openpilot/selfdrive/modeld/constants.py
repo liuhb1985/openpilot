@@ -1,5 +1,11 @@
 import numpy as np
 
+# A PC with two independent USB webcams has no hardware frame sync, so modeld's
+# alignment loop legitimately discards a few main frames. Anything within this
+# band is sync noise: it must not skip the model eval, inflate frameDropPerc, or
+# invalidate cameraOdometry. (mirrors the dst project, which uses a tolerance of 5)
+SYNC_DROP_TOLERANCE = 5
+
 def index_function(idx, max_val=192, max_idx=32):
   return (max_val) * ((idx/max_idx)**2)
 

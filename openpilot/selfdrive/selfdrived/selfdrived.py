@@ -450,7 +450,10 @@ class SelfdriveD:
         self.events.add(EventName.paramsdTemporaryError)
 
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
-    if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets):
+    # Only alert on sensors that have been seen at least once. A PC without an IMU
+    # (sensord blocked) never publishes accelerometer/gyroscope, and the raw
+    # recv_frame check would otherwise raise this permanently after 10 seconds.
+    if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets if self.sm.seen[s]):
       self.events.add(EventName.sensorDataInvalid)
 
     if not REPLAY:

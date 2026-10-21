@@ -52,6 +52,14 @@ PYTHON_BIN="${PYTHON_BIN:-$ROOT/.venv/bin/python}"
 LOG_ROOT="${LOG_ROOT:-/tmp/openpilot_pc}"
 SCONS_CACHE_DIR="${SCONS_CACHE_DIR:-/tmp/scons_cache}"
 OPENPILOT_PREFIX="${OPENPILOT_PREFIX:-}"
+# 数值库单线程：OpenBLAS/MKL/OpenMP 的线程池会和 tinygrad、OpenCV 争核，在 PC 上
+# 直接表现为实时循环偶发超时（selfdrived "System Lagging"）。dst 工程 launch_env.sh
+# 同样把这些设为 1。
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export VECLIB_MAXIMUM_THREADS=1
 USE_TMUX=0
 REBUILD_MODELS=0
 RUN_MANAGER=1
@@ -157,7 +165,13 @@ echo "============================================================"
 # 全部 best-effort：没有 sudo 权限或内核不支持时静默跳过，不阻断启动。
 sys_tune() {
   # 1. CPU 高性能模式（降低调度延迟）
-  echo performance | sudo -n tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1 || true
+  #    没有免密 sudo 时这条会静默失败，而 ondemand/schedutil + C-state 唤醒延迟
+  #    正是 selfdrived 100Hz 循环偶发超时（"System Lagging"）的主要来源，必须显式告警。
+  if ! echo performance | sudo -n tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1; then
+    echo "[tune] WARNING: 无法设置 performance governor（需要免密 sudo）。" >&2
+    echo "[tune]          CPU 调频 + C-state 唤醒延迟会导致实时循环偶发超时，表现为'系统延时/模型延迟'。" >&2
+    echo "[tune]          修复：sudo tee /etc/sudoers.d/op-perf <<< \"%sudo ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor\"" >&2
+  fi
   # 2. 降低 swappiness，阻断实时循环内存换出
   sudo -n sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
   # 3. 加大本地套接字缓冲区，防 VisionIPC 视频流丢帧/绿屏

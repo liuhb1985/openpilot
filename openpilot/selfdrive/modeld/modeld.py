@@ -24,7 +24,7 @@ from openpilot.selfdrive.modeld.parse_model_outputs import Parser
 from openpilot.selfdrive.modeld.compile_modeld import make_input_queues, WARP_INPUTS, POLICY_INPUTS
 from openpilot.selfdrive.modeld.fill_model_msg import fill_model_msg, fill_driving_model_data, fill_pose_msg, PublishState
 from openpilot.common.file_chunker import open_file_chunked
-from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
+from openpilot.selfdrive.modeld.constants import ModelConstants, Plan, SYNC_DROP_TOLERANCE
 from openpilot.selfdrive.modeld.helpers import (get_tg_input_devices, load_oob, modeld_pkl_path,
                                                 refresh_usbgpu_device_cache, select_vision_streams, usbgpu_compiled_path,
                                                 usbgpu_pcie_not_ready, usbgpu_present, wait_for_usbgpu_present)
@@ -462,7 +462,6 @@ def main(demo=False):
     # the model; only genuine large gaps skip the eval. Otherwise modelV2 is
     # starved every loop (UI shows stale frames) and frameDropPerc - which feeds
     # the modeldLagging alert - stays pegged above the 20% threshold.
-    SYNC_DROP_TOLERANCE = 5
     reported_drops = max(0, vipc_dropped_frames - SYNC_DROP_TOLERANCE)
     frames_dropped = frame_dropped_filter.update(reported_drops)
     if run_count < 10: # let frame drops warm up

@@ -5,6 +5,14 @@ import time
 import av
 import cv2 as cv
 
+# webcamerad runs one Python thread per camera, so all decode/resize work already
+# serializes on the GIL. Left to its defaults OpenCV also spins up its own thread
+# pool and may grab the GPU through OpenCL, which fights the driving model's
+# tinygrad GPU work and adds scheduling jitter that shows up as camera/model rate
+# drops. (mirrors the dst project)
+cv.setUseOpenCL(False)
+cv.setNumThreads(1)
+
 # USB capture devices are enumerated asynchronously on Linux; give the camera a
 # short grace period to show up instead of dying for good on the first attempt.
 OPEN_TIMEOUT_S = float(os.getenv("WEBCAM_OPEN_TIMEOUT") or "10")

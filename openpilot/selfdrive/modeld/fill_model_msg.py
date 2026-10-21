@@ -3,7 +3,7 @@ import capnp
 import numpy as np
 import math
 from openpilot.cereal import log
-from openpilot.selfdrive.modeld.constants import ModelConstants, Plan, Meta
+from openpilot.selfdrive.modeld.constants import ModelConstants, Plan, Meta, SYNC_DROP_TOLERANCE
 
 SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 
@@ -217,7 +217,10 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
 
 def fill_pose_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, np.ndarray],
                   vipc_frame_id: int, vipc_dropped_frames: int, timestamp_eof: int, live_calib_seen: bool) -> None:
-  msg.valid = live_calib_seen & (vipc_dropped_frames < 1)
+  # Same sync tolerance modeld applies to prepare_only / frameDropPerc: the few
+  # frames the dual-USB-camera alignment loop drops must not invalidate posenet,
+  # otherwise locationd flaps inputsOK/posenetOK and raises locationdTemporaryError.
+  msg.valid = live_calib_seen & (vipc_dropped_frames <= SYNC_DROP_TOLERANCE)
   cameraOdometry = msg.cameraOdometry
 
   cameraOdometry.frameId = vipc_frame_id

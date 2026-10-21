@@ -74,7 +74,14 @@ class Camerad:
     # camera that started first stays seconds ahead forever), and modeld's frame
     # sync loop waits for the road frame to lead the wide one by 25 ms -- so it
     # never ran and no modelV2 was published.
-    ts = time.time_ns()
+    # Timestamps must use a clock shared by every camera AND by the rest of
+    # openpilot. camerad on TICI publishes steady_clock (monotonic) values, and
+    # locationd's Kalman filter, logMonoTime, radard and every latency statistic
+    # all live in the monotonic domain. time.time_ns() is CLOCK_REALTIME, which on
+    # Linux differs from CLOCK_MONOTONIC by decades: that made locationd reject
+    # every sensor observation as "older than the max rewind threshold" and turned
+    # every (logMonoTime - timestampEof) latency computation into garbage.
+    ts = time.monotonic_ns()
     self.vipc_server.send(yuv_type, yuv, frame_id, ts, ts)
     dat = messaging.new_message(pub_type, valid=True)
     msg = {

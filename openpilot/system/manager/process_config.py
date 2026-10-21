@@ -149,7 +149,11 @@ procs = [
   # camerad is only built for larch64 (qcom spectra cameras). On PC the
   # visionipc "camerad" streams come from webcamerad (USE_WEBCAM) instead.
   NativeProcess("camerad", "openpilot/system/camerad", ["./camerad"], driverview, enabled=(not WEBCAM and not PC)),
-  PythonProcess("webcamerad", "openpilot.tools.webcam.camerad", driverview, enabled=WEBCAM),
+  # restart_if_crash: Camera.read_frames() fails loudly (RuntimeError) when a
+  # camera stops delivering, and unlike dst this project has no in-process
+  # reconnect. Without restart, one dropped USB camera kills the stream for good
+  # and the UI shows a permanent placeholder.
+  PythonProcess("webcamerad", "openpilot.tools.webcam.camerad", driverview, enabled=WEBCAM, restart_if_crash=True),
   PythonProcess("proclogd", "openpilot.system.proclogd", only_onroad, enabled=platform.system() != "Darwin"),
   PythonProcess("journald", "openpilot.system.journald", only_onroad, platform.system() != "Darwin"),
   PythonProcess("micd", "openpilot.system.micd", iscar),
