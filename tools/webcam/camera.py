@@ -16,7 +16,7 @@ HAS_DIRECT_NV12 = hasattr(cv2, 'COLOR_BGR2YUV_NV12')
 # --- 夜间自适应增益（防止长焦相机夜间画面过暗导致模型置信度低/车道线丢失）---
 # 仅放大亮度（Y 平面），不影响色度
 # 配置来源优先级：环境变量 > Params 参数(NightGainEnable/NightGainTargetY/NightGainMax，可在设备设置界面开关) > 默认值
-NIGHT_GAIN_ENABLE = os.getenv("NIGHT_GAIN_ENABLE", "1") == "1"
+NIGHT_GAIN_ENABLE = os.getenv("NIGHT_GAIN_ENABLE", "0") == "1"
 NIGHT_TARGET_Y = float(os.getenv("NIGHT_TARGET_Y", "90"))    # 目标平均亮度 (0~255)
 NIGHT_MAX_GAIN = float(os.getenv("NIGHT_MAX_GAIN", "2.0"))   # 最大增益倍数
 NIGHT_GAIN_ENV = any(k in os.environ for k in ("NIGHT_GAIN_ENABLE", "NIGHT_TARGET_Y", "NIGHT_MAX_GAIN"))

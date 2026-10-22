@@ -886,7 +886,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   startToggles->addItem(new CValueControl("EnableConnect", tr("启用连接"), tr("您的设备可能会被Comma封禁"), 0, 2, 1));
   startToggles->addItem(new CValueControl("MapboxStyle", tr("地图样式(0)"), tr("选择地图显示样式"), 0, 2, 1));
   startToggles->addItem(new CValueControl("RecordRoadCam", tr("记录道路摄像头(0)"), tr("1:前摄像头, 2:前摄像头+广角摄像头"), 0, 2, 1));
-  startToggles->addItem(new CValueControl("NightGainEnable", tr("夜间增益增强(1)"), tr("夜间画面过暗时自动增亮长焦画面，防止模型置信度下降/车道线丢失(0:关闭, 1:开启，约5秒后生效)"), 0, 1, 1));
+  startToggles->addItem(new CValueControl("NightGainEnable", tr("夜间增益增强(0)"), tr("夜间画面过暗时自动增亮长焦画面，防止模型置信度下降/车道线丢失(0:关闭, 1:开启，约5秒后生效)"), 0, 1, 0));
   startToggles->addItem(new CValueControl("NightGainTargetY", tr("夜间增益：目标亮度(90)"), tr("夜间画面增亮的目标平均亮度值(20~200)"), 20, 200, 5));
   startToggles->addItem(new CValueControl("NightGainMax", tr("夜间增益：最大倍数x10(20)"), tr("最大增益倍数，20=2.0倍(10~40，即1.0~4.0倍)"), 10, 40, 5));
   startToggles->addItem(new CValueControl("NightWideSwitch", tr("夜间广角兜底(1)"), tr("长焦极端过暗(增益也无法挽救)时，自动切换广角作为模型主输入(0:关闭, 1:开启，约5秒后生效)"), 0, 1, 1));
