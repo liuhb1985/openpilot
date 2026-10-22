@@ -498,7 +498,14 @@ def polling_loop(sensor: Sensor, service: str, event: threading.Event, needs_tim
   frozen_frames = 0
   while not event.is_set():
     try:
-      evt = sensor.get_event(time.time_ns()) if needs_timestamp else sensor.get_event()
+      # The polling path only runs on a PC (TICI uses the GPIO interrupt loop),
+      # and it is the only path that was never exercised on real hardware. The
+      # timestamp MUST be monotonic: locationd compares it against logMonoTime
+      # with a 100 ms tolerance (MAX_SENSOR_TIME_DIFF), and logMonoTime is
+      # CLOCK_MONOTONIC. time.time_ns() is CLOCK_REALTIME, which differs by
+      # decades on Linux, so every sample was rejected as "sensor timestamp more
+      # than 100ms off from log time" and livePose.inputsOK stayed False forever.
+      evt = sensor.get_event(time.monotonic_ns()) if needs_timestamp else sensor.get_event()
       if not sensor.is_data_valid():
         rk.keep_time()
         continue
