@@ -68,12 +68,7 @@ class Camerad:
 
     self.vipc_server.start_listener()
 
-  def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
-    # Timestamps must be a clock shared by every camera. Deriving them from the
-    # per-camera frame counter made the road and wide streams drift apart (the
-    # camera that started first stays seconds ahead forever), and modeld's frame
-    # sync loop waits for the road frame to lead the wide one by 25 ms -- so it
-    # never ran and no modelV2 was published.
+  def _send_yuv(self, yuv, ts, frame_id, pub_type, yuv_type):
     # Timestamps must use a clock shared by every camera AND by the rest of
     # openpilot. camerad on TICI publishes steady_clock (monotonic) values, and
     # locationd's Kalman filter, logMonoTime, radard and every latency statistic
@@ -81,7 +76,18 @@ class Camerad:
     # Linux differs from CLOCK_MONOTONIC by decades: that made locationd reject
     # every sensor observation as "older than the max rewind threshold" and turned
     # every (logMonoTime - timestampEof) latency computation into garbage.
-    ts = time.monotonic_ns()
+    #
+    # ts is captured in Camera.read_frames() the moment the frame lands in user
+    # space, i.e. before decode/resize/NV12 conversion, so the residual skew
+    # between the two unsynchronized USB cameras is only the USB delivery jitter
+    # instead of the difference of their conversion times.
+    #
+    # Deriving the timestamp from the per-camera frame counter (what the dst
+    # project does: eof = frame_id * 0.05e9) makes the two streams trivially
+    # aligned but decouples them from real time: locationd then rejects every
+    # cameraOdometry as "older than the max rewind threshold", lagd can never
+    # estimate the lateral delay, and a camera that starts late or restarts puts
+    # the two streams hundreds of seconds apart, which stops modelV2 entirely.
     self.vipc_server.send(yuv_type, yuv, frame_id, ts, ts)
     dat = messaging.new_message(pub_type, valid=True)
     msg = {
@@ -95,8 +101,8 @@ class Camerad:
 
   def camera_runner(self, cam):
     rk = Ratekeeper(CAMERA_FPS, None)
-    for yuv in cam.read_frames():
-      self._send_yuv(yuv, cam.cur_frame_id, cam.cam_type_state, cam.stream_type)
+    for yuv, ts in cam.read_frames():
+      self._send_yuv(yuv, ts, cam.cur_frame_id, cam.cam_type_state, cam.stream_type)
       cam.cur_frame_id += 1
       rk.keep_time()
 

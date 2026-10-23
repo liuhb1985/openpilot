@@ -217,12 +217,21 @@ class Camera:
         ret, frame = self.cap.read()
         if not ret:
           break
+        # Timestamp the instant the frame lands in user space, BEFORE any decode,
+        # resize or colour conversion. Timestamping after conversion (as this used
+        # to do, in camerad._send_yuv) bakes each camera's conversion cost into its
+        # timestamps, so two unsynchronized USB cameras drift apart by the
+        # difference of their conversion times and modeld's alignment loop has to
+        # throw frames away to compensate. Timestamping here leaves only the USB
+        # delivery jitter (a few ms) in the skew, which the modeld sync tolerance
+        # absorbs. Monotonic clock: see camerad._send_yuv.
+        ts = time.monotonic_ns()
         if self.rotate_180:
           frame = cv.flip(frame, -1)  # upside-down mount
         if frame.shape[1] != self.W or frame.shape[0] != self.H:
           frame = cv.resize(frame, (self.W, self.H))
         yuv = Camera.bgr2nv12(frame)
-        yield yuv.data.tobytes()
+        yield yuv.data.tobytes(), ts
     finally:
       self.cap.release()
     # A silent return here used to leave webcamerad alive publishing nothing,
