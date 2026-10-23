@@ -33,11 +33,13 @@ def resolve_camera_device(cam_id: str):
   return cam_id if str(cam_id).startswith("/") else f"/dev/video{cam_id}"
 
 
-# Both cameras capture 1920x1080, but they share one USB 2.0 bus (~53 MB/s)
-# where uncompressed 1080p (~79 MB/s) cannot fit, so MJPEG comes first for every
-# camera. Tried in order; the first format that actually delivers a frame wins.
+# Both cameras capture 1920x1080 and share one USB 2.0 bus (~53 MB/s), where
+# uncompressed 1080p (~124 MB/s) cannot fit, so MJPEG is mandatory. Resolution is
+# hard-locked (see camera.py CAPTURE_WIDTH) and there is deliberately no "default
+# format" fallback tier: UVC cameras default to YUYV, which cannot sustain 1080p
+# on a shared bus and would only fail after the 10s open timeout.
 CAPTURE_SIZE = (1920, 1080)
-ROAD_CAM_FORMATS = (('MJPG', *CAPTURE_SIZE), (None, *CAPTURE_SIZE))
+ROAD_CAM_FORMATS = (('MJPG', *CAPTURE_SIZE),)
 SECONDARY_CAM_FORMATS = ROAD_CAM_FORMATS
 
 CAMERAS = [

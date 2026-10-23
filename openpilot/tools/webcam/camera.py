@@ -27,20 +27,19 @@ CAMERA_FPS = int(os.getenv("WEBCAM_FPS") or 20)
 # costs a full frame copy on every single frame.
 ROTATE_180 = os.getenv("WEBCAM_ROTATE180", "0") == "1"
 
-# Capture resolution. Always 1920x1080: both webcams negotiate it, and it gives
-# the driving model the sharpest available input. Override only for hardware
-# that cannot sustain 1080p.
-CAPTURE_WIDTH = int(os.getenv("WEBCAM_WIDTH") or 1920)
-CAPTURE_HEIGHT = int(os.getenv("WEBCAM_HEIGHT") or 1080)
+# Capture resolution. Hard-locked to 1920x1080 and deliberately NOT configurable:
+# the modeld warp JITs are compiled for exactly this size (SConscript
+# CAMERA_CONFIGS, driven by common/transformations/camera.py) and the camera
+# intrinsics there assume it. A different size would silently rescale the scene
+# relative to what the model was trained on, with no error anywhere.
+CAPTURE_WIDTH = 1920
+CAPTURE_HEIGHT = 1080
 
-# Camera resolutions the compiled modeld warp JITs are built for
-# (see selfdrive/modeld/compile_modeld.py --camera-resolutions). Every camera
-# must publish the SAME resolution: modeld derives its NV12 geometry for both
-# 'img' and 'big_img' from the road camera size (selfdrive/modeld/modeld.py).
-# 1920x1080 capture is rescaled only when the loaded model has no warp for it.
-# Keep in sync with openpilot/common/transformations/camera.py, which drives the
-# resolutions modeld compiles (modeld/SConscript CAMERA_CONFIGS).
-SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080), (1344, 760))
+# The only resolution the modeld warp JITs are built for. Every camera must
+# publish exactly this size: modeld derives its NV12 geometry for both 'img' and
+# 'big_img' from the road camera size (selfdrive/modeld/modeld.py). Rescaling is
+# not allowed - a rescaled frame is mis-scaled relative to the trained model.
+SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080),)
 
 # Optional environment override for the capture pixel format (e.g. YUYV).
 FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
@@ -81,12 +80,14 @@ BRIGHTNESS_FLOOR = float(os.getenv("WEBCAM_MIN_BRIGHTNESS") or 20.0)
 def pick_output_resolution(cap_w: int, cap_h: int) -> tuple[int, int]:
   """Return the published resolution shared by every camera.
 
-  Uses the capture size when the model has a compiled warp for it, otherwise the
-  supported resolution with the closest aspect ratio (frames are rescaled).
+  Hard-locked to 1920x1080. A camera that cannot deliver it is a hard error, not
+  something to silently rescale: the warp JITs and the intrinsics are both built
+  for exactly this size, so a rescaled frame is mis-scaled for the model.
   """
-  if (cap_w, cap_h) in SUPPORTED_CAM_RESOLUTIONS:
-    return cap_w, cap_h
-  return min(SUPPORTED_CAM_RESOLUTIONS, key=lambda r: abs(r[0] / r[1] - cap_w / cap_h))
+  if (cap_w, cap_h) != (CAPTURE_WIDTH, CAPTURE_HEIGHT):
+    raise RuntimeError(f"camera delivered {cap_w}x{cap_h}, expected "
+                       f"{CAPTURE_WIDTH}x{CAPTURE_HEIGHT}; resolution is not configurable")
+  return cap_w, cap_h
 
 
 class Camera:
@@ -231,9 +232,10 @@ class Camera:
     # delivers a frame. Order matters: the road camera asks for full quality
     # first, secondary cameras try a bandwidth-friendly format first.
     if not formats:
-      # MJPEG is mandatory here: uncompressed 1080p (~79 MB/s) alone exceeds the
-      # ~53 MB/s of a USB 2.0 bus shared by both cameras.
-      formats = (('MJPG', CAPTURE_WIDTH, CAPTURE_HEIGHT), (None, CAPTURE_WIDTH, CAPTURE_HEIGHT))
+      # MJPEG only, at the locked resolution. There is deliberately no "default
+      # format" tier: UVC cameras default to YUYV, and uncompressed 1080p is
+      # ~124 MB/s, which cannot fit on a USB 2.0 bus shared by both cameras.
+      formats = (('MJPG', CAPTURE_WIDTH, CAPTURE_HEIGHT),)
     if FOURCC_OVERRIDE:
       formats = tuple((FOURCC_OVERRIDE, w, h) for _fourcc, w, h in formats)
 
