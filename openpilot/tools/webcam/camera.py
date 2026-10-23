@@ -1,5 +1,7 @@
 import os
 import platform
+import queue
+import threading
 import time
 
 import av
@@ -42,6 +44,22 @@ SUPPORTED_CAM_RESOLUTIONS = ((1920, 1080), (1344, 760))
 
 # Optional environment override for the capture pixel format (e.g. YUYV).
 FOURCC_OVERRIDE = os.getenv("WEBCAM_FOURCC")
+
+# Bounded hand-off between the capture thread and the publish loop. The capture
+# thread reads/decodes as fast as the camera delivers; the publish loop drains at
+# exactly CAMERA_FPS. Without this split a single slow decode - or GIL contention
+# from the other camera's thread - slows the *published* rate, and selfdrived's
+# all_freq_ok then raises cameraFrameRate. When the queue is full the oldest frame
+# is dropped, which bounds the added latency to CAMERA_QUEUE_SIZE frames.
+# (ported from the dst project's CameraMJPG._frame_pipeline)
+CAMERA_QUEUE_SIZE = max(1, int(os.getenv("WEBCAM_QUEUE_SIZE") or "3"))
+
+# V4L2 records the real exposure time per buffer and OpenCV exposes it as
+# CAP_PROP_POS_MSEC, in milliseconds of CLOCK_MONOTONIC - the same domain as
+# time.monotonic_ns(), and a few ms more accurate than the read() time because it
+# excludes driver buffering. Some cameras/backends return 0 or a value from a
+# different epoch though, so it is only trusted inside this window.
+POS_MSEC_MAX_SKEW_S = 5.0
 
 # Auto exposure trades frame rate for brightness: in the dark it stretches the
 # exposure time and the camera drops to ~13-18 fps. A fixed exposure can keep
@@ -96,6 +114,60 @@ class Camera:
     self.W, self.H = self.cap_w, self.cap_h
 
     self._apply_image_controls()
+
+    # The capture thread is started lazily by read_frames(): camerad calls
+    # set_output_size() after construction, and that must not race with the reader.
+    self._queue: queue.Queue[tuple[bytes, int]] | None = None
+    self._stop_event: threading.Event | None = None
+    self._read_error: BaseException | None = None
+    self._read_thread: threading.Thread | None = None
+
+  def _frame_timestamp(self) -> int:
+    """Monotonic ns for the frame that was just read.
+
+    Prefers the driver's own per-frame timestamp (the true exposure time) when the
+    camera reports a sane one, otherwise the moment the frame landed in user space.
+    Either way it is taken before decode/resize/conversion so the two
+    unsynchronized USB cameras only differ by their delivery jitter.
+    """
+    now_ns = time.monotonic_ns()
+    try:
+      pos_ms = self.cap.get(cv.CAP_PROP_POS_MSEC)
+    except Exception:
+      return now_ns
+    if not pos_ms or pos_ms <= 0:
+      return now_ns
+    pos_ns = int(pos_ms * 1e6)
+    # Reject values from a different clock epoch (or garbage) and fall back.
+    return pos_ns if abs(pos_ns - now_ns) < POS_MSEC_MAX_SKEW_S * 1e9 else now_ns
+
+  def _read_loop(self, q: queue.Queue[tuple[bytes, int]], stop_event: threading.Event) -> None:
+    """Capture thread: read, timestamp, convert, hand off. Never waits on publish."""
+    while not stop_event.is_set():
+      try:
+        ret, frame = self.cap.read()
+      except Exception as e:
+        self._read_error = e
+        break
+      if not ret:
+        self._read_error = RuntimeError(f"{self.cam_type_state} camera stopped delivering frames")
+        break
+
+      ts = self._frame_timestamp()
+      if self.rotate_180:
+        frame = cv.flip(frame, -1)  # upside-down mount
+      if frame.shape[1] != self.W or frame.shape[0] != self.H:
+        frame = cv.resize(frame, (self.W, self.H))
+      yuv = Camera.bgr2nv12(frame)
+
+      if q.full():
+        # Drop the oldest so the newest frame always gets in; this bounds the
+        # capture -> publish latency to CAMERA_QUEUE_SIZE frames.
+        try:
+          q.get_nowait()
+        except queue.Empty:
+          pass
+      q.put((yuv.data.tobytes(), ts))
 
   def _apply_image_controls(self) -> None:
     """Exposure/gain are optional. A manual setting that leaves the image black
@@ -212,28 +284,35 @@ class Camera:
     return frame.reformat(format='nv12').to_ndarray()
 
   def read_frames(self):
+    q, stop_event, read_thread = self._queue, self._stop_event, self._read_thread
+    if read_thread is None or q is None or stop_event is None:
+      # Lazy start: camerad calls set_output_size() after construction.
+      q = queue.Queue(maxsize=CAMERA_QUEUE_SIZE)
+      stop_event = threading.Event()
+      self._queue, self._stop_event = q, stop_event
+      self._read_error = None
+      read_thread = threading.Thread(target=self._read_loop, args=(q, stop_event),
+                                     name=f"cam-{self.cam_type_state}", daemon=True)
+      self._read_thread = read_thread
+      read_thread.start()
+
     try:
-      while True:
-        ret, frame = self.cap.read()
-        if not ret:
-          break
-        # Timestamp the instant the frame lands in user space, BEFORE any decode,
-        # resize or colour conversion. Timestamping after conversion (as this used
-        # to do, in camerad._send_yuv) bakes each camera's conversion cost into its
-        # timestamps, so two unsynchronized USB cameras drift apart by the
-        # difference of their conversion times and modeld's alignment loop has to
-        # throw frames away to compensate. Timestamping here leaves only the USB
-        # delivery jitter (a few ms) in the skew, which the modeld sync tolerance
-        # absorbs. Monotonic clock: see camerad._send_yuv.
-        ts = time.monotonic_ns()
-        if self.rotate_180:
-          frame = cv.flip(frame, -1)  # upside-down mount
-        if frame.shape[1] != self.W or frame.shape[0] != self.H:
-          frame = cv.resize(frame, (self.W, self.H))
-        yuv = Camera.bgr2nv12(frame)
-        yield yuv.data.tobytes(), ts
+      # Drain at the caller's pace (camerad's Ratekeeper), so the published rate
+      # is CAMERA_FPS regardless of how long decode takes. A sustained decode
+      # overload still starves this loop - the queue only absorbs jitter.
+      while not stop_event.is_set() or not q.empty():
+        try:
+          yield q.get(timeout=0.5)
+        except queue.Empty:
+          if stop_event.is_set():
+            break
     finally:
+      stop_event.set()
+      if read_thread.is_alive():
+        read_thread.join(timeout=2.0)
       self.cap.release()
     # A silent return here used to leave webcamerad alive publishing nothing,
     # which looks identical to "UI shows no camera feed". Fail loudly instead.
+    if self._read_error is not None:
+      raise self._read_error
     raise RuntimeError(f"{self.cam_type_state} camera stopped delivering frames")

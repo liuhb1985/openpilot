@@ -33,6 +33,13 @@ PROCESS_NAME = "openpilot.selfdrive.modeld.modeld"
 SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 SIMULATION = os.getenv('SIMULATION') == '1'
 
+# Pair the road and wide streams by nearest timestamp instead of always taking the
+# newest frame after draining. Two free-running USB cameras have an arbitrary phase
+# difference, so the old "drain until the main camera leads the wide one by 25 ms"
+# loop threw away a main frame roughly half the time and forced a 25 ms skew into
+# the model input. Set MODEL_PAIR_NEAREST=0 to restore the old behavior.
+PAIR_NEAREST = os.getenv("MODEL_PAIR_NEAREST", "1") != "0"
+
 LAT_SMOOTH_SECONDS = 0.0
 LONG_SMOOTH_SECONDS = 0.3
 MIN_LAT_CONTROL_SPEED = 0.3
@@ -126,6 +133,32 @@ class FrameMeta:
   def __init__(self, vipc=None):
     if vipc is not None:
       self.frame_id, self.timestamp_sof, self.timestamp_eof = vipc.frame_id, vipc.timestamp_sof, vipc.timestamp_eof
+
+
+def recv_nearest(client, ref_ts: int, stop_when_ahead_by: int):
+  """Receive frames from one camera stream, keeping the frame closest in time to ref_ts.
+
+  VisionIpcClient.recv() is destructive, so any frame read past the closest one is
+  consumed and lost regardless; this only decides which of them to actually use.
+  Two free-running USB cameras have an arbitrary phase difference, so the old
+  "drain until the main camera leads the wide one by 25 ms" loop threw away a main
+  frame roughly half the time and forced a 25 ms skew into the model input.
+
+  Returns (buf, meta, newest_meta); buf is None when the stream had nothing.
+  """
+  best = None
+  newest_meta = None
+  while True:
+    buf = client.recv()
+    if buf is None:
+      break
+    meta = FrameMeta(client)
+    newest_meta = meta
+    if best is None or abs(meta.timestamp_sof - ref_ts) < abs(best[1].timestamp_sof - ref_ts):
+      best = (buf, meta)
+    if meta.timestamp_sof >= ref_ts + stop_when_ahead_by:
+      break
+  return (best[0], best[1], newest_meta) if best is not None else (None, None, newest_meta)
 
 
 class ModelState:
@@ -394,11 +427,18 @@ def main(demo=False):
       params.put_bool_nonblocking("UsbGpuCompiled", usbgpu_compiled_path() is not None)
 
     # Keep receiving frames until we are at least 1 frame ahead of previous extra frame
-    while meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
-      buf_main = vipc_client_main.recv()
-      meta_main = FrameMeta(vipc_client_main)
-      if buf_main is None:
-        break
+    newest_main = meta_main
+    if PAIR_NEAREST:
+      # Pair by nearest timestamp: among the frames this loop has to consume, keep
+      # the one temporally closest to the extra frame instead of the newest.
+      buf_main, meta_main, newest_main = recv_nearest(vipc_client_main, meta_extra.timestamp_sof, 25000000)
+    else:
+      buf_main, newest_main = None, None
+      while meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
+        buf_main = vipc_client_main.recv()
+        if buf_main is None:
+          break
+        meta_main = newest_main = FrameMeta(vipc_client_main)
 
     if buf_main is None:
       cloudlog.debug("vipc_client_main no frame")
@@ -406,11 +446,16 @@ def main(demo=False):
 
     if use_extra_client:
       # Keep receiving extra frames until frame id matches main camera
-      while True:
-        buf_extra = vipc_client_extra.recv()
-        meta_extra = FrameMeta(vipc_client_extra)
-        if buf_extra is None or meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
-          break
+      if PAIR_NEAREST:
+        buf_extra, meta_extra, _ = recv_nearest(vipc_client_extra, meta_main.timestamp_sof, -25000000)
+      else:
+        while True:
+          buf_extra = vipc_client_extra.recv()
+          if buf_extra is None:
+            break
+          meta_extra = FrameMeta(vipc_client_extra)
+          if meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
+            break
 
       if buf_extra is None:
         cloudlog.debug("vipc_client_extra no frame")
@@ -455,7 +500,11 @@ def main(demo=False):
       vec_desire[desire] = 1
 
     # tracked dropped frames
-    vipc_dropped_frames = max(0, meta_main.frame_id - last_vipc_frame_id - 1)
+    # Count every main frame consumed since the last loop, not just the one we kept:
+    # with nearest-timestamp pairing the kept frame can be older than the newest one
+    # read, and counting the kept frame would under-report (and, since
+    # last_vipc_frame_id is advanced to the newest frame, double count next loop).
+    vipc_dropped_frames = max(0, newest_main.frame_id - last_vipc_frame_id - 1)
     # A PC with two independent USB webcams has no hardware frame sync, so the
     # alignment loop above legitimately discards a few main frames. Treat a small
     # number as sync noise (cpv9-pc-dst uses a tolerance of 5) and keep running
@@ -570,7 +619,9 @@ def main(demo=False):
         params.put_bool("UsbGpuLoading", False)
         usbgpu_startup_pending = False
         cloudlog.warning("eGPU first model output published; startup complete")
-    last_vipc_frame_id = meta_main.frame_id
+    # Advance to the newest frame consumed, not the one kept, so frames skipped by
+    # the pairing are never counted twice.
+    last_vipc_frame_id = newest_main.frame_id
     diagnostics.record(
       context={'backend': type(model).__name__, 'usbgpu': model.usbgpu, 'frame_id': meta_main.frame_id},
       camera_wait_ms=(camera_ready - loop_start) * 1000,
