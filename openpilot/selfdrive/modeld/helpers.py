@@ -42,8 +42,23 @@ def select_vision_streams(available_streams: Collection[VisionStreamT], road_str
   return None, False
 
 
+def _pc_local_amd_available() -> bool:
+  # A native AMD GPU exposes ROCm's KFD device. On the PC port this is the
+  # replacement for the eGPU's USB bridge: big models can run on the same
+  # device, so the rest of the eGPU-gated code paths (build, modeld load,
+  # ensure-if-egpu prefetch) can stay identical.
+  if sys.platform != "linux" or platform.machine() != "x86_64":
+    return False
+  try:
+    return Path("/dev/kfd").is_char_device()
+  except OSError:
+    return False
+
+
 def _default_tg_input_devices(process_name: str, usbgpu: bool):
-  backend = os.getenv("DEV", "QCOM")
+  backend = os.getenv("DEV")
+  if not backend:
+    backend = "AMD" if _pc_local_amd_available() else "QCOM"
   defaults = {
     'openpilot.selfdrive.modeld.modeld': {
       'default': {'WARP_DEV': backend, 'QUEUE_DEV': backend},
@@ -118,19 +133,6 @@ def usb_device_present(usb_ids: Collection[tuple[int, int]], min_speed_mbps: int
     except Exception:
       pass
   return False
-
-
-def _pc_local_amd_available() -> bool:
-  # A native AMD GPU exposes ROCm's KFD device. On the PC port this is the
-  # replacement for the eGPU's USB bridge: big models can run on the same
-  # device, so the rest of the eGPU-gated code paths (build, modeld load,
-  # ensure-if-egpu prefetch) can stay identical.
-  if sys.platform != "linux" or platform.machine() != "x86_64":
-    return False
-  try:
-    return Path("/dev/kfd").is_char_device()
-  except OSError:
-    return False
 
 
 def usbgpu_present() -> bool:

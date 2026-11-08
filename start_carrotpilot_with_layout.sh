@@ -145,9 +145,25 @@ fi
 # /dev/kfd 在则本地 AMD 可用；否则 big-model 路径走 CPU fallback。
 HAS_KFD=0
 if [ -e /dev/kfd ]; then
-  if "$PYTHON_BIN" -c 'import os; os.stat("/dev/kfd")' 2>/dev/null; then
+  if [ -r /dev/kfd ] && [ -w /dev/kfd ]; then
     HAS_KFD=1
+  elif "$PYTHON_BIN" -c 'import os; os.stat("/dev/kfd")' 2>/dev/null; then
+    # 存在设备但当前用户可能缺少读写权限
+    if [ -w /dev/kfd ]; then
+      HAS_KFD=1
+    else
+      echo "[kfd] WARNING: /dev/kfd 存在但当前用户无写入权限，AMD GPU 无法初始化！" >&2
+      echo "[kfd]          修复：sudo usermod -aG render,video $USER 并重新登录" >&2
+    fi
   fi
+fi
+
+# 若检测到可用 AMD GPU (/dev/kfd) 且未显式指定 FORCE_BIG，默认开启大模型
+if [ "$HAS_KFD" = "1" ] && [ -z "${FORCE_BIG:-}" ]; then
+  export FORCE_BIG=1
+  echo "[models] 检测到可用 AMD GPU (/dev/kfd)，自动启用大模型 (FORCE_BIG=1)"
+else
+  export FORCE_BIG="${FORCE_BIG:-0}"
 fi
 
 echo "============================================================"
@@ -157,7 +173,7 @@ echo "   PYTHON_BIN   = $PYTHON_BIN ($($PYTHON_BIN -V 2>&1))"
 echo "   LOG_ROOT     = $LOG_ROOT"
 echo "   SCONS_CACHE  = $SCONS_CACHE_DIR"
 echo "   /dev/kfd     = $HAS_KFD"
-echo "   FORCE_BIG    = ${FORCE_BIG:-0}"
+echo "   FORCE_BIG    = $FORCE_BIG"
 echo "   tmux         = $USE_TMUX"
 echo "============================================================"
 
@@ -172,14 +188,27 @@ sys_tune() {
     echo "[tune]          CPU 调频 + C-state 唤醒延迟会导致实时循环偶发超时，表现为'系统延时/模型延迟'。" >&2
     echo "[tune]          修复：sudo tee /etc/sudoers.d/op-perf <<< \"%sudo ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor\"" >&2
   fi
-  # 2. 降低 swappiness，阻断实时循环内存换出
+  # 1.1 AMD P-State EPP 调优（针对 Zen 3/4 amd_pstate 驱动锁定最低延迟）
+  for epp in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
+    [ -e "$epp" ] && { echo performance | sudo -n tee "$epp" >/dev/null 2>&1 || true; }
+  done
+  # 1.2 AMD GPU DPM 调优（锁定核显最高频率，避免空闲降频导致突发推理抖动）
+  for dpm in /sys/class/drm/card*/device/power_dpm_force_performance_level; do
+    [ -e "$dpm" ] && { echo high | sudo -n tee "$dpm" >/dev/null 2>&1 || true; }
+  done
+  # 2. 降低 swappiness 与脏页堆积，阻断实时循环内存换出
   sudo -n sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
+  sudo -n sysctl -w vm.dirty_background_ratio=5 >/dev/null 2>&1 || true
+  sudo -n sysctl -w vm.dirty_ratio=10 >/dev/null 2>&1 || true
   # 3. 加大本地套接字缓冲区，防 VisionIPC 视频流丢帧/绿屏
   sudo -n sysctl -w net.core.rmem_max=26214400 >/dev/null 2>&1 || true
   sudo -n sysctl -w net.core.wmem_max=26214400 >/dev/null 2>&1 || true
   # 4. I2C / USB 设备权限（sensord 与 USB 摄像头需要）
   sudo -n chmod 666 /dev/i2c-* >/dev/null 2>&1 || true
   [ -d /dev/bus/usb ] && sudo -n chmod -R 777 /dev/bus/usb >/dev/null 2>&1 || true
+  # 5. KFD / DRI 权限确保（若未加入组尝试自动提权）
+  [ -e /dev/kfd ] && sudo -n chmod 666 /dev/kfd >/dev/null 2>&1 || true
+  [ -d /dev/dri ] && sudo -n chmod 666 /dev/dri/renderD* >/dev/null 2>&1 || true
 }
 sys_tune
 
