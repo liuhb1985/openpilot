@@ -11,6 +11,9 @@ FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 USBCAM = os.getenv("USE_USBCAM") is not None
+# 盲区检测进程开关：默认启用（盲区窗口使用 camerad 共享的广角流），
+# 设置 DISABLE_CAM_BLINDSPOT=1 环境变量可关闭
+DISABLE_CAM_BLINDSPOT = os.getenv("DISABLE_CAM_BLINDSPOT") is not None
 # IMU Selection: 0 = LSM6DS3, 1 = Original Car IMU, 2 = JY62
 IMU_SEL = int(os.getenv("IMU_SEL", "1"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
@@ -193,7 +196,8 @@ procs = [
   # c3x lite
   PythonProcess("beep", "selfdrive.controls.beep", c3x_lite, enabled=TICI),
   # 摄像头盲区检测：通过 VisionIPC 共享广角流(不再独占物理设备)，需配合启动脚本 USE_VISION_IPC=1
-  NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC),
+  # 默认启用，设置 DISABLE_CAM_BLINDSPOT=1 可关闭
+  NativeProcess("cam_blindspot", "camera", ["./cam_blindspot"], always_run, enabled=PC and not DISABLE_CAM_BLINDSPOT),
   PythonProcess("amap_navi", "selfdrive.carrot.amap_navi", only_onroad),
   PythonProcess("lane", "selfdrive.carrot.lane", only_onroad),
 ]

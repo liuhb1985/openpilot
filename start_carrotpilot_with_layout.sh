@@ -4,6 +4,25 @@
 echo -ne "\033]0;Log Window\007"
 
 # -----------------------------------------------------------------------------
+# 清理残留进程：防止上次实例未完全退出导致端口(8082/7710/8888)和摄像头被占用
+# -----------------------------------------------------------------------------
+echo "检查并清理残留 CarrotPilot 进程..."
+LEFTOVERS=$(pgrep -f "system/manager/manager.py|selfdrive\.carrot\.|selfdrive\.modeld|selfdrive\.ui|tools/webcam/camerad|amap_navi" 2>/dev/null)
+if [ -n "$LEFTOVERS" ]; then
+    echo "发现残留进程: $LEFTOVERS"
+    pkill -TERM -f "system/manager/manager.py" 2>/dev/null
+    sleep 3
+    # 强制清理仍未退出的进程
+    pkill -KILL -f "system/manager/manager.py" 2>/dev/null
+    pkill -KILL -f "selfdrive\.carrot\." 2>/dev/null
+    pkill -KILL -f "tools/webcam/camerad" 2>/dev/null
+    sleep 1
+    echo "残留进程已清理 ✓"
+else
+    echo "无残留进程 ✓"
+fi
+
+# -----------------------------------------------------------------------------
 # 系统级性能终极优化 (超低延迟、防卡死、高性能模式)
 # -----------------------------------------------------------------------------
 echo "正在注入系统级极客优化..."

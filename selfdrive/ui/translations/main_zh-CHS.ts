@@ -1700,10 +1700,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>夜间增益增强(1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>夜间画面过暗时自动增亮长焦画面，防止模型置信度下降/车道线丢失(0:关闭, 1:开启，约5秒后生效)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1745,6 +1741,10 @@
     </message>
     <message>
         <source>长焦平均亮度高于此值时切回长焦(20~160)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>夜间增益增强(0)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

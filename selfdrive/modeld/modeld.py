@@ -376,11 +376,14 @@ def main(demo=False):
     else:
       lat_delay = sm["liveDelay"].lateralDelay + lat_smooth_seconds
 
-    # Keep receiving frames until we are at least 1 frame ahead of previous extra frame
+    # Keep receiving frames until we are at least 1 frame ahead of previous extra frame.
+    # 显式传入超时，避免 Cython 默认值异常导致无限阻塞；同时设置总时间上限，
+    # 即使两路视频帧号/时间戳意外失配，也不会让 modeld 永久停止输出 modelV2。
+    sync_deadline = time.monotonic() + 1.0
     while meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
-      buf_main = vipc_client_main.recv()
+      buf_main = vipc_client_main.recv(100)
       meta_main = FrameMeta(vipc_client_main)
-      if buf_main is None:
+      if buf_main is None or time.monotonic() >= sync_deadline:
         break
 
     if buf_main is None:
@@ -389,10 +392,14 @@ def main(demo=False):
 
     if use_extra_client:
       # Keep receiving extra frames until frame id matches main camera
+      sync_deadline = time.monotonic() + 1.0
       while True:
-        buf_extra = vipc_client_extra.recv()
+        buf_extra = vipc_client_extra.recv(100)
         meta_extra = FrameMeta(vipc_client_extra)
         if buf_extra is None or meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:
+          break
+        if time.monotonic() >= sync_deadline:
+          cloudlog.warning("wide/main camera frames out of sync, using latest frames")
           break
 
       if buf_extra is None:
