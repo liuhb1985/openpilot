@@ -292,10 +292,17 @@ def main(demo=False):
   cloudlog.warning(f"models loaded in {time.monotonic() - st:.1f}s, modeld starting")
 
   # visionipc clients
+  # 广角额外输入开关：默认关闭，modeld 只用主摄
+  # 当前广角摄像头固件过曝且标定参数与本机广角镜头不匹配，接入模型会导致横向判断翻转/车辆跑偏。
+  # 广角 VisionIPC 流仍保留给 cam_blindspot 盲区窗口使用。
+  # 设置 MODEL_USE_EXTRA_CAMERA=1 可恢复把广角作为模型额外输入。
+  use_extra_camera_env = os.getenv("MODEL_USE_EXTRA_CAMERA", "0")
   while True:
     available_streams = VisionIpcClient.available_streams("camerad", block=False)
     if available_streams:
       use_extra_client = VisionStreamType.VISION_STREAM_WIDE_ROAD in available_streams and VisionStreamType.VISION_STREAM_ROAD in available_streams
+      if use_extra_camera_env is not None:
+        use_extra_client = use_extra_client and use_extra_camera_env == "1"
       main_wide_camera = VisionStreamType.VISION_STREAM_ROAD not in available_streams
       break
     time.sleep(.1)

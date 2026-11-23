@@ -3,7 +3,6 @@ import cv2
 import threading
 import queue
 import os
-import time
 
 # 强制禁用 OpenCV OpenCL 后端加速，消除现代显卡驱动（如 RDNA3 等）中的 busy-wait GPU 飙升异常
 cv2.ocl.setUseOpenCL(False)
@@ -12,34 +11,6 @@ cv2.setNumThreads(1)
 
 # 检测当前 OpenCV 版本是否支持直接转 NV12，以实现 C++ 级一步到位的高效转码
 HAS_DIRECT_NV12 = hasattr(cv2, 'COLOR_BGR2YUV_NV12')
-
-# --- 夜间自适应增益（防止长焦相机夜间画面过暗导致模型置信度低/车道线丢失）---
-# 仅放大亮度（Y 平面），不影响色度
-# 配置来源优先级：环境变量 > Params 参数(NightGainEnable/NightGainTargetY/NightGainMax，可在设备设置界面开关) > 默认值
-NIGHT_GAIN_ENABLE = os.getenv("NIGHT_GAIN_ENABLE", "0") == "1"
-NIGHT_TARGET_Y = float(os.getenv("NIGHT_TARGET_Y", "90"))    # 目标平均亮度 (0~255)
-NIGHT_MAX_GAIN = float(os.getenv("NIGHT_MAX_GAIN", "2.0"))   # 最大增益倍数
-NIGHT_GAIN_ENV = any(k in os.environ for k in ("NIGHT_GAIN_ENABLE", "NIGHT_TARGET_Y", "NIGHT_MAX_GAIN"))
-
-def get_night_gain_params():
-  """从 Params 读取夜间增益配置（设备设置界面可实时修改）；环境变量显式设置时优先环境变量"""
-  enable, target_y, max_gain = NIGHT_GAIN_ENABLE, NIGHT_TARGET_Y, NIGHT_MAX_GAIN
-  if not NIGHT_GAIN_ENV:
-    try:
-      from openpilot.common.params import Params
-      params = Params()
-      v = params.get("NightGainEnable")
-      if v is not None and v in (b"0", b"1", "0", "1"):
-        enable = v in (b"1", "1")
-      v = params.get_int("NightGainTargetY")
-      if 20 <= v <= 200:
-        target_y = float(v)
-      v = params.get_int("NightGainMax")
-      if 10 <= v <= 40:   # UI 步进 0.1，存储为 10~40
-        max_gain = v / 10.0
-    except Exception:
-      pass
-  return enable, target_y, max_gain
 
 def bgr_to_nv12(bgr):
     """Convert a BGR ndarray to NV12 ndarray of shape (h*3//2, w).
@@ -129,13 +100,6 @@ class CameraMJPG:
         self.cur_frame_id = 0
         self.current_format = actual_format
 
-        # 夜间自适应增益状态（配置来自 Params/环境变量，每 5s 刷新一次）
-        self.night_gain_en, self.night_target_y, self.night_max_gain = get_night_gain_params()
-        self.night_gain = 1.0
-        self._gain_lut = None
-        self._gain_lut_val = -1.0
-        self._gain_last_log = 0.0
-
         # 重构：使用单个高效的后台线程执行顺序读取与转码，彻底消除多线程 GIL 争抢与 CPU 忙等
         self.output_queue = queue.Queue(maxsize=max_queue_size)
         self.stop_event = threading.Event()
@@ -154,46 +118,6 @@ class CameraMJPG:
     def _get_current_format(self):
         fourcc_code = int(self.cap.get(cv2.CAP_PROP_FOURCC))
         return ''.join([chr((fourcc_code >> 8 * i) & 0xFF) for i in range(4)])
-
-    def _apply_night_gain(self, yuv, bgr):
-        """夜间低光检测 + Y 平面自适应增益（LUT 加速，仅调亮度不动色度）"""
-        now = time.time()
-        if now - getattr(self, '_gain_last_refresh', 0.0) > 5.0:
-            # 每 5s 刷新一次配置（设备设置界面改开关/阈值后无需重启即生效）
-            self.night_gain_en, self.night_target_y, self.night_max_gain = get_night_gain_params()
-            self._gain_last_refresh = now
-        if not self.night_gain_en:
-            return yuv
-        try:
-            small = cv2.resize(bgr, (64, 36), interpolation=cv2.INTER_AREA)
-            mean_y = float(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY).mean())
-        except Exception:
-            return yuv
-        if mean_y < 1.0:
-            return yuv
-
-        target_gain = min(self.night_target_y / mean_y, self.night_max_gain)
-        # 平滑逼近目标增益，避免画面亮度突跳
-        self.night_gain += (target_gain - self.night_gain) * 0.1
-        self.night_gain = max(1.0, min(self.night_gain, self.night_max_gain))
-
-        if self.night_gain <= 1.01:
-            return yuv
-
-        # 增益变化超过阈值时才重建 LUT（256 项，开销可忽略）
-        if abs(self.night_gain - self._gain_lut_val) > 0.02:
-            lut = np.clip(np.arange(256, dtype=np.float32) * self.night_gain, 0, 255).astype(np.uint8)
-            self._gain_lut = lut
-            self._gain_lut_val = self.night_gain
-
-        h = yuv.shape[0] * 2 // 3
-        yuv[:h, :] = cv2.LUT(yuv[:h, :], self._gain_lut)
-
-        if now - self._gain_last_log > 4.0:
-            self._gain_last_log = now
-            print(f"[NIGHT-GAIN] {self.cam_type_state} meanY={mean_y:.1f} gain={self.night_gain:.2f}")
-
-        return yuv
 
     def _frame_pipeline(self):
         """高效单线程视频流处理管线 (支持防死锁自动重连)"""
@@ -245,8 +169,6 @@ class CameraMJPG:
 
             # 顺序转码并推入输出队列（使用非阻塞 put_nowait 确保绝对实时性）
             yuv = bgr_to_nv12(frame)
-            if self.night_gain_en:
-                yuv = self._apply_night_gain(yuv, frame)
             yuv_bytes = yuv
             try:
                 self.output_queue.put_nowait(yuv_bytes)

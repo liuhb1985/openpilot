@@ -2,7 +2,6 @@
 import threading
 import os
 import queue
-import time
 import numpy as np
 from collections import namedtuple
 
@@ -23,18 +22,6 @@ CAMERAS = [
 ]
 if WIDE_CAM:
   CAMERAS.append(CameraType("wideRoadCameraState", VisionStreamType.VISION_STREAM_WIDE_ROAD, WIDE_CAM))
-
-# 广角曝光跟随主摄：按主摄实时平均亮度动态压暗广角（只压暗，不提亮）。
-# WIDE_MATCH_ROAD_EXPOSURE=0 可关闭；增益范围限制避免压得过暗或突跳。
-WIDE_MATCH_ROAD_EXPOSURE = os.getenv("WIDE_MATCH_ROAD_EXPOSURE", "1") == "1"
-WIDE_EXPOSURE_MIN_GAIN = float(os.getenv("WIDE_EXPOSURE_MIN_GAIN", "0.3"))
-WIDE_EXPOSURE_MAX_GAIN = float(os.getenv("WIDE_EXPOSURE_MAX_GAIN", "1.0"))
-
-def _y_mean(yuv, height):
-  """采样 NV12 的 Y 平面平均亮度。"""
-  y = yuv[:height, :]
-  step = max(1, y.size // 8192)
-  return float(y.ravel()[::step].mean())
 
 class Camerad:
   def __init__(self):
@@ -61,42 +48,6 @@ class Camerad:
         print(f"Failed to open camera {cam_device}: {e}")
 
     self.vipc_server.start_listener()
-
-    # 广角跟随主摄曝光的状态
-    self.match_wide_exposure = WIDE_MATCH_ROAD_EXPOSURE and len(self.cameras) > 1
-    self.road_mean_y = None
-    self.wide_gain = 1.0
-    self._wide_lut = None
-    self._wide_lut_gain = -1.0
-    self._wide_last_log = 0.0
-
-  def _wide_exposure_frame(self, cam, yuv):
-    """按主摄平均亮度压暗广角帧，返回用于发送的新数组（不修改缓存原帧）。"""
-    if not (self.match_wide_exposure and cam.cam_type_state == "wideRoadCameraState") or self.road_mean_y is None:
-      return yuv
-
-    wide_mean = _y_mean(yuv, cam.H)
-    if wide_mean < 1.0:
-      return yuv
-
-    target_gain = self.road_mean_y / wide_mean
-    target_gain = max(WIDE_EXPOSURE_MIN_GAIN, min(WIDE_EXPOSURE_MAX_GAIN, target_gain))
-    self.wide_gain += (target_gain - self.wide_gain) * 0.1
-
-    if abs(self.wide_gain - 1.0) < 0.01:
-      return yuv
-    if abs(self.wide_gain - self._wide_lut_gain) > 0.01:
-      self._wide_lut = np.clip(np.arange(256, dtype=np.float32) * self.wide_gain, 0, 255).astype(np.uint8)
-      self._wide_lut_gain = self.wide_gain
-
-    out = yuv.copy()
-    out[:cam.H, :] = self._wide_lut[out[:cam.H, :]]
-
-    now = time.time()
-    if now - self._wide_last_log > 4.0:
-      self._wide_last_log = now
-      print(f"[WIDE-EXPOSURE] roadY={self.road_mean_y:.1f} wideY={wide_mean:.1f} gain={self.wide_gain:.2f}")
-    return out
 
   def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
     eof = int(frame_id * 0.05 * 1e9)
@@ -147,8 +98,6 @@ class Camerad:
           yuv = cam.output_queue.get_nowait()
           cam.output_queue.task_done()
           last_frames[cam] = yuv
-          if self.match_wide_exposure and cam.cam_type_state == "roadCameraState":
-            self.road_mean_y = _y_mean(yuv, cam.H)
         except queue.Empty:
           yuv = last_frames.get(cam)
 
@@ -160,7 +109,6 @@ class Camerad:
         yuv = last_frames[cam]
         if yuv.shape[:2] != (cam.H * 3 // 2, cam.W):
           continue
-        yuv = self._wide_exposure_frame(cam, yuv)
         self._send_yuv(yuv, frame_id, cam.cam_type_state, cam.stream_type)
       frame_id += 1
       rk.keep_time()
