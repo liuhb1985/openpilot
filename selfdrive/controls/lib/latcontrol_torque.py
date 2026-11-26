@@ -1,6 +1,7 @@
 from collections import deque
 
 import math
+import os
 import numpy as np
 
 from cereal import log
@@ -209,7 +210,12 @@ class LatControlTorque(LatControl):
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
       lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
-      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
+      # NNFF 模式使用专用低速因子表，避免普通表的平方增益在低速放大微小角度误差。
+      # LAT_USE_NN_LOW_SPEED_FACTOR=0 可恢复原行为。
+      if (self.use_nnff or self.use_nnff_lite) and os.getenv("LAT_USE_NN_LOW_SPEED_FACTOR", "1") != "0":
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.5
+      else:
+        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 2
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
