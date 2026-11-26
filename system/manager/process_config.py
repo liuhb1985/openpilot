@@ -93,8 +93,9 @@ procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid", enabled=not PC),
 
   # 视频流编码进程，负责处理摄像头画面的推流/录制
-  # NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
-  # NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad),
+  # 默认开启 route/rlog/qlog 录制，便于离线分析横向控制
+  NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
+  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad),
   NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
   
   # 日志消息处理进程，负责系统内部日志的分发
@@ -149,6 +150,8 @@ procs = [
   PythonProcess("card", "selfdrive.car.card", only_onroad),
   # 过期日志删除工具
   PythonProcess("deleter", "system.loggerd.deleter", always_run, enabled=not PC),
+  # 日志上传到远程库：PC 上常驻，未配置 LOG_UPLOAD_URL 时自动空转
+  PythonProcess("log_uploader", "system.loggerd.log_uploader", always_run, enabled=PC),
   # 驾驶员疲劳/注意力监控逻辑
   PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", enable_dm, enabled=(WEBCAM or not PC)),
   # TICI/QCOM GPS 专用驱动

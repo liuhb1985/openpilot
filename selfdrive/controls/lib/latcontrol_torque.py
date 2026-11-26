@@ -6,6 +6,7 @@ import numpy as np
 
 from cereal import log
 from openpilot.common.filter_simple import FirstOrderFilter
+from openpilot.common.realtime import DT_CTRL
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
 
@@ -133,6 +134,8 @@ class LatControlTorque(LatControl):
 
     self.actual_curvature_ema = 0.0
     self.filtered_lateral_jerk = 0.0
+    self.steering_angle_history = deque(maxlen=5)
+    self.steering_rate_filtered = 0.0
 
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
@@ -173,6 +176,8 @@ class LatControlTorque(LatControl):
       angle_steers_des = float(CS.steeringAngleDeg)
       self.actual_curvature_ema = 0.0
       self.filtered_lateral_jerk = 0.0
+      self.steering_angle_history.clear()
+      self.steering_rate_filtered = 0.0
     else:
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
       angle_steers_des += params.angleOffsetDeg
@@ -181,11 +186,18 @@ class LatControlTorque(LatControl):
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       actual_lateral_jerk = 0.0
 
-      # 摆振阻尼专用量：从方向盘角速度求横向 jerk，独立于 NNFF 分支。
-      # 之前该量只在 NNFF 开启时计算并随后被清零，导致阻尼扭矩恒为 0，
-      # 方向盘细碎摆动完全没有被抑制。
-      steering_rate_dps = CS.steeringRateDeg if abs(CS.steeringRateDeg) > 0.3 else 0.0
-      steering_curvature_rate = -VM.calc_curvature(math.radians(steering_rate_dps), CS.vEgo, 0.0)
+      # 摆振阻尼专用量：SAS_Speed 量化 4°/s 太粗，直接用会在 ±0.08 扭矩间翻转。
+      # 改用 5 帧方向盘角度差分（0.1° 分辨率）+ 低通，得到平滑角速度后再求横向 jerk。
+      self.steering_angle_history.append(CS.steeringAngleDeg)
+      if len(self.steering_angle_history) >= 5:
+        hist = self.steering_angle_history
+        raw_rate = (hist[-1] - hist[0]) / ((len(hist) - 1) * DT_CTRL)
+      else:
+        raw_rate = 0.0
+      if abs(raw_rate) < 1.0:
+        raw_rate = 0.0
+      self.steering_rate_filtered = 0.8 * self.steering_rate_filtered + 0.2 * raw_rate
+      steering_curvature_rate = -VM.calc_curvature(math.radians(self.steering_rate_filtered), CS.vEgo, 0.0)
       steering_lateral_jerk = steering_curvature_rate * CS.vEgo ** 2
 
       if self.use_steering_angle:

@@ -15,7 +15,7 @@ MAX_VEL_ERR = 5.0  # m/s
 # EU guidelines
 MAX_LATERAL_JERK = 5.0  # m/s^3
 MAX_LATERAL_ACCEL_NO_ROLL = 3.0  # m/s^2
-MAX_CURVATURE_DELTA_FRAME = 0.03 #0.019 # about 3 degree / DT_CTRL 
+MAX_CURVATURE_DELTA_FRAME = 0.019 # about 2 degree / DT_CTRL 
 
 def apply_deadzone(error, deadzone):
   if error > deadzone:

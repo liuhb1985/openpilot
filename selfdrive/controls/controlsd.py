@@ -55,6 +55,7 @@ class Controls:
     self.steer_limited_by_controls = False
     self.curvature = 0.0
     self.desired_curvature = 0.0
+    self.lc_smoothed_curvature = 0.0
 
     self.pose_calibrator = PoseCalibrator()
     self.calibrated_pose: Pose | None = None
@@ -156,8 +157,12 @@ class Controls:
     if steer_actuator_delay == 0.0:
       steer_actuator_delay = self.sm['liveDelay'].lateralDelay 
     
+    lane_change_active = (model_v2.meta.laneChangeState != LaneChangeState.off or
+                          model_v2.meta.desire in (log.Desire.laneChangeLeft, log.Desire.laneChangeRight))
+
     if not CC.latActive:
       new_desired_curvature = self.curvature
+      self.lc_smoothed_curvature = self.curvature
     elif self.lanefull_mode_enabled:
       if len(lat_plan.curvatures) == 0:
         new_desired_curvature = self.curvature
@@ -171,7 +176,13 @@ class Controls:
         new_desired_curvature = smooth_value(curvature, self.desired_curvature, lat_smooth_seconds)
     else:
       new_desired_curvature = model_v2.action.desiredCurvature
+      # 模型侧已包含约 0.5s 前瞻曲率；变道时再做一次平滑，避免半秒后的转角瞬间打到方向盘
+      lc_tau = 0.4 if lane_change_active else 0.05
+      lc_alpha = 1 - np.exp(-DT_CTRL / lc_tau)
+      self.lc_smoothed_curvature = lc_alpha * new_desired_curvature + (1 - lc_alpha) * self.lc_smoothed_curvature
+      new_desired_curvature = self.lc_smoothed_curvature
 
+    self.lc_smoothed_curvature = new_desired_curvature
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
 
     actuators.curvature = float(self.desired_curvature)
@@ -281,7 +292,16 @@ class Controls:
     hudControl.leadDPath = leadOne.dPath
 
     meta = self.sm['modelV2'].meta
-    hudControl.modelDesire = 1 if meta.desire == log.Desire.turnLeft else 2 if meta.desire == log.Desire.turnRight else 0
+    if meta.desire == log.Desire.turnLeft:
+      hudControl.modelDesire = 1
+    elif meta.desire == log.Desire.turnRight:
+      hudControl.modelDesire = 2
+    elif meta.desire == log.Desire.laneChangeLeft:
+      hudControl.modelDesire = 3
+    elif meta.desire == log.Desire.laneChangeRight:
+      hudControl.modelDesire = 4
+    else:
+      hudControl.modelDesire = 0
 
     self._update_side("left",  radarState.leadsLeft2,  meta.distanceToRoadEdgeLeft,  CS.leftBlindspot, hudControl)
     self._update_side("right", radarState.leadsRight2, meta.distanceToRoadEdgeRight, CS.rightBlindspot, hudControl)
