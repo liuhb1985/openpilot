@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unistd.h>
 
 #include "system/hardware/base.h"
 #include "common/util.h"
@@ -22,11 +23,35 @@ namespace Path {
     return util::getenv("HOME") + "/.comma" + Path::openpilot_prefix();
   }
 
+  inline std::string repo_root() {
+    if (const char *env = getenv("OPENPILOT_ROOT")) {
+      return env;
+    }
+    char cwd[4096];
+    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
+      std::string p = cwd;
+      for (int i = 0; i < 8; ++i) {
+        if (util::file_exists(p + "/.git") || util::file_exists(p + "/SConstruct")) {
+          return p;
+        }
+        size_t pos = p.rfind('/');
+        if (pos == std::string::npos || pos == 0) break;
+        p = p.substr(0, pos);
+      }
+    }
+    return comma_home();
+  }
+
   inline std::string log_root() {
     if (const char *env = getenv("LOG_ROOT")) {
       return env;
     }
-    return Hardware::PC() ? Path::comma_home() + "/media/0/realdata" : "/data/media/0/realdata";
+    if (Hardware::PC()) {
+      std::string root = Path::repo_root() + "/logs/realdata";
+      util::create_directories(root, 0775);
+      return root;
+    }
+    return "/data/media/0/realdata";
   }
 
   inline std::string params() {

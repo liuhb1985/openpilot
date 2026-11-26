@@ -150,7 +150,7 @@ procs = [
   PythonProcess("card", "selfdrive.car.card", only_onroad),
   # 过期日志删除工具
   PythonProcess("deleter", "system.loggerd.deleter", always_run, enabled=not PC),
-  # 日志上传到远程库：PC 上常驻，未配置 LOG_UPLOAD_URL 时自动空转
+  # 日志轮转与上传：PC 上常驻，默认将 logs/ 下日志提交并推送到 git
   PythonProcess("log_uploader", "system.loggerd.log_uploader", always_run, enabled=PC),
   # 驾驶员疲劳/注意力监控逻辑
   PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", enable_dm, enabled=(WEBCAM or not PC)),

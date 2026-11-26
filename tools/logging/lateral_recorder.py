@@ -12,6 +12,7 @@ import argparse
 import os
 import time
 
+from openpilot.system.hardware.hw import Paths
 from openpilot.tools.lib.live_logreader import live_logreader
 from openpilot.tools.lib.logreader import save_log
 
@@ -38,7 +39,8 @@ def main() -> None:
   parser.add_argument("--addr", type=str, default="127.0.0.1", help="cereal bus address")
   args = parser.parse_args()
 
-  output = args.output or f"lateral_{int(time.time())}.bz2"
+  logs_dir = os.path.dirname(Paths.log_root())
+  output = args.output or os.path.join(logs_dir, f"lateral_{int(time.time())}.bz2")
   if not output.endswith(".bz2"):
     output += ".bz2"
 

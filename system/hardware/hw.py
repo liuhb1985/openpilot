@@ -12,13 +12,27 @@ class Paths:
     return os.path.join(str(Path.home()), ".comma" + os.environ.get("OPENPILOT_PREFIX", ""))
 
   @staticmethod
+  def repo_root() -> str:
+    if os.environ.get("OPENPILOT_ROOT"):
+      return os.environ["OPENPILOT_ROOT"]
+    # 从当前文件向上查找项目根（含 .git 或 SConstruct）
+    cur = Path(__file__).resolve()
+    for parent in [cur.parent] + list(cur.parents):
+      if (parent / ".git").exists() or (parent / "SConstruct").exists():
+        return str(parent)
+    return str(Path.cwd())
+
+  @staticmethod
   def log_root() -> str:
     if os.environ.get('LOG_ROOT', False):
-      return os.environ['LOG_ROOT']
+      root = os.environ['LOG_ROOT']
     elif PC:
-      return str(Path(Paths.comma_home()) / "media" / "0" / "realdata")
+      root = str(Path(Paths.repo_root()) / "logs" / "realdata")
     else:
-      return '/data/media/0/realdata/'
+      root = '/data/media/0/realdata/'
+    if PC:
+      os.makedirs(root, exist_ok=True)
+    return root
 
   @staticmethod
   def swaglog_root() -> str:
