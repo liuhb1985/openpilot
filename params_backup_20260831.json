@@ -13,7 +13,7 @@
   "LateralTorqueCustom": "0",
   "CameraYawTrimDeg": "0",
   "PathOffset": "0",
-  "LatMpcSteeringRateCost": "7",
+  "LatMpcSteeringRateCost": "800",
   "LatMpcJerkCost": "4",
   "LongPitch": "False",
   "LaneChangeBsd": "0",

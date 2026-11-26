@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import os
 import time
 import random
 import numpy as np
@@ -10,6 +11,10 @@ from openpilot.common.transformations.orientation import rot_from_euler
 
 # 物理常数
 G = 9.80665
+
+# 横向加速度符号调试开关：默认 1（与 openpilot 车体系一致，向左为正）。
+# 若实测 CAN 横向加速度与偏航率符号相反，可设 NATIVE_IMU_LAT_SIGN=-1 验证。
+IMU_LAT_SIGN = float(os.getenv("NATIVE_IMU_LAT_SIGN", "1.0"))
 
 class NativeIMUD:
   def __init__(self):
@@ -28,6 +33,7 @@ class NativeIMUD:
     self.lat_bias = None
     self.bias_count = 0
     self.bias_stabled = False
+    self.sign_mismatch_count = 0
 
   def update_calibration(self, cs):
     # 零损耗强鲁棒初始化保护（即使在高速行车中途重启也能瞬间安全初始化并限幅）
@@ -81,10 +87,21 @@ class NativeIMUD:
       
       # 1. Direct bias-subtracted IMU data from CAN
       clean_yaw = cs.yawRate - (self.yaw_bias if self.yaw_bias else 0.0)
-      clean_lat = cs.latAccel - (self.lat_bias if self.lat_bias else 0.0)
-      
+      clean_lat = (cs.latAccel - (self.lat_bias if self.lat_bias else 0.0)) * IMU_LAT_SIGN
+
       if abs(cs.latAccel) < 0.001 and v_ego > 1.0:
-        clean_lat = v_ego * clean_yaw
+        clean_lat = v_ego * clean_yaw * IMU_LAT_SIGN
+
+      # 符号一致性自检：左转时 CAN 横向加速度与 v*yawRate 应同号。
+      # 若 mismatch 持续增长，说明该车型的 IMU 轴定义与 openpilot 约定相反。
+      if v_ego > 5.0 and abs(clean_yaw) > 0.05 and abs(cs.latAccel) > 0.2:
+        if np.sign(cs.latAccel) != np.sign(v_ego * clean_yaw):
+          self.sign_mismatch_count += 1
+        else:
+          self.sign_mismatch_count = max(0, self.sign_mismatch_count - 2)
+        if self.frame % 500 == 0:
+          print(f"[IMU_SIGN_CHECK] yaw={clean_yaw:.3f}, lat={cs.latAccel:.3f}, "
+                f"v*yaw={v_ego * clean_yaw:.3f}, mismatch={self.sign_mismatch_count}")
 
       # 2. Simple high-frequency white noise to prevent EKF covariance singularities
       noise_wx = random.gauss(0.0, 0.001)

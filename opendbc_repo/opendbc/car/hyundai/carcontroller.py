@@ -181,8 +181,9 @@ class CarController(CarControllerBase):
     hud_control = CC.hudControl
 
     if hud_control.modelDesire in [3,4]:
-      self.params.STEER_DELTA_UP = self.steerDeltaUpLC
-      self.params.STEER_DELTA_DOWN = self.steerDeltaDownLC
+      # 优雅变道：全速域收紧扭矩爬升率，低速与高速都缓慢修正，避免整车甩动
+      self.params.STEER_DELTA_UP = min(self.steerDeltaUpLC, 2)
+      self.params.STEER_DELTA_DOWN = min(self.steerDeltaDownLC, 5)
     else:
       self.params.STEER_DELTA_UP = self.steerDeltaUp
       self.params.STEER_DELTA_DOWN = self.steerDeltaDown

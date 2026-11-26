@@ -46,6 +46,7 @@ class LateralPlanner:
     self.v_ego = MIN_SPEED
     self.l_lane_change_prob = 0.0
     self.r_lane_change_prob = 0.0
+    self.lane_change_multiplier = 1.0
 
     self.debug_mode = debug
 
@@ -93,7 +94,9 @@ class LateralPlanner:
       self.lateralMotionCost = self.params.get_float("LatMpcMotionCost") * 0.01
       LATERAL_ACCEL_COST = self.params.get_float("LatMpcAccelCost") * 0.01
       LATERAL_JERK_COST = self.params.get_float("LatMpcJerkCost") * 0.01
-      STEERING_RATE_COST = self.params.get_float("LatMpcSteeringRateCost")
+      # 备份参数曾把该值设为 7（几乎不惩罚转向变化率），高速变道会瞬间甩方向。
+      # 保留用户可调能力，但设置安全下限，使变道变成逐步修正而不是突变。
+      STEERING_RATE_COST = max(self.params.get_float("LatMpcSteeringRateCost"), 500.0)
       self.adjustLaneOffset = float(self.params.get_int("AdjustLaneOffset")) * 0.01
       self.adjustCurveOffset = float(self.params.get_int("AdjustCurveOffset")) * 0.01
 
@@ -141,10 +144,12 @@ class LateralPlanner:
     # Turn off lanes during lane change
     #if self.DH.desire == log.Desire.laneChangeRight or self.DH.desire == log.Desire.laneChangeLeft:
       
+    # 变道时车道线约束平滑淡出/淡入：不再瞬间放开路径，低速同样是缓慢修正
     if md.meta.desire != log.Desire.none or carrot.atc_active:
-      self.LP.lane_change_multiplier = 0.0 #md.meta.laneChangeProb
+      self.lane_change_multiplier = max(0.0, self.lane_change_multiplier - 0.05)
     else:
-      self.LP.lane_change_multiplier = 1.0
+      self.lane_change_multiplier = min(1.0, self.lane_change_multiplier + 0.1)
+    self.LP.lane_change_multiplier = self.lane_change_multiplier
 
     # lanelines calculation?
     self.LP.lanefull_mode = self.useLaneLineMode

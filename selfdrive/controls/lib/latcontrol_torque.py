@@ -180,12 +180,19 @@ class LatControlTorque(LatControl):
       actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       actual_lateral_jerk = 0.0
+
+      # 摆振阻尼专用量：从方向盘角速度求横向 jerk，独立于 NNFF 分支。
+      # 之前该量只在 NNFF 开启时计算并随后被清零，导致阻尼扭矩恒为 0，
+      # 方向盘细碎摆动完全没有被抑制。
+      steering_rate_dps = CS.steeringRateDeg if abs(CS.steeringRateDeg) > 0.3 else 0.0
+      steering_curvature_rate = -VM.calc_curvature(math.radians(steering_rate_dps), CS.vEgo, 0.0)
+      steering_lateral_jerk = steering_curvature_rate * CS.vEgo ** 2
+
       if self.use_steering_angle:
         actual_curvature = actual_curvature_vm
         curvature_deadzone = abs(VM.calc_curvature(math.radians(self.steering_angle_deadzone_deg), CS.vEgo, 0.0))
         if self.use_nnff or self.use_nnff_lite:
-          actual_curvature_rate = -VM.calc_curvature(math.radians(CS.steeringRateDeg), CS.vEgo, 0.0)
-          actual_lateral_jerk = actual_curvature_rate * CS.vEgo ** 2
+          actual_lateral_jerk = steering_lateral_jerk
       else:
         # Use CC.angularVelocity[2] for ported IMU data on PC, with safety check
         actual_curvature_llk = 0.0
@@ -199,8 +206,8 @@ class LatControlTorque(LatControl):
           self.actual_curvature_ema = actual_curvature_raw
         
         base_alpha = np.interp(CS.vEgo, [3.0, 15.0], [0.15, 0.4])
-        curve_factor = np.interp(abs(desired_curvature), [0.0002, 0.0015], [0.0, 0.6])
-        alpha = np.clip(base_alpha + curve_factor, 0.1, 1.0)
+        curve_factor = np.interp(abs(desired_curvature), [0.0002, 0.0015], [0.0, 0.45])
+        alpha = np.clip(base_alpha + curve_factor, 0.1, 0.85)
         self.actual_curvature_ema = alpha * actual_curvature_raw + (1.0 - alpha) * self.actual_curvature_ema
         actual_curvature = self.actual_curvature_ema
         
@@ -316,12 +323,12 @@ class LatControlTorque(LatControl):
 
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
 
-      # 相位超前阻尼：用方向盘角速度的变化率抵消过冲，而不是低通/限速输出。
-      # 只在转向动作开始时提供反向阻尼，稳态转向不额外削弱扭矩。
-      self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * actual_lateral_jerk
-      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.035, 0.025, 0.012, 0.008])
+      # 相位超前阻尼：用方向盘角速度对应的横向 jerk 抵消过冲，而不是低通/限速输出。
+      # 稳态转向（角速度接近 0）不产生阻尼，不影响正常跟线。
+      self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * steering_lateral_jerk
+      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.12, 0.10, 0.06, 0.04])
       damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
-      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.06, 0.06))
+      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.08, 0.08))
 
       raw_output_torque = self.pid.update(pid_log.error,
                                           feedforward=ff,
