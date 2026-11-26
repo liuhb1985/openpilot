@@ -80,12 +80,6 @@ protected:
 
   bool set_exposure(int fd, int value);
 
-  // 根据环境变量（*_AUTO_EXPOSURE/*_EXPOSURE/*_GAIN/*_BACKLIGHT）应用曝光配置
-  void apply_exposure_config(int fd);
-
-  // 软件自动曝光：对解码后的 NV12 Y 平面做增益校正（用于固件不暴露 V4L2 曝光控制的摄像头）
-  void software_auto_exposure(std::vector<uint8_t>& nv12, int width, int height);
-
   bool init_buffer(int fd);
 
   bool init_mmap(int fd, std::vector<void*>& buffers, std::vector<size_t>& buffer_sizes);
@@ -146,10 +140,6 @@ private:
   ExitHandler m_do_exit;
 
   int m_current_exposure;
-
-  // 软件自动曝光状态
-  int m_sw_target_y;      // 目标平均亮度，<=0 表示关闭
-  double m_sw_gain;       // 平滑后的亮度增益
 };
 
 #endif

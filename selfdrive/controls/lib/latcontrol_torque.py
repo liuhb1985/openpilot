@@ -103,9 +103,6 @@ class LatControlTorque(LatControl):
       # Increase for a stronger response, decrease for a weaker response.
       self.lat_jerk_friction_factor = 0.4
       self.lat_accel_friction_factor = 0.7 # in [0, 3], in 0.05 increments. 3 is arbitrary safety limit
-      # 高速直线摩擦增益衰减：只降低直线细碎修正，不加滤波/相位滞后。
-      # LAT_STRAIGHT_FRICTION_REDUCTION=0 可完全关闭该优化。
-      self.straight_friction_reduction = float(np.clip(float(os.getenv("LAT_STRAIGHT_FRICTION_REDUCTION", "0.3")), 0.0, 0.8))
 
       # precompute time differences between ModelConstants.T_IDXS
       self.t_diffs = np.diff(ModelConstants.T_IDXS)
@@ -135,7 +132,7 @@ class LatControlTorque(LatControl):
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
 
     self.actual_curvature_ema = 0.0
-    self.prev_output_torque = 0.0
+    self.filtered_lateral_jerk = 0.0
 
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
@@ -175,7 +172,7 @@ class LatControlTorque(LatControl):
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
       self.actual_curvature_ema = 0.0
-      self.prev_output_torque = 0.0
+      self.filtered_lateral_jerk = 0.0
     else:
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
       angle_steers_des += params.angleOffsetDeg
@@ -283,14 +280,7 @@ class LatControlTorque(LatControl):
 
         # compute feedforward (same as nn setpoint output)
         error = setpoint - measurement
-        friction_gain = self.lat_accel_friction_factor
-        if self.use_steering_angle:
-          # 高速直线时适度降低摩擦补偿增益，减少细碎转向修正；
-          # 弯道或低速保持原增益，不影响响应，也不引入相位滞后。
-          straight_factor = np.interp(abs(desired_curvature), [0.0002, 0.001], [1.0, 0.0])
-          speed_factor = np.interp(CS.vEgo, [10.0, 20.0], [0.0, 1.0])
-          friction_gain *= (1.0 - self.straight_friction_reduction * straight_factor * speed_factor)
-        friction_input = friction_gain * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
+        friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         nn_input = [CS.vEgo, desired_lateral_accel, friction_input, roll] \
                    + past_lateral_accels_desired + future_planned_lateral_accels \
                    + past_rolls + future_rolls
@@ -325,22 +315,20 @@ class LatControlTorque(LatControl):
         pid_log.error = pid_log.error - sign(pid_log.error) * error_deadzone
 
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
+
+      # 相位超前阻尼：用方向盘角速度的变化率抵消过冲，而不是低通/限速输出。
+      # 只在转向动作开始时提供反向阻尼，稳态转向不额外削弱扭矩。
+      self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * actual_lateral_jerk
+      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.035, 0.025, 0.012, 0.008])
+      damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
+      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.06, 0.06))
+
       raw_output_torque = self.pid.update(pid_log.error,
                                           feedforward=ff,
                                           speed=CS.vEgo,
                                           freeze_integrator=freeze_integrator)
-
-      # 自适应扭矩斜率限制：只限制突变，不引入低通相位滞后。
-      # 小幅修正被限速以平滑方向盘；大误差/变道时自动放宽，保证响应速度。
-      output_torque = raw_output_torque
-      if os.getenv("LAT_TORQUE_SLEW", "1") != "0":
-        delta = raw_output_torque - self.prev_output_torque
-        maneuver_factor = float(np.interp(abs(delta), [0.01, 0.08], [0.0, 1.0]))
-        base_step = float(np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.004, 0.006, 0.010, 0.012]))
-        max_step = base_step * (1.0 + 4.0 * maneuver_factor)
-        max_step *= float(np.clip(float(os.getenv("LAT_TORQUE_SLEW_SCALE", "1.0")), 0.2, 3.0))
-        output_torque = self.prev_output_torque + float(np.clip(delta, -max_step, max_step))
-      self.prev_output_torque = output_torque
+      output_torque = float(np.clip(raw_output_torque - damping_torque,
+                                    -self.steer_max, self.steer_max))
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)

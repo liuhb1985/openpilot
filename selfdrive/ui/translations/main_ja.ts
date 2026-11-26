@@ -1005,54 +1005,6 @@
         <source>启用原车加强型 SCC 消息解析与纵向控制反馈</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>夜间画面过暗时自动增亮长焦画面，防止模型置信度下降/车道线丢失(0:关闭, 1:开启，约5秒后生效)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间增益：目标亮度(90)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间画面增亮的目标平均亮度值(20~200)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间增益：最大倍数x10(20)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>最大增益倍数，20=2.0倍(10~40，即1.0~4.0倍)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间广角兜底(1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>长焦极端过暗(增益也无法挽救)时，自动切换广角作为模型主输入(0:关闭, 1:开启，约5秒后生效)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间广角：接管阈值(48)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>长焦平均亮度低于此值时切换到广角(10~120)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间广角：恢复阈值(60)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>长焦平均亮度高于此值时切回长焦(20~160)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>夜间增益增强(0)</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 <context>
     <name>ConfirmationDialog</name>

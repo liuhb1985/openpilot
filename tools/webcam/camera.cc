@@ -122,28 +122,7 @@ bool decode_jpeg(const void* mjpeg_data, size_t mjpeg_size, std::vector<uint8_t>
 camera::camera(const char* device, const char* type, int width, int height, int fps, const std::string& output_prefix)
       : m_device(device), m_type(type), m_width(width), m_height(height),
       m_fps(fps), m_output_prefix(output_prefix),m_pm(NULL),
-      m_current_exposure(0), m_sw_target_y(-1), m_sw_gain(1.0) {
-
-    // 软件自动曝光配置:
-    //   <X>_SOFTWARE_AE = 1/0   开关（广角默认开，主摄默认关）
-    //   <X>_TARGET_Y    = n     目标平均亮度 (0~255)
-    // (X 为 WIDE_CAM / ROAD_CAM)
-    {
-        const char* prefix = (m_type == "wideRoadCameraState") ? "WIDE_CAM" : "ROAD_CAM";
-
-        std::string key = std::string(prefix) + "_SOFTWARE_AE";
-        const char* env = getenv(key.c_str());
-        bool on = (env == nullptr || *env == '\0') ? (m_type == "wideRoadCameraState") : (atoi(env) != 0);
-        m_sw_target_y = on ? 115 : -1;
-
-        key = std::string(prefix) + "_TARGET_Y";
-        env = getenv(key.c_str());
-        if (env && *env) m_sw_target_y = atoi(env);
-
-        if (m_sw_target_y > 0) {
-            std::cout << m_type << ": software auto exposure enabled, target Y=" << m_sw_target_y << std::endl;
-        }
-    }
+      m_current_exposure(0) {
 
     if (m_type == "roadCameraState") {
         m_pm = new PubMaster({"roadCameraState"});
@@ -224,9 +203,7 @@ bool camera::set_frame_rate(int fd, int fps) {
 
 bool camera::set_exposure(int fd, int value) {
     v4l2_control ctrl = {};
-    // 注意: 控制 ID 必须用 V4L2_CID_EXPOSURE_AUTO，
-    // V4L2_EXPOSURE_AUTO 只是该菜单控制的枚举取值，不能当 ID 用
-    ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+    ctrl.id = V4L2_EXPOSURE_AUTO;
     ctrl.value = V4L2_EXPOSURE_MANUAL;
     if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1) {
         std::cerr << "Failed to set exposure" << std::endl;
@@ -248,95 +225,6 @@ bool camera::set_exposure(int fd, int value) {
     }
 
     return true;
-}
-
-// 根据环境变量应用曝光配置，用于解决部分摄像头（尤其广角镜头）默认过曝/画面发白的问题。
-// 环境变量（广角为 WIDE_CAM_*，主摄为 ROAD_CAM_*）:
-//   <X>_AUTO_EXPOSURE = 1/0   使用相机固件自动曝光（默认 1）
-//   <X>_EXPOSURE      = n     手动曝光值 V4L2_CID_EXPOSURE_ABSOLUTE（UVC 单位约 100us）
-//   <X>_GAIN          = n     手动增益 V4L2_CID_GAIN
-//   <X>_BACKLIGHT     = n     逆光补偿 V4L2_CID_BACKLIGHT_COMPENSATION（AE 下也生效，可压暗强光背景）
-void camera::apply_exposure_config(int fd) {
-    const char* prefix = (m_type == "wideRoadCameraState") ? "WIDE_CAM" : "ROAD_CAM";
-
-    std::string key = std::string(prefix) + "_AUTO_EXPOSURE";
-    const char* env = getenv(key.c_str());
-    bool auto_exp = (env == nullptr || *env == '\0') ? true : (atoi(env) != 0);
-
-    v4l2_control ctrl = {};
-    ctrl.id = V4L2_CID_EXPOSURE_AUTO;
-    ctrl.value = auto_exp ? V4L2_EXPOSURE_AUTO : V4L2_EXPOSURE_MANUAL;
-    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1 && !auto_exp) {
-        std::cerr << m_type << ": failed to set exposure mode (manual): " << strerror(errno) << std::endl;
-    }
-
-    if (!auto_exp) {
-        key = std::string(prefix) + "_EXPOSURE";
-        env = getenv(key.c_str());
-        if (env && *env) {
-            ctrl.id = V4L2_CID_EXPOSURE_ABSOLUTE;
-            ctrl.value = atoi(env);
-            if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1)
-                std::cerr << m_type << ": failed to set exposure " << ctrl.value
-                          << ": " << strerror(errno) << std::endl;
-            else
-                std::cout << m_type << ": exposure set to " << ctrl.value << std::endl;
-        }
-
-        key = std::string(prefix) + "_GAIN";
-        env = getenv(key.c_str());
-        if (env && *env) {
-            ctrl.id = V4L2_CID_GAIN;
-            ctrl.value = atoi(env);
-            if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1)
-                std::cerr << m_type << ": failed to set gain " << ctrl.value
-                          << ": " << strerror(errno) << std::endl;
-            else
-                std::cout << m_type << ": gain set to " << ctrl.value << std::endl;
-        }
-    }
-
-    // 逆光补偿（可选，AE 模式下也可生效）
-    key = std::string(prefix) + "_BACKLIGHT";
-    env = getenv(key.c_str());
-    if (env && *env) {
-        ctrl.id = V4L2_CID_BACKLIGHT_COMPENSATION;
-        ctrl.value = atoi(env);
-        if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1)
-            std::cerr << m_type << ": failed to set backlight compensation " << ctrl.value
-                      << ": " << strerror(errno) << std::endl;
-        else
-            std::cout << m_type << ": backlight compensation set to " << ctrl.value << std::endl;
-    }
-}
-
-// 软件自动曝光：对 NV12 的 Y 平面做增益校正，把平均亮度平滑拉向 m_sw_target_y。
-// 用于固件不暴露 V4L2 曝光控制的摄像头（如 LRCP 500W 广角），消除画面发白/过曝。
-void camera::software_auto_exposure(std::vector<uint8_t>& nv12, int width, int height) {
-    if (m_sw_target_y <= 0 || width <= 0 || height <= 0) return;
-    int y_size = width * height;
-    if ((int)nv12.size() < y_size) return;
-
-    // 采样计算平均亮度
-    const uint8_t* yp = nv12.data();
-    double sum = 0.0;
-    int n = 0;
-    for (int i = 0; i < y_size; i += 16) { sum += yp[i]; n++; }
-    double y_avg = sum / std::max(n, 1);
-
-    // 平滑调整增益，避免亮度跳变
-    double target_gain = (double)m_sw_target_y / std::max(y_avg, 1.0);
-    target_gain = std::max(0.30, std::min(2.0, target_gain));
-    m_sw_gain = 0.9 * m_sw_gain + 0.1 * target_gain;
-
-    // 用 LUT 应用增益
-    uint8_t lut[256];
-    for (int i = 0; i < 256; i++) {
-        int v = (int)(i * m_sw_gain + 0.5);
-        lut[i] = (uint8_t)std::min(255, std::max(0, v));
-    }
-    uint8_t* y = nv12.data();
-    for (int i = 0; i < y_size; i++) y[i] = lut[y[i]];
 }
 
 // init buffer
@@ -461,9 +349,6 @@ void camera::reading_loop(int fd) {
             continue;
         }
         count_empty = 0;
-
-        // 软件自动曝光：校正 Y 平面亮度（发白/过曝）
-        software_auto_exposure(nv12_data, yuv_width, yuv_height);
 
         // update m_yuv_data
         {
@@ -802,9 +687,6 @@ bool camera::init_cam() {
         close_camera();
         return false;
     }
-
-    // 应用曝光配置（解决广角摄像头发白/过曝问题），需在 start_capture 之前设置
-    apply_exposure_config(fd);
 
     if (!init_buffer(fd)) {
         close_camera();
