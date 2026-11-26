@@ -57,6 +57,7 @@ void ZstdFileWriter::flushCache(bool last_chunk) {
 
     size_t written = util::safe_fwrite(output_buffer_.data(), 1, output.pos, file_);
     assert(written == output.pos);
+    bytes_written_ += written;
 
     finished = last_chunk ? (remaining == 0) : (input.pos == input.size);
   } while (!finished);

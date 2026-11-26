@@ -13,6 +13,9 @@
 
 ExitHandler do_exit;
 
+// 单文件接近 20MB 即切分 segment（留 1MB 余量给压缩缓存），避免 git 上传大文件失败
+constexpr size_t ROTATE_LOG_MAX_BYTES = 19 * 1024 * 1024;
+
 struct LoggerdState {
   LoggerState logger;
   std::atomic<double> last_camera_seen_tms{0.0};
@@ -48,7 +51,13 @@ void rotate_if_needed(LoggerdState *s) {
     }
   }
 
-  if (all_ready || timed_out) {
+  bool too_large = false;
+  if (!LOGGERD_TEST && s->logger.rlogSize() >= ROTATE_LOG_MAX_BYTES) {
+    too_large = true;
+    LOGW("rlog near 20MB, auto rotating");
+  }
+
+  if (all_ready || timed_out || too_large) {
     logger_rotate(s);
   }
 }

@@ -18,6 +18,8 @@ Environment variables:
   LOG_UPLOAD_INTERVAL      poll interval seconds (default 10).
   LOG_UPLOAD_MIN_AGE       file age before upload seconds (default 60).
   LOG_UPLOAD_INCLUDE       comma-separated filenames (default rlog.zst,qlog.zst).
+  LOG_UPLOAD_GIT_MAX_FILE_BYTES  split files larger than this before git push
+                           (default 20 MiB); parts are named <file>.partNN.
   LOG_UPLOAD_URL           http mode target URL/template.
   LOG_UPLOAD_TOKEN         http mode bearer token.
   LOG_UPLOAD_METHOD        http mode PUT (default) or POST.
@@ -41,6 +43,7 @@ UPLOAD_INTERVAL = max(1.0, float(os.getenv("LOG_UPLOAD_INTERVAL", "10")))
 UPLOAD_MIN_AGE = max(0.0, float(os.getenv("LOG_UPLOAD_MIN_AGE", "60")))
 UPLOAD_INCLUDE = [x.strip() for x in os.getenv("LOG_UPLOAD_INCLUDE", "rlog.zst,qlog.zst").split(",") if x.strip()]
 MAX_LOG_BYTES = int(os.getenv("LOG_MAX_BYTES", str(1000 * 1024 * 1024)))
+MAX_GIT_FILE_BYTES = int(os.getenv("LOG_UPLOAD_GIT_MAX_FILE_BYTES", str(20 * 1024 * 1024)))
 GIT_REMOTE = os.getenv("LOG_UPLOAD_GIT_REMOTE", "origin").strip()
 GIT_BRANCH = os.getenv("LOG_UPLOAD_GIT_BRANCH", "").strip()
 GIT_ROOT = Paths.repo_root()
@@ -81,14 +84,46 @@ def git_current_branch() -> str:
     return "master"
 
 
+def split_for_git(path: str) -> list[str]:
+  size = os.path.getsize(path)
+  if size <= MAX_GIT_FILE_BYTES:
+    return [path]
+  parts = []
+  with open(path, "rb") as f:
+    idx = 1
+    while True:
+      chunk = f.read(MAX_GIT_FILE_BYTES)
+      if not chunk:
+        break
+      part = f"{path}.part{idx:02d}"
+      with open(part, "wb") as pf:
+        pf.write(chunk)
+      parts.append(part)
+      idx += 1
+  print(f"[LOG_UPLOAD] split {path} ({size} bytes) into {len(parts)} parts for git", flush=True)
+  return parts
+
+
 def git_upload_files(paths: list[str]) -> bool:
   if not paths:
     return False
-  rel = [os.path.relpath(p, GIT_ROOT).replace(os.sep, "/") for p in paths]
+  upload_paths = []
+  split_map = {}
+  for path in paths:
+    parts = split_for_git(path)
+    split_map[path] = parts
+    upload_paths.extend(parts)
+  rel = [os.path.relpath(p, GIT_ROOT).replace(os.sep, "/") for p in upload_paths]
   try:
     git(["add", "--"] + rel)
     git(["commit", "--only", "-m", f"chore(logs): upload drive logs {int(time.time())}", "--"] + rel)
     git(["push", GIT_REMOTE, git_current_branch()])
+    for original, parts in split_map.items():
+      if len(parts) > 1:
+        try:
+          os.remove(original)
+        except OSError:
+          pass
     return True
   except subprocess.CalledProcessError as e:
     print(f"[LOG_UPLOAD] git failed: {(e.stderr or e.stdout or '').strip()}", flush=True)
