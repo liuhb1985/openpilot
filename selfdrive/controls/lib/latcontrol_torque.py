@@ -134,7 +134,7 @@ class LatControlTorque(LatControl):
 
     self.actual_curvature_ema = 0.0
     self.filtered_lateral_jerk = 0.0
-    self.steering_angle_history = deque(maxlen=5)
+    self.steering_angle_history = deque(maxlen=12)
     self.steering_rate_filtered = 0.0
 
 
@@ -187,14 +187,15 @@ class LatControlTorque(LatControl):
       actual_lateral_jerk = 0.0
 
       # 摆振阻尼专用量：SAS_Speed 量化 4°/s 太粗，直接用会在 ±0.08 扭矩间翻转。
-      # 改用 5 帧方向盘角度差分（0.1° 分辨率）+ 低通，得到平滑角速度后再求横向 jerk。
+      # 改用 12 帧方向盘角度差分（0.1° 分辨率）+ 低通，得到平滑角速度后再求横向 jerk。
       self.steering_angle_history.append(CS.steeringAngleDeg)
-      if len(self.steering_angle_history) >= 5:
+      if len(self.steering_angle_history) >= 12:
         hist = self.steering_angle_history
         raw_rate = (hist[-1] - hist[0]) / ((len(hist) - 1) * DT_CTRL)
       else:
         raw_rate = 0.0
-      if abs(raw_rate) < 1.0:
+      # 0.1° 量化下，12 帧差分仍会把小修正放大；低于 1.5°/s 不参与阻尼。
+      if abs(raw_rate) < 1.5:
         raw_rate = 0.0
       self.steering_rate_filtered = 0.8 * self.steering_rate_filtered + 0.2 * raw_rate
       steering_curvature_rate = -VM.calc_curvature(math.radians(self.steering_rate_filtered), CS.vEgo, 0.0)
@@ -353,9 +354,9 @@ class LatControlTorque(LatControl):
       # 相位超前阻尼：用方向盘角速度对应的横向 jerk 抵消过冲，而不是低通/限速输出。
       # 稳态转向（角速度接近 0）不产生阻尼，不影响正常跟线。
       self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * steering_lateral_jerk
-      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.12, 0.10, 0.06, 0.04])
+      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.07, 0.055, 0.032, 0.022])
       damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
-      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.08, 0.08))
+      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.045, 0.045))
 
       raw_output_torque = self.pid.update(pid_log.error,
                                           feedforward=ff,

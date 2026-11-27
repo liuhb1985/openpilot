@@ -148,3 +148,4 @@ selfdrive/locationd/locationd_jy62
 system/sensord/ch347t
 system/sensord/ubuntu347t
 tools/webcam/camerad
+logs/auto_drive/

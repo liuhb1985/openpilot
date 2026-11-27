@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import os
 from typing import SupportsFloat
 
 from cereal import car, log
@@ -177,7 +178,7 @@ class Controls:
     else:
       new_desired_curvature = model_v2.action.desiredCurvature
       # 模型侧已包含约 0.5s 前瞻曲率；变道时再做一次平滑，避免半秒后的转角瞬间打到方向盘
-      lc_tau = 0.4 if lane_change_active else 0.05
+      lc_tau = float(os.getenv("LAT_LC_SMOOTH_SEC", "0.22")) if lane_change_active else 0.05
       lc_alpha = 1 - np.exp(-DT_CTRL / lc_tau)
       self.lc_smoothed_curvature = lc_alpha * new_desired_curvature + (1 - lc_alpha) * self.lc_smoothed_curvature
       new_desired_curvature = self.lc_smoothed_curvature

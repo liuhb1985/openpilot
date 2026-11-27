@@ -190,9 +190,22 @@ export USE_VISION_IPC=1
 # 在后台启动 manager
 echo "Starting openpilot manager with Dual-Camera Support..."
 # 使用完整路径以配合 USE_CAMPATH=1，确保设备识别的唯一性
-USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 IMU_SEL=0 USE_CAMPATH=0 system/manager/manager.py &
+USE_WEBCAM=1 ROAD_CAM=$ROAD_PATH WIDE_CAM=$WIDE_PATH NO_DM=1 IMU_SEL=0 USE_CAMPATH=0 LOG_UPLOAD_MODE=off system/manager/manager.py &
 
 MANAGER_PID=$!
+
+# 行驶中自动录制横向/系统日志：只读 cereal 总线，不影响控制。
+# 状态文件：/tmp/auto_drive_status.json
+pkill -TERM -f "tools/logging/auto_drive_recorder.py" 2>/dev/null || true
+sleep 1
+nohup env PYTHONPATH=$(pwd) .venv/bin/python tools/logging/auto_drive_recorder.py >> /tmp/auto_drive_recorder.log 2>&1 < /dev/null &
+echo "Auto drive recorder started (PID $!)"
+
+# 自动上传日志到 GitHub 独立日志分支，默认 600 秒检查一次。
+pkill -TERM -f "tools/logging/upload_auto_drive_logs.py" 2>/dev/null || true
+sleep 1
+nohup env PYTHONPATH=$(pwd) .venv/bin/python tools/logging/upload_auto_drive_logs.py --loop --interval 600 >> /tmp/auto_drive_uploader.log 2>&1 < /dev/null &
+echo "Auto drive log uploader started (PID $!)"
 
 # 等待监控任务完成
 # 在后台启动系统管理器
