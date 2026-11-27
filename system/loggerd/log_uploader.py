@@ -11,7 +11,7 @@ LOG_MAX_BYTES (default 1000 MiB); the oldest finished segments are removed
 until the cap is met.
 
 Environment variables:
-  LOG_UPLOAD_MODE          git (default) or http.
+  LOG_UPLOAD_MODE          git (default), http, or off/none/disabled to disable.
   LOG_UPLOAD_GIT_REMOTE    git remote (default origin).
   LOG_UPLOAD_GIT_BRANCH    git branch (default current branch).
   LOG_MAX_BYTES            max total log size in bytes (default 1048576000).
@@ -36,6 +36,7 @@ import urllib.request
 from openpilot.system.hardware.hw import Paths
 
 MODE = os.getenv("LOG_UPLOAD_MODE", "git").strip().lower()
+DISABLED_MODES = ("off", "none", "disabled")
 UPLOAD_URL = os.getenv("LOG_UPLOAD_URL", "").strip()
 UPLOAD_TOKEN = os.getenv("LOG_UPLOAD_TOKEN", "").strip()
 UPLOAD_METHOD = os.getenv("LOG_UPLOAD_METHOD", "PUT").upper()
@@ -200,7 +201,7 @@ def main() -> None:
     state = enforce_size_limit(log_root, state)
     save_state(state)
 
-    if MODE == "http" and not UPLOAD_URL:
+    if MODE in DISABLED_MODES or (MODE == "http" and not UPLOAD_URL):
       time.sleep(UPLOAD_INTERVAL)
       continue
     if MODE not in ("git", "http"):

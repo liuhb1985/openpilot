@@ -328,7 +328,12 @@ class LatControlTorque(LatControl):
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
       # 动态反馈误差死区：连续过渡，避免误差跨过阈值时扭矩跳变。
+      # 弯道缩小死区，保证居中修正；直道保留死区以抑制琐碎微调。
+      curve_activity = float(np.clip(abs(desired_curvature) / 0.003, 0.0, 1.0))
+      deadzone_straight_scale = float(np.clip(float(os.getenv("LAT_STRAIGHT_DZ", "1.35")), 0.2, 3.0))
+      deadzone_curve_scale = float(np.clip(float(os.getenv("LAT_CURVE_DZ", "0.55")), 0.2, 3.0))
       error_deadzone = float(np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003]))
+      error_deadzone *= deadzone_straight_scale + (deadzone_curve_scale - deadzone_straight_scale) * curve_activity
       abs_error = abs(pid_log.error)
       if os.getenv("LAT_SMOOTH_DEADZONE", "1") != "0" and error_deadzone > 0.0 and abs_error < 3.0 * error_deadzone:
         if abs_error <= error_deadzone:
@@ -356,6 +361,9 @@ class LatControlTorque(LatControl):
       self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * steering_lateral_jerk
       damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.07, 0.055, 0.032, 0.022])
       damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
+      # 弯道降低阻尼，避免把正常转向当成摆动而抑制；直道保留摆振抑制。
+      damping_curve_scale = float(np.clip(float(os.getenv("LAT_DAMP_CURVE", "0.55")), 0.2, 1.0))
+      damping_gain *= 1.0 - (1.0 - damping_curve_scale) * curve_activity
       damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.045, 0.045))
 
       raw_output_torque = self.pid.update(pid_log.error,

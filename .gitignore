@@ -108,6 +108,7 @@ selfdrive/modeld/models/*.pkl
 # 项目内运行日志需要可提交到 git（覆盖上面的 *.bz2/*.zst 忽略规则）
 !logs/
 !logs/**
+logs/realdata/
 
 build/
 

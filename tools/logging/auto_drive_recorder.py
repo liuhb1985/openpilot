@@ -63,6 +63,21 @@ class DriveRecorder:
     self.v_ego = 0.0
     self.cruise_enabled = False
     self.lat_active = False
+    self.steering_angle = 0.0
+    self.steering_rate = 0.0
+    self.yaw_rate = 0.0
+    self.steering_pressed = False
+    self.desired_curvature = 0.0
+    self.model_curvature = 0.0
+    self.lane_change = "off"
+    self.desire = "none"
+    self.torque = 0.0
+    self.torque_error = 0.0
+    self.pid_p = 0.0
+    self.pid_i = 0.0
+    self.pid_f = 0.0
+    self.des_lat_accel = 0.0
+    self.act_lat_accel = 0.0
     self.last_seen = {s: 0.0 for s in SERVICES}
     self.current_file = ""
 
@@ -73,6 +88,7 @@ class DriveRecorder:
     return {
       "control": self._fresh("controlsState", 3.0),
       "model": self._fresh("modelV2", 3.0),
+      "lateralPlan": self._fresh("lateralPlan", 4.0),
       "camera": self._fresh("roadCameraState", 3.0) or self._fresh("wideRoadCameraState", 3.0),
       "imu": self._fresh("livePose", 3.0),
       "panda": self._fresh("pandaStates", 4.0),
@@ -90,6 +106,21 @@ class DriveRecorder:
       "vEgo": round(self.v_ego, 3),
       "cruiseEnabled": bool(self.cruise_enabled),
       "latActive": bool(self.lat_active),
+      "steeringAngleDeg": round(self.steering_angle, 2),
+      "steeringRateDeg": round(self.steering_rate, 2),
+      "steeringPressed": bool(self.steering_pressed),
+      "yawRate": round(self.yaw_rate, 4),
+      "desiredCurvature": round(self.desired_curvature, 5),
+      "modelCurvature": round(self.model_curvature, 5),
+      "laneChange": str(self.lane_change),
+      "desire": str(self.desire),
+      "torque": round(self.torque, 4),
+      "torqueError": round(self.torque_error, 4),
+      "pidP": round(self.pid_p, 4),
+      "pidI": round(self.pid_i, 4),
+      "pidF": round(self.pid_f, 4),
+      "desiredLatAccel": round(self.des_lat_accel, 4),
+      "actualLatAccel": round(self.act_lat_accel, 4),
       "recording": bool(self.recording),
       "currentFile": self.current_file,
       "bufferedEvents": len(self.events),
@@ -170,12 +201,35 @@ class DriveRecorder:
       self.last_seen[msg] = now
 
     if msg == "carState":
-      self.v_ego = float(evt.carState.vEgo)
-      self.cruise_enabled = bool(evt.carState.cruiseState.enabled)
+      cs = evt.carState
+      self.v_ego = float(cs.vEgo)
+      self.cruise_enabled = bool(cs.cruiseState.enabled)
+      self.steering_angle = float(cs.steeringAngleDeg)
+      self.steering_rate = float(cs.steeringRateDeg)
+      self.yaw_rate = float(cs.yawRate)
+      self.steering_pressed = bool(cs.steeringPressed)
     elif msg == "selfdriveState":
       self.state = str(evt.selfdriveState.state)
     elif msg == "carControl":
-      self.lat_active = bool(evt.carControl.latActive)
+      cc = evt.carControl
+      self.lat_active = bool(cc.latActive)
+      self.torque = float(cc.actuators.torque)
+    elif msg == "controlsState":
+      c = evt.controlsState
+      self.desired_curvature = float(c.desiredCurvature)
+      lateral_state = c.lateralControlState
+      torque_state = lateral_state.torqueState if lateral_state.which() == "torqueState" else None
+      if torque_state is not None:
+        self.torque_error = float(torque_state.error)
+        self.pid_p = float(torque_state.p)
+        self.pid_i = float(torque_state.i)
+        self.pid_f = float(torque_state.f)
+        self.des_lat_accel = float(torque_state.desiredLateralAccel)
+        self.act_lat_accel = float(torque_state.actualLateralAccel)
+    elif msg == "modelV2":
+      self.model_curvature = float(evt.modelV2.action.desiredCurvature)
+      self.lane_change = str(evt.modelV2.meta.laneChangeState)
+      self.desire = str(evt.modelV2.meta.desire)
 
     state_active = self.cruise_enabled or self.state.lower() not in ("disabled", "unknown")
     driving = (self.v_ego > MOVE_SPEED_MS) or (state_active and self.v_ego > 0.1)

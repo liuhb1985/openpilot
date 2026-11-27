@@ -35,6 +35,7 @@ private:
   AVCodecContext *audio_codec_ctx = nullptr;
   AVFrame *audio_frame = nullptr;
   uint64_t audio_pts = 0;
+  int64_t last_video_pts = AV_NOPTS_VALUE;
   std::deque<float> audio_buffer;
 
   bool remuxing;

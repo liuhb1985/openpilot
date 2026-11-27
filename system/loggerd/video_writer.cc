@@ -121,7 +121,17 @@ void VideoWriter::write(uint8_t *data, int len, long long timestamp, bool codecc
       pkt.stream_index = this->out_stream->index;
 
       enum AVRounding rnd = static_cast<enum AVRounding>(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
-      pkt.pts = pkt.dts = av_rescale_q_rnd(timestamp, in_timebase, ofmt_ctx->streams[0]->time_base, rnd);
+      int64_t pts = av_rescale_q_rnd(timestamp, in_timebase, ofmt_ctx->streams[0]->time_base, rnd);
+
+      // Webcam timestamps can repeat or arrive out of order. libavformat requires
+      // strictly monotonic packet PTS in each stream, so clamp duplicates to the
+      // next tick instead of letting x264/muxer spam "non-strictly-monotonic PTS".
+      if (last_video_pts != AV_NOPTS_VALUE && pts <= last_video_pts) {
+        pts = last_video_pts + 1;
+      }
+      last_video_pts = pts;
+
+      pkt.pts = pkt.dts = pts;
       pkt.duration = av_rescale_q(50*1000, in_timebase, ofmt_ctx->streams[0]->time_base);
 
       if (keyframe) {

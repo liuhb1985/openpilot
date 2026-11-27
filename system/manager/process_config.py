@@ -17,6 +17,9 @@ DISABLE_CAM_BLINDSPOT = os.getenv("DISABLE_CAM_BLINDSPOT") is not None
 # IMU Selection: 0 = LSM6DS3, 1 = Original Car IMU, 2 = JY62
 IMU_SEL = int(os.getenv("IMU_SEL", "1"))
 NATIVE_LANE = os.getenv("USE_NATIVE_LANE") is not None
+# 默认只保留 rlog/qlog/自动 cereal 日志，不生成 mp4 视频。
+# ENABLE_VIDEO_RECORDING=1 可临时恢复视频编码。
+ENABLE_VIDEO_RECORDING = os.getenv("ENABLE_VIDEO_RECORDING", "0").strip().lower() not in ("", "0", "false", "no", "off")
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
@@ -95,8 +98,8 @@ procs = [
   # 视频流编码进程，负责处理摄像头画面的推流/录制
   # 默认开启 route/rlog/qlog 录制，便于离线分析横向控制
   NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
-  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad),
-  NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
+  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad, enabled=ENABLE_VIDEO_RECORDING),
+  NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar, enabled=ENABLE_VIDEO_RECORDING),
   
   # 日志消息处理进程，负责系统内部日志的分发
   PythonProcess("logmessaged", "system.logmessaged", always_run, enabled=not PC),
