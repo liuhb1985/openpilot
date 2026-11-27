@@ -1,0 +1,53 @@
+{
+  "generatedAt": 1795756053,
+  "branch": "cpv9-pc-dst-logs",
+  "remote": "git@github.com:liuhb1985/openpilot.git",
+  "logDir": "/home/peter/openpilot/logs/auto_drive",
+  "files": {
+    "auto_drive_20261127_130023_20261127_130023_s01.bz2": {
+      "size": 9979682,
+      "sha256": "e677eb6db961edc5a0c3b5c68e483fea5afa4f919c7eaac544f75b79575a0deb",
+      "mtime": 1795755753
+    },
+    "auto_drive_20261127_130213_20261127_130213_s01.bz2": {
+      "size": 9853528,
+      "sha256": "d5b4330680ff15666b91fa7bb43e0839682148f7cefb52a9ee26cf6aae28a1fc",
+      "mtime": 1795755798
+    },
+    "auto_drive_20261127_130318_20261127_130213_s02.bz2": {
+      "size": 10608564,
+      "sha256": "10d363d08ca47510f73ed7f89b8d1e05456878e2fdd3ee440805cb35638cf223",
+      "mtime": 1795755861
+    },
+    "auto_drive_20261127_130441_20261127_130441_s01.bz2": {
+      "size": 2340622,
+      "sha256": "a8414ec151c9e3aa119c9186fb203231eb75f754c3bfb3c39801318b3de7c776",
+      "mtime": 1795755897
+    }
+  },
+  "status": {
+    "time": 1795756052,
+    "state": "disabled",
+    "vEgo": 0.0,
+    "cruiseEnabled": false,
+    "latActive": false,
+    "recording": false,
+    "currentFile": "",
+    "bufferedEvents": 0,
+    "prerollEvents": 12000,
+    "savedFiles": 1,
+    "savedEvents": 14641,
+    "lastSaved": "/home/peter/openpilot/logs/auto_drive/auto_drive_20261127_130441_20261127_130441_s01.bz2",
+    "driveId": "20261127_130441",
+    "segment": 1,
+    "logDir": "/home/peter/openpilot/logs/auto_drive",
+    "health": {
+      "control": true,
+      "model": true,
+      "camera": true,
+      "imu": true,
+      "panda": true,
+      "manager": true
+    }
+  }
+}
