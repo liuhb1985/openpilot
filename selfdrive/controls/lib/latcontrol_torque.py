@@ -326,12 +326,27 @@ class LatControlTorque(LatControl):
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
-      # 引入动态反馈误差死区，抑制直道微抖动与低速锯齿/画龙调整
+      # 动态反馈误差死区：连续过渡，避免误差跨过阈值时扭矩跳变。
       error_deadzone = float(np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003]))
-      if abs(pid_log.error) < error_deadzone:
+      abs_error = abs(pid_log.error)
+      if os.getenv("LAT_SMOOTH_DEADZONE", "1") != "0" and error_deadzone > 0.0 and abs_error < 3.0 * error_deadzone:
+        if abs_error <= error_deadzone:
+          pid_log.error = 0.0
+        else:
+          t = (abs_error - error_deadzone) / (2.0 * error_deadzone)
+          smooth = t * t * (3.0 - 2.0 * t)
+          pid_log.error = sign(pid_log.error) * 2.0 * error_deadzone * smooth
+      elif abs_error < error_deadzone:
         pid_log.error = 0.0
       else:
         pid_log.error = pid_log.error - sign(pid_log.error) * error_deadzone
+
+      # 直道积分泄漏：小曲率时缓慢释放积分，避免直道积累后进入弯道过冲。
+      if os.getenv("LAT_STRAIGHT_I_LEAK", "1") != "0" and not steer_limited_by_controls and not CS.steeringPressed:
+        straight_des = float(np.clip(1.0 - abs(desired_curvature) / 0.0008, 0.0, 1.0))
+        straight_act = float(np.clip(1.0 - abs(actual_curvature) / 0.0008, 0.0, 1.0))
+        straightness = min(straight_des, straight_act)
+        self.pid.i *= 1.0 - 0.001 * straightness
 
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
 
