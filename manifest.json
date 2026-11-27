@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1795756599,
+  "generatedAt": 1795757051,
   "branch": "cpv9-pc-dst-logs",
   "remote": "git@github.com:liuhb1985/openpilot.git",
   "logDir": "/home/peter/openpilot/logs/auto_drive",
@@ -33,14 +33,49 @@
       "size": 3598431,
       "sha256": "69d6bd77edf73ff54dca4cecc1c3f495323ec2b4fd7b5c3cbff3acbf75c1580f",
       "mtime": 1795756350
+    },
+    "auto_drive_20261127_131959_20261127_131959_s01.bz2": {
+      "size": 11666336,
+      "sha256": "f92813df8ccb7518f67ffb7e6eb4dd827819d5af516397d3c34f940c35897e91",
+      "mtime": 1795756864
+    },
+    "auto_drive_20261127_132104_20261127_131959_s02.bz2": {
+      "size": 10730711,
+      "sha256": "c016b93b26de72b1b1fb5e9e4b5f358b1307903893d10d590b8a3bbb86b61e2c",
+      "mtime": 1795756929
+    },
+    "auto_drive_20261127_132209_20261127_131959_s03.bz2": {
+      "size": 10486796,
+      "sha256": "43753888469d2d6aef8061ca7c5862b8252c019615db6c30165672d9f72f57c5",
+      "mtime": 1795756992
+    },
+    "auto_drive_20261127_132312_20261127_131959_s04.bz2": {
+      "size": 5869805,
+      "sha256": "4ae2bc7b001e82a41e04dea44974f9c0f435b12ffca25246b07db7ad800accec",
+      "mtime": 1795757029
     }
   },
   "status": {
-    "time": 1795756598,
+    "time": 1795757051,
     "state": "disabled",
     "vEgo": 0.0,
     "cruiseEnabled": false,
     "latActive": false,
+    "steeringAngleDeg": -2.0,
+    "steeringRateDeg": 0.0,
+    "steeringPressed": false,
+    "yawRate": -0.0024,
+    "desiredCurvature": 0.00149,
+    "modelCurvature": 0.0,
+    "laneChange": "off",
+    "desire": "none",
+    "torque": -0.0,
+    "torqueError": 0.0,
+    "pidP": 0.0,
+    "pidI": 0.0,
+    "pidF": 0.0,
+    "desiredLatAccel": 0.0,
+    "actualLatAccel": 0.0,
     "recording": false,
     "currentFile": "",
     "bufferedEvents": 0,
@@ -54,6 +89,7 @@
     "health": {
       "control": true,
       "model": true,
+      "lateralPlan": true,
       "camera": true,
       "imu": true,
       "panda": true,
