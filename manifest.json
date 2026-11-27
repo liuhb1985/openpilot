@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1795756053,
+  "generatedAt": 1795756599,
   "branch": "cpv9-pc-dst-logs",
   "remote": "git@github.com:liuhb1985/openpilot.git",
   "logDir": "/home/peter/openpilot/logs/auto_drive",
@@ -23,10 +23,20 @@
       "size": 2340622,
       "sha256": "a8414ec151c9e3aa119c9186fb203231eb75f754c3bfb3c39801318b3de7c776",
       "mtime": 1795755897
+    },
+    "auto_drive_20261127_131130_20261127_131130_s01.bz2": {
+      "size": 7025854,
+      "sha256": "e59dac55531de66f62e1c2e97d9a850afc1fa35c8ddfc5cf2af36dae72de3e48",
+      "mtime": 1795756332
+    },
+    "auto_drive_20261127_131212_20261127_131212_s01.bz2": {
+      "size": 3598431,
+      "sha256": "69d6bd77edf73ff54dca4cecc1c3f495323ec2b4fd7b5c3cbff3acbf75c1580f",
+      "mtime": 1795756350
     }
   },
   "status": {
-    "time": 1795756052,
+    "time": 1795756598,
     "state": "disabled",
     "vEgo": 0.0,
     "cruiseEnabled": false,
@@ -35,11 +45,11 @@
     "currentFile": "",
     "bufferedEvents": 0,
     "prerollEvents": 12000,
-    "savedFiles": 1,
-    "savedEvents": 14641,
-    "lastSaved": "/home/peter/openpilot/logs/auto_drive/auto_drive_20261127_130441_20261127_130441_s01.bz2",
-    "driveId": "20261127_130441",
-    "segment": 1,
+    "savedFiles": 0,
+    "savedEvents": 0,
+    "lastSaved": "",
+    "driveId": "",
+    "segment": 0,
     "logDir": "/home/peter/openpilot/logs/auto_drive",
     "health": {
       "control": true,
