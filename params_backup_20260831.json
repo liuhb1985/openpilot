@@ -190,7 +190,7 @@
   "LateralTorqueKpV": "100",
   "TurnSpeedControlMode": "2",
   "ModelTurnSpeedFactor": "0",
-  "SteerActuatorDelay": "25",
+  "SteerActuatorDelay": "0",
   "CruiseButtonMode": "0",
   "CruiseButtonTest2": "30",
   "CruiseSpeedUnit": "1",
