@@ -161,6 +161,15 @@ class Controls:
     lane_change_active = (model_v2.meta.laneChangeState != LaneChangeState.off or
                           model_v2.meta.desire in (log.Desire.laneChangeLeft, log.Desire.laneChangeRight))
 
+    def tuning_float(key: str, env_key: str, default: float) -> float:
+      try:
+        value = self.params.get_float(key)
+        if value > 0.0:
+          return value * 0.01
+      except Exception:
+        pass
+      return float(os.getenv(env_key, str(default))) * 0.01
+
     if not CC.latActive:
       new_desired_curvature = self.curvature
       self.lc_smoothed_curvature = self.curvature
@@ -180,11 +189,11 @@ class Controls:
       # 模型侧已包含约 0.5s 前瞻曲率；变道时单独平滑。
       # 非变道时按曲率自适应：直道多平滑以减少琐碎调整，弯道减小滞后避免冲出/不足。
       if lane_change_active:
-        lc_tau = float(os.getenv("LAT_LC_SMOOTH_SEC", "0.22"))
+        lc_tau = tuning_float("LatLcSmoothSec", "LAT_LC_SMOOTH_SEC", 22)
       else:
         curve_activity = float(np.clip(abs(new_desired_curvature) / 0.003, 0.0, 1.0))
-        straight_tau = float(os.getenv("LAT_STRAIGHT_SMOOTH_SEC", "0.14"))
-        curve_tau = float(os.getenv("LAT_CURVE_SMOOTH_SEC", "0.05"))
+        straight_tau = tuning_float("LatStraightSmoothSec", "LAT_STRAIGHT_SMOOTH_SEC", 14)
+        curve_tau = tuning_float("LatCurveSmoothSec", "LAT_CURVE_SMOOTH_SEC", 5)
         lc_tau = straight_tau + (curve_tau - straight_tau) * curve_activity
       lc_alpha = 1 - np.exp(-DT_CTRL / lc_tau)
       self.lc_smoothed_curvature = lc_alpha * new_desired_curvature + (1 - lc_alpha) * self.lc_smoothed_curvature

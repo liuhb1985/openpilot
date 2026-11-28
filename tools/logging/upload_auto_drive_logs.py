@@ -116,8 +116,18 @@ def sync_once(remote: str, branch: str, log_dir: Path) -> dict:
       if dest.exists():
         shutil.rmtree(dest)
       dest.mkdir(parents=True, exist_ok=True)
-      for name in files:
-        shutil.copy2(log_dir / name, dest / name)
+
+      copied = {}
+      for name, meta in files.items():
+        try:
+          shutil.copy2(log_dir / name, dest / name)
+          copied[name] = meta
+        except FileNotFoundError:
+          print(f"[auto_upload] skip rotated log {name}", flush=True)
+      files.clear()
+      files.update(copied)
+      if not files:
+        return False
 
       status = Path("/tmp/auto_drive_status.json")
       status_data = {}
@@ -158,6 +168,7 @@ def sync_once(remote: str, branch: str, log_dir: Path) -> dict:
       write_upload_status(result)
       return result
 
+    reason = "uploaded"
     push = run(["git", "push", "-q", "origin", f"HEAD:refs/heads/{branch}"], cwd=repo, check=False)
     if push.returncode != 0:
       # Another uploader may have advanced the branch between fetch and push.

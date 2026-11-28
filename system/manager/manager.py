@@ -180,6 +180,15 @@ def get_default_params():
     ("SpeedFromPCM", "2"),  # 巡航速度来源: 1:车辆仪表PCM, 2:openpilot内部管理 (丰田必须1, 本田设3)
     ("SteerActuatorDelay", "0"),  # 转向执行延迟补偿时间 (恢复备份值 0)
     ("LatSmoothSec", "13"),  # 横向平滑处理时长系数 (恢复备份值 13)
+    ("LatLcSmoothSec", "22"),  # 变道平滑系数 x0.01秒
+    ("LatStraightSmoothSec", "14"),  # 直道曲率平滑系数 x0.01秒
+    ("LatCurveSmoothSec", "5"),  # 弯道曲率平滑系数 x0.01秒
+    ("LatStraightDz", "135"),  # 直道误差死区倍率 x0.01
+    ("LatCurveDz", "55"),  # 弯道误差死区倍率 x0.01
+    ("LatDampCurve", "55"),  # 弯道阻尼倍率 x0.01
+    ("LatLowSpeedCurveAtten", "35"),  # 低速补偿在弯道中的保留比例 x0.01
+    ("LatStraightFfTau", "25"),  # 直道前馈平滑时间 x0.01秒
+    ("LatStraightFfScale", "80"),  # 直道前馈保留比例 x0.01
     ("MaxTimeOffroadMin", "60"),  # 无操作后最大休眠前运行时长 (分)
     ("DisableDM", "1"),  # 驾驶员监控: 0:开启DM, 1:禁用DM（慎用）
     ("EnableConnect", "0"),  # 联网连接: 0:禁用(设备可能被Comma封禁), 1/2:启用

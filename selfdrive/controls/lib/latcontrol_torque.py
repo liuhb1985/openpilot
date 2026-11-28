@@ -133,6 +133,7 @@ class LatControlTorque(LatControl):
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
 
     self.actual_curvature_ema = 0.0
+    self.filtered_ff = 0.0
     self.filtered_lateral_jerk = 0.0
     self.steering_angle_history = deque(maxlen=12)
     self.steering_rate_filtered = 0.0
@@ -175,6 +176,7 @@ class LatControlTorque(LatControl):
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
       self.actual_curvature_ema = 0.0
+      self.filtered_ff = 0.0
       self.filtered_lateral_jerk = 0.0
       self.steering_angle_history.clear()
       self.steering_rate_filtered = 0.0
@@ -233,11 +235,25 @@ class LatControlTorque(LatControl):
       lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
       # NNFF 模式使用专用低速因子表，避免普通表的平方增益在低速放大微小角度误差。
-      # LAT_USE_NN_LOW_SPEED_FACTOR=0 可恢复原行为。
+      # 低速补偿在弯道中衰减，避免大曲率时把微小角度误差叠加成突兀转向。
+      def tuning_param(key: str, env_key: str, default: int) -> float:
+        try:
+          value = self.params.get_float(key)
+          if value > 0.0:
+            return value * 0.01
+        except Exception:
+          pass
+        return float(os.getenv(env_key, str(default))) * 0.01
+
+      curve_activity_low_speed = float(np.clip(abs(desired_curvature) / 0.006, 0.0, 1.0))
+      low_speed_curve_atten = float(np.clip(tuning_param("LatLowSpeedCurveAtten", "LAT_LOW_SPEED_CURVE_ATTEN", 35), 0.0, 1.0))
+      low_speed_curve_scale = 1.0 - (1.0 - low_speed_curve_atten) * curve_activity_low_speed
+
       if (self.use_nnff or self.use_nnff_lite) and os.getenv("LAT_USE_NN_LOW_SPEED_FACTOR", "1") != "0":
         low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.5
       else:
         low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 2
+      low_speed_factor *= low_speed_curve_scale
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
@@ -327,11 +343,23 @@ class LatControlTorque(LatControl):
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
+      # 直道前馈平滑：只过滤小曲率直道上的高频前馈噪声，弯道/变道保持原始响应。
+      straight_ff_activity = float(np.clip(1.0 - abs(desired_curvature) / 0.0008, 0.0, 1.0))
+      if straight_ff_activity > 0.0 and not CS.steeringPressed:
+        ff_tau = float(np.clip(tuning_param("LatStraightFfTau", "LAT_STRAIGHT_FF_TAU", 25), 0.01, 2.0))
+        ff_scale = float(np.clip(tuning_param("LatStraightFfScale", "LAT_STRAIGHT_FF_SCALE", 80), 0.2, 1.0))
+        ff_alpha = 1.0 - math.exp(-DT_CTRL / ff_tau)
+        self.filtered_ff = ff_alpha * ff + (1.0 - ff_alpha) * self.filtered_ff
+        ff = (self.filtered_ff - ff) * straight_ff_activity + ff
+        ff *= 1.0 - (1.0 - ff_scale) * straight_ff_activity
+      else:
+        self.filtered_ff = ff
+
       # 动态反馈误差死区：连续过渡，避免误差跨过阈值时扭矩跳变。
       # 弯道缩小死区，保证居中修正；直道保留死区以抑制琐碎微调。
       curve_activity = float(np.clip(abs(desired_curvature) / 0.003, 0.0, 1.0))
-      deadzone_straight_scale = float(np.clip(float(os.getenv("LAT_STRAIGHT_DZ", "1.35")), 0.2, 3.0))
-      deadzone_curve_scale = float(np.clip(float(os.getenv("LAT_CURVE_DZ", "0.55")), 0.2, 3.0))
+      deadzone_straight_scale = float(np.clip(tuning_param("LatStraightDz", "LAT_STRAIGHT_DZ", 135), 0.2, 3.0))
+      deadzone_curve_scale = float(np.clip(tuning_param("LatCurveDz", "LAT_CURVE_DZ", 55), 0.2, 3.0))
       error_deadzone = float(np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003]))
       error_deadzone *= deadzone_straight_scale + (deadzone_curve_scale - deadzone_straight_scale) * curve_activity
       abs_error = abs(pid_log.error)
@@ -362,7 +390,7 @@ class LatControlTorque(LatControl):
       damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.07, 0.055, 0.032, 0.022])
       damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
       # 弯道降低阻尼，避免把正常转向当成摆动而抑制；直道保留摆振抑制。
-      damping_curve_scale = float(np.clip(float(os.getenv("LAT_DAMP_CURVE", "0.55")), 0.2, 1.0))
+      damping_curve_scale = float(np.clip(tuning_param("LatDampCurve", "LAT_DAMP_CURVE", 55), 0.2, 1.0))
       damping_gain *= 1.0 - (1.0 - damping_curve_scale) * curve_activity
       damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.045, 0.045))
 
