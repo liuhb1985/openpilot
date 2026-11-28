@@ -178,7 +178,7 @@ def get_default_params():
     ("CustomSteerDeltaUpLC", "0"),  # 变道时最大增扭速率 (0:用车厂默认, >0:自定义值)
     ("CustomSteerDeltaDownLC", "0"),  # 变道时最大减扭速率 (0:用车厂默认, >0:自定义值)
     ("SpeedFromPCM", "2"),  # 巡航速度来源: 1:车辆仪表PCM, 2:openpilot内部管理 (丰田必须1, 本田设3)
-    ("SteerActuatorDelay", "0"),  # 转向执行延迟补偿时间 (恢复备份值 0)
+    ("SteerActuatorDelay", "25"),  # 转向执行延迟补偿时间 (0.25s，恢复稳定横向控制)
     ("LatSmoothSec", "13"),  # 横向平滑处理时长系数 (恢复备份值 13)
     ("LatLcSmoothSec", "22"),  # 变道平滑系数 x0.01秒
     ("LatStraightSmoothSec", "14"),  # 直道曲率平滑系数 x0.01秒
@@ -250,6 +250,10 @@ def manager_init() -> None:
   for k, v in default_params:
     if params.get(k) is None:
       params.put(k, v)
+
+  # 横向稳定性修复：历史参数里 SteerActuatorDelay 可能被保存为 0，
+  # 默认值只在键缺失时生效，这里强制恢复 25 (0.25s)。
+  params.put("SteerActuatorDelay", "25")
 
   # 自动迁移强覆盖逻辑已停用，遵循 params_backup_20260831.json 的横向控制配置
   # if not params.get_bool("SantaFeParamsTuned3"):
