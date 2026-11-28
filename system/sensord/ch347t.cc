@@ -83,13 +83,6 @@ static constexpr int DEFAULT_I2C_BUS = 19;
 static constexpr int REINIT_ERROR_THRESHOLD = 4;
 [[maybe_unused]] static constexpr int MAX_REINIT_ATTEMPTS = 2;
 
-// 默认使用修复后的轴映射：把 LSM6 原始数据转换到 openpilot locationd 期望的设备坐标。
-// CH347_OPENPILOT_AXES=0 可恢复旧的 (-y, x, z) 映射用于 A/B 对比。
-static bool use_openpilot_imu_axes() {
-  const char* env = std::getenv("CH347_OPENPILOT_AXES");
-  return env == nullptr || std::atoi(env) != 0;
-}
-
 // -----------------------------------------------------------------------------
 // Abstract LSM6DS3 interface
 //
@@ -934,21 +927,15 @@ static void sensor_read_loop(
   float last_printed_acc[3] = {0};
   float last_printed_gyro[3] = {0};
 
-  const bool openpilot_axes = use_openpilot_imu_axes();
-
   float yaw_offset = 0.0f;
   bool yaw_calibrated = false;
   std::vector<std::pair<float, float>> yaw_samples;
 
-  // 修复后的固定挂载映射不再需要旧 XY 自动偏航旋转；旧模式仍读取历史标定值。
   std::string load_path = "/data/params/d/ImuYawOffset";
-  std::ifstream yaw_file;
-  if (!openpilot_axes) {
+  std::ifstream yaw_file(load_path);
+  if (!yaw_file.is_open()) {
+    load_path = "/tmp/imu_yaw_offset";
     yaw_file.open(load_path);
-    if (!yaw_file.is_open()) {
-      load_path = "/tmp/imu_yaw_offset";
-      yaw_file.open(load_path);
-    }
   }
   if (yaw_file.is_open()) {
     if (yaw_file >> yaw_offset) {
@@ -982,18 +969,9 @@ static void sensor_read_loop(
             static_cast<uint16_t>(b[4]) |
             (static_cast<uint16_t>(b[5]) << 8));
 
-        if (openpilot_axes) {
-          // openpilot/locationd 期望设备坐标：
-          //   x = 车辆上方(重力), z = -前向, yaw 由 -v[0] 还原。
-          // LSM6 实测：raw z 朝上，raw y 朝后，raw x 为横向。
-          cache.gyro[0] = -gz * GYRO_SCALE;
-          cache.gyro[1] =  gx * GYRO_SCALE;
-          cache.gyro[2] =  gy * GYRO_SCALE;
-        } else {
-          cache.gyro[0] = -gy * GYRO_SCALE;
-          cache.gyro[1] =  gx * GYRO_SCALE;
-          cache.gyro[2] =  gz * GYRO_SCALE;
-        }
+        cache.gyro[0] = -gy * GYRO_SCALE;
+        cache.gyro[1] = gx * GYRO_SCALE;
+        cache.gyro[2] = gz * GYRO_SCALE;
         cache.have_gyro = true;
         fresh_gyro = true;
 
@@ -1008,17 +986,9 @@ static void sensor_read_loop(
             static_cast<uint16_t>(b[10]) |
             (static_cast<uint16_t>(b[11]) << 8));
 
-        if (openpilot_axes) {
-          // locationd 会做 [-v2, -v1, -v0]：
-          // 重力需落在 v[0]，前向加速度需落在 -v[2]。
-          cache.acc[0] = az * ACCEL_SCALE;
-          cache.acc[1] = ax * ACCEL_SCALE;
-          cache.acc[2] = ay * ACCEL_SCALE;
-        } else {
-          cache.acc[0] = -ay * ACCEL_SCALE;
-          cache.acc[1] =  ax * ACCEL_SCALE;
-          cache.acc[2] =  az * ACCEL_SCALE;
-        }
+        cache.acc[0] = -ay * ACCEL_SCALE;
+        cache.acc[1] = ax * ACCEL_SCALE;
+        cache.acc[2] = az * ACCEL_SCALE;
         cache.have_acc = true;
         fresh_acc = true;
       }
@@ -1100,7 +1070,7 @@ static void sensor_read_loop(
     }
 
     // 自动 XY 偏航角自适应标定
-    if (!openpilot_axes && !yaw_calibrated && cache.have_acc && cache.have_gyro && fresh_acc && fresh_gyro) {
+    if (!yaw_calibrated && cache.have_acc && cache.have_gyro && fresh_acc && fresh_gyro) {
       float gz = cache.gyro[2];
       float ax = cache.acc[0];
       float ay = cache.acc[1];

@@ -1,12 +1,10 @@
 from collections import deque
 
 import math
-import os
 import numpy as np
 
 from cereal import log
 from openpilot.common.filter_simple import FirstOrderFilter
-from openpilot.common.realtime import DT_CTRL
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
 
@@ -133,10 +131,6 @@ class LatControlTorque(LatControl):
       self.past_future_len = len(self.past_times) + len(self.nn_future_times)
 
     self.actual_curvature_ema = 0.0
-    self.filtered_ff = 0.0
-    self.filtered_lateral_jerk = 0.0
-    self.steering_angle_history = deque(maxlen=12)
-    self.steering_rate_filtered = 0.0
 
 
   def update_live_torque_params(self, latAccelFactor, latAccelOffset, friction):
@@ -176,10 +170,6 @@ class LatControlTorque(LatControl):
       pid_log.active = False
       angle_steers_des = float(CS.steeringAngleDeg)
       self.actual_curvature_ema = 0.0
-      self.filtered_ff = 0.0
-      self.filtered_lateral_jerk = 0.0
-      self.steering_angle_history.clear()
-      self.steering_rate_filtered = 0.0
     else:
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
       angle_steers_des += params.angleOffsetDeg
@@ -187,27 +177,12 @@ class LatControlTorque(LatControl):
       actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       actual_lateral_jerk = 0.0
-
-      # 摆振阻尼专用量：SAS_Speed 量化 4°/s 太粗，直接用会在 ±0.08 扭矩间翻转。
-      # 改用 12 帧方向盘角度差分（0.1° 分辨率）+ 低通，得到平滑角速度后再求横向 jerk。
-      self.steering_angle_history.append(CS.steeringAngleDeg)
-      if len(self.steering_angle_history) >= 12:
-        hist = self.steering_angle_history
-        raw_rate = (hist[-1] - hist[0]) / ((len(hist) - 1) * DT_CTRL)
-      else:
-        raw_rate = 0.0
-      # 0.1° 量化下，12 帧差分仍会把小修正放大；低于 1.5°/s 不参与阻尼。
-      if abs(raw_rate) < 1.5:
-        raw_rate = 0.0
-      self.steering_rate_filtered = 0.8 * self.steering_rate_filtered + 0.2 * raw_rate
-      steering_curvature_rate = -VM.calc_curvature(math.radians(self.steering_rate_filtered), CS.vEgo, 0.0)
-      steering_lateral_jerk = steering_curvature_rate * CS.vEgo ** 2
-
       if self.use_steering_angle:
         actual_curvature = actual_curvature_vm
         curvature_deadzone = abs(VM.calc_curvature(math.radians(self.steering_angle_deadzone_deg), CS.vEgo, 0.0))
         if self.use_nnff or self.use_nnff_lite:
-          actual_lateral_jerk = steering_lateral_jerk
+          actual_curvature_rate = -VM.calc_curvature(math.radians(CS.steeringRateDeg), CS.vEgo, 0.0)
+          actual_lateral_jerk = actual_curvature_rate * CS.vEgo ** 2
       else:
         # Use CC.angularVelocity[2] for ported IMU data on PC, with safety check
         actual_curvature_llk = 0.0
@@ -221,8 +196,8 @@ class LatControlTorque(LatControl):
           self.actual_curvature_ema = actual_curvature_raw
         
         base_alpha = np.interp(CS.vEgo, [3.0, 15.0], [0.15, 0.4])
-        curve_factor = np.interp(abs(desired_curvature), [0.0002, 0.0015], [0.0, 0.45])
-        alpha = np.clip(base_alpha + curve_factor, 0.1, 0.85)
+        curve_factor = np.interp(abs(desired_curvature), [0.0002, 0.0015], [0.0, 0.6])
+        alpha = np.clip(base_alpha + curve_factor, 0.1, 1.0)
         self.actual_curvature_ema = alpha * actual_curvature_raw + (1.0 - alpha) * self.actual_curvature_ema
         actual_curvature = self.actual_curvature_ema
         
@@ -234,26 +209,7 @@ class LatControlTorque(LatControl):
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
       lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
-      # NNFF 模式使用专用低速因子表，避免普通表的平方增益在低速放大微小角度误差。
-      # 低速补偿在弯道中衰减，避免大曲率时把微小角度误差叠加成突兀转向。
-      def tuning_param(key: str, env_key: str, default: int) -> float:
-        try:
-          value = self.params.get_float(key)
-          if value > 0.0:
-            return value * 0.01
-        except Exception:
-          pass
-        return float(os.getenv(env_key, str(default))) * 0.01
-
-      curve_activity_low_speed = float(np.clip(abs(desired_curvature) / 0.006, 0.0, 1.0))
-      low_speed_curve_atten = float(np.clip(tuning_param("LatLowSpeedCurveAtten", "LAT_LOW_SPEED_CURVE_ATTEN", 35), 0.0, 1.0))
-      low_speed_curve_scale = 1.0 - (1.0 - low_speed_curve_atten) * curve_activity_low_speed
-
-      if (self.use_nnff or self.use_nnff_lite) and os.getenv("LAT_USE_NN_LOW_SPEED_FACTOR", "1") != "0":
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y_NN) ** 1.5
-      else:
-        low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y) ** 2
-      low_speed_factor *= low_speed_curve_scale
+      low_speed_factor = np.interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       
@@ -343,63 +299,18 @@ class LatControlTorque(LatControl):
         ff = self.torque_from_lateral_accel(LatControlInputs(gravity_adjusted_lateral_accel, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                             friction_input, lateral_accel_deadzone, friction_compensation=True,
                                             gravity_adjusted=True)
-      # 直道前馈平滑：只过滤小曲率直道上的高频前馈噪声，弯道/变道保持原始响应。
-      straight_ff_activity = float(np.clip(1.0 - abs(desired_curvature) / 0.0008, 0.0, 1.0))
-      if straight_ff_activity > 0.0 and not CS.steeringPressed:
-        ff_tau = float(np.clip(tuning_param("LatStraightFfTau", "LAT_STRAIGHT_FF_TAU", 25), 0.01, 2.0))
-        ff_scale = float(np.clip(tuning_param("LatStraightFfScale", "LAT_STRAIGHT_FF_SCALE", 80), 0.2, 1.0))
-        ff_alpha = 1.0 - math.exp(-DT_CTRL / ff_tau)
-        self.filtered_ff = ff_alpha * ff + (1.0 - ff_alpha) * self.filtered_ff
-        ff = (self.filtered_ff - ff) * straight_ff_activity + ff
-        ff *= 1.0 - (1.0 - ff_scale) * straight_ff_activity
-      else:
-        self.filtered_ff = ff
-
-      # 动态反馈误差死区：连续过渡，避免误差跨过阈值时扭矩跳变。
-      # 弯道缩小死区，保证居中修正；直道保留死区以抑制琐碎微调。
-      curve_activity = float(np.clip(abs(desired_curvature) / 0.003, 0.0, 1.0))
-      deadzone_straight_scale = float(np.clip(tuning_param("LatStraightDz", "LAT_STRAIGHT_DZ", 135), 0.2, 3.0))
-      deadzone_curve_scale = float(np.clip(tuning_param("LatCurveDz", "LAT_CURVE_DZ", 55), 0.2, 3.0))
+      # 引入动态反馈误差死区，抑制直道微抖动与低速锯齿/画龙调整
       error_deadzone = float(np.interp(CS.vEgo, [0.0, 5.0, 20.0], [0.04, 0.02, 0.003]))
-      error_deadzone *= deadzone_straight_scale + (deadzone_curve_scale - deadzone_straight_scale) * curve_activity
-      abs_error = abs(pid_log.error)
-      if os.getenv("LAT_SMOOTH_DEADZONE", "1") != "0" and error_deadzone > 0.0 and abs_error < 3.0 * error_deadzone:
-        if abs_error <= error_deadzone:
-          pid_log.error = 0.0
-        else:
-          t = (abs_error - error_deadzone) / (2.0 * error_deadzone)
-          smooth = t * t * (3.0 - 2.0 * t)
-          pid_log.error = sign(pid_log.error) * 2.0 * error_deadzone * smooth
-      elif abs_error < error_deadzone:
+      if abs(pid_log.error) < error_deadzone:
         pid_log.error = 0.0
       else:
         pid_log.error = pid_log.error - sign(pid_log.error) * error_deadzone
 
-      # 直道积分泄漏：小曲率时缓慢释放积分，避免直道积累后进入弯道过冲。
-      if os.getenv("LAT_STRAIGHT_I_LEAK", "1") != "0" and not steer_limited_by_controls and not CS.steeringPressed:
-        straight_des = float(np.clip(1.0 - abs(desired_curvature) / 0.0008, 0.0, 1.0))
-        straight_act = float(np.clip(1.0 - abs(actual_curvature) / 0.0008, 0.0, 1.0))
-        straightness = min(straight_des, straight_act)
-        self.pid.i *= 1.0 - 0.001 * straightness
-
       freeze_integrator = steer_limited_by_controls or CS.steeringPressed or CS.vEgo < 5
-
-      # 相位超前阻尼：用方向盘角速度对应的横向 jerk 抵消过冲，而不是低通/限速输出。
-      # 稳态转向（角速度接近 0）不产生阻尼，不影响正常跟线。
-      self.filtered_lateral_jerk = 0.85 * self.filtered_lateral_jerk + 0.15 * steering_lateral_jerk
-      damping_gain = np.interp(CS.vEgo, [0.0, 5.0, 15.0, 30.0], [0.07, 0.055, 0.032, 0.022])
-      damping_gain *= float(np.clip(float(os.getenv("LAT_SWING_DAMPING", "1.0")), 0.0, 3.0))
-      # 弯道降低阻尼，避免把正常转向当成摆动而抑制；直道保留摆振抑制。
-      damping_curve_scale = float(np.clip(tuning_param("LatDampCurve", "LAT_DAMP_CURVE", 55), 0.2, 1.0))
-      damping_gain *= 1.0 - (1.0 - damping_curve_scale) * curve_activity
-      damping_torque = float(np.clip(self.filtered_lateral_jerk * damping_gain, -0.045, 0.045))
-
-      raw_output_torque = self.pid.update(pid_log.error,
-                                          feedforward=ff,
-                                          speed=CS.vEgo,
-                                          freeze_integrator=freeze_integrator)
-      output_torque = float(np.clip(raw_output_torque - damping_torque,
-                                    -self.steer_max, self.steer_max))
+      output_torque = self.pid.update(pid_log.error,
+                                      feedforward=ff,
+                                      speed=CS.vEgo,
+                                      freeze_integrator=freeze_integrator)
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)
