@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1795757051,
+  "generatedAt": 1795857536,
   "branch": "cpv9-pc-dst-logs",
   "remote": "git@github.com:liuhb1985/openpilot.git",
   "logDir": "/home/peter/openpilot/logs/auto_drive",
@@ -53,20 +53,100 @@
       "size": 5869805,
       "sha256": "4ae2bc7b001e82a41e04dea44974f9c0f435b12ffca25246b07db7ad800accec",
       "mtime": 1795757029
+    },
+    "auto_drive_20261127_173200_20261127_173200_s01.bz2": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mtime": 1795771982
+    },
+    "auto_drive_20261127_175450_20261127_175450_s01.bz2": {
+      "size": 9727788,
+      "sha256": "06b7d5e8798cec1091eee1e41feeb43828572637b413185879063e7e59a34933",
+      "mtime": 1795773352
+    },
+    "auto_drive_20261127_175552_20261127_175450_s02.bz2": {
+      "size": 10187305,
+      "sha256": "3ec50d1c58c13c5ce5735162523824c4fa386c5d5ef3743d2577a5d4319cd30b",
+      "mtime": 1795773415
+    },
+    "auto_drive_20261127_175655_20261127_175450_s03.bz2": {
+      "size": 10223453,
+      "sha256": "56b8cd147d6d9a140377369fd64a0195711bf6c610184d365ca41b9a58bccfa0",
+      "mtime": 1795773479
+    },
+    "auto_drive_20261127_175759_20261127_175450_s04.bz2": {
+      "size": 10546306,
+      "sha256": "35e4ce4263a917d41e66d328efce63eacf63b33d8497297e3ab5d3b203e90dc5",
+      "mtime": 1795773542
+    },
+    "auto_drive_20261127_175902_20261127_175450_s05.bz2": {
+      "size": 745204,
+      "sha256": "c143e12d78744b936edcefff01d30c54cd26ce363747e6f16ee54a13c630c898",
+      "mtime": 1795773544
+    },
+    "auto_drive_20261127_175928_20261127_175928_s01.bz2": {
+      "size": 11710078,
+      "sha256": "d7e26143dafe197d65c35054f78ce602662a3bf7978f0a41a701ea2df7f760e2",
+      "mtime": 1795773632
+    },
+    "auto_drive_20261127_180032_20261127_175928_s02.bz2": {
+      "size": 2141158,
+      "sha256": "eff3827aea887d3566e25f0682bcd163d3dd83e91045db3cb20da5a19e53fa86",
+      "mtime": 1795773643
+    },
+    "auto_drive_20261127_180142_20261127_180142_s01.bz2": {
+      "size": 6514227,
+      "sha256": "568189fad4b5808da853461f0cfaabb3c016e0131e4e0be46945b4f34537793e",
+      "mtime": 1795773734
+    },
+    "auto_drive_20261127_180313_20261127_180313_s01.bz2": {
+      "size": 8050447,
+      "sha256": "70994e50bbc065129eaf41a8a070b1d9a1a81eb301f261d3aa268d2eea82c7d6",
+      "mtime": 1795773834
+    },
+    "auto_drive_20261127_180358_20261127_180358_s01.bz2": {
+      "size": 11468521,
+      "sha256": "261decc3db1b867f00fc287c00d64c0b365e8229f072be285ae3f3983146a5c5",
+      "mtime": 1795773902
+    },
+    "auto_drive_20261127_180502_20261127_180358_s02.bz2": {
+      "size": 10065507,
+      "sha256": "97d013a1e267412247ba550616419b5058075ac3fe263fb438f6892daffa2186",
+      "mtime": 1795773965
+    },
+    "auto_drive_20261127_180605_20261127_180358_s03.bz2": {
+      "size": 1267998,
+      "sha256": "25d7dc5ac3b05cc6d4cf988e4ec4b9b3c696f1a065d3f28bb2751ad70f9d1279",
+      "mtime": 1795773971
+    },
+    "auto_drive_20261128_170956_20261128_170956_s01.bz2": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mtime": 1795857058
+    },
+    "auto_drive_20261128_171630_20261128_171630_s01.bz2": {
+      "size": 9566805,
+      "sha256": "0db79d809c985f4dd1e023816afb122c3ef16e298aaf6fa207972bcaf22adbb4",
+      "mtime": 1795857452
+    },
+    "auto_drive_20261128_171732_20261128_171630_s02.bz2": {
+      "size": 2322378,
+      "sha256": "4b19605d07e918178f924631afeed4418394a73823b899999bdf66518049403e",
+      "mtime": 1795857466
     }
   },
   "status": {
-    "time": 1795757051,
+    "time": 1795857536,
     "state": "disabled",
-    "vEgo": 0.0,
+    "vEgo": 10.914,
     "cruiseEnabled": false,
     "latActive": false,
-    "steeringAngleDeg": -2.0,
+    "steeringAngleDeg": -6.7,
     "steeringRateDeg": 0.0,
     "steeringPressed": false,
-    "yawRate": -0.0024,
-    "desiredCurvature": 0.00149,
-    "modelCurvature": 0.0,
+    "yawRate": -0.0295,
+    "desiredCurvature": 0.00292,
+    "modelCurvature": -0.00254,
     "laneChange": "off",
     "desire": "none",
     "torque": -0.0,
@@ -76,15 +156,15 @@
     "pidF": 0.0,
     "desiredLatAccel": 0.0,
     "actualLatAccel": 0.0,
-    "recording": false,
-    "currentFile": "",
-    "bufferedEvents": 0,
-    "prerollEvents": 12000,
+    "recording": true,
+    "currentFile": "/home/peter/openpilot/logs/auto_drive/auto_drive_20261128_171825_20261128_171825_s01.bz2",
+    "bufferedEvents": 29385,
+    "prerollEvents": 518,
     "savedFiles": 0,
     "savedEvents": 0,
     "lastSaved": "",
-    "driveId": "",
-    "segment": 0,
+    "driveId": "20261128_171825",
+    "segment": 1,
     "logDir": "/home/peter/openpilot/logs/auto_drive",
     "health": {
       "control": true,
